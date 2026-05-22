@@ -1,0 +1,12 @@
+.env.build
+node_modules/
+src-tauri/target/
+dist/
+.claude/
+.sixth/
+image.png
+*.d
+*.pdb
+*.map
+.DS_Store
+Thumbs.db
