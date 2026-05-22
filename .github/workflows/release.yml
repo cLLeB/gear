@@ -14,7 +14,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [macos-latest, ubuntu-20.04, windows-latest]
+        include:
+          - platform: macos-latest
+            bundles: "dmg,app"
+          - platform: ubuntu-20.04
+            bundles: "appimage,deb,rpm"
+          - platform: windows-latest
+            bundles: "msi,nsis"
     runs-on: ${{ matrix.platform }}
 
     steps:
@@ -64,4 +70,4 @@ jobs:
           releaseName: "Gear v${{ github.ref_name }}"
           releaseDraft: false
           prerelease: false
-          args: --bundles all
+          args: --bundles ${{ matrix.bundles }}
