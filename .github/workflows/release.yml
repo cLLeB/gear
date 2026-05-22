@@ -17,7 +17,7 @@ jobs:
         include:
           - platform: macos-latest
             bundles: "dmg,app"
-          - platform: ubuntu-20.04
+          - platform: ubuntu-latest
             bundles: "appimage,deb,rpm"
           - platform: windows-latest
             bundles: "msi,nsis"
