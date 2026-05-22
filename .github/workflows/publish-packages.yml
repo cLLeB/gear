@@ -1,0 +1,199 @@
+name: Publish Packages
+
+# Runs after the Release workflow completes successfully on all platforms.
+# Pushes artifacts to Winget, Homebrew, APT, and RPM channels.
+on:
+  workflow_run:
+    workflows: ["Release"]
+    types: [completed]
+
+permissions:
+  contents: read
+
+jobs:
+  # ── Shared: resolve the release tag once ─────────────────────────────────
+  resolve:
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+      version: ${{ steps.tag.outputs.version }}
+    steps:
+      - name: Get latest release tag
+        id: tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG=$(gh release view --repo ${{ github.repository }} --json tagName -q .tagName)
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "version=${TAG#v}" >> $GITHUB_OUTPUT
+
+  # ── Winget (Windows Package Manager) ─────────────────────────────────────
+  # Submits a PR to microsoft/winget-pkgs automatically.
+  # Requires: WINGET_TOKEN secret (GitHub PAT, public_repo scope)
+  winget:
+    needs: resolve
+    runs-on: windows-latest
+    steps:
+      - uses: vedantmgoyal9/winget-releaser@v2
+        with:
+          identifier: cLLeB.Gear
+          release-tag: ${{ needs.resolve.outputs.tag }}
+          installers-regex: '\.msi$'
+          token: ${{ secrets.WINGET_TOKEN }}
+
+  # ── Homebrew Cask (macOS) ─────────────────────────────────────────────────
+  # Updates the cask in the personal tap: github.com/cLLeB/homebrew-gear
+  # Requires: HOMEBREW_TAP_TOKEN secret (GitHub PAT, public_repo scope on cLLeB/homebrew-gear)
+  homebrew:
+    needs: resolve
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.resolve.outputs.version }}
+      TAG: ${{ needs.resolve.outputs.tag }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Download universal DMG and compute SHA256
+        run: |
+          DMG_URL="https://github.com/${{ github.repository }}/releases/download/${TAG}/Gear_${VERSION}_universal.dmg"
+          curl -fsSL "$DMG_URL" -o gear.dmg
+          echo "sha256=$(sha256sum gear.dmg | awk '{print $1}')" >> $GITHUB_ENV
+
+      - name: Checkout homebrew tap
+        uses: actions/checkout@v4
+        with:
+          repository: cLLeB/homebrew-gear
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: tap
+
+      - name: Update cask version and SHA
+        run: |
+          sed -i "s/version \".*\"/version \"${VERSION}\"/" tap/Casks/gear.rb
+          sed -i "s/sha256 \".*\"/sha256 \"${sha256}\"/" tap/Casks/gear.rb
+
+      - name: Commit and push
+        working-directory: tap
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Casks/gear.rb
+          git commit -m "chore: bump gear to ${VERSION}"
+          git push
+
+  # ── APT repository (Debian / Ubuntu) ─────────────────────────────────────
+  # Publishes the .deb to a GPG-signed APT repo hosted on GitHub Pages.
+  # Target repo: github.com/cLLeB/gear-packages  (gh-pages branch)
+  #
+  # Requires:
+  #   GEAR_APT_GPG_KEY   — base64-encoded GPG private key (see docs/distribution.md)
+  #   GEAR_APT_GPG_FP    — GPG fingerprint of the signing key
+  #   PACKAGES_TOKEN     — GitHub PAT, public_repo scope on cLLeB/gear-packages
+  apt:
+    needs: resolve
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.resolve.outputs.version }}
+      TAG: ${{ needs.resolve.outputs.tag }}
+    steps:
+      - name: Install repo tools
+        run: sudo apt-get install -y dpkg-dev apt-utils
+
+      - name: Import GPG signing key
+        run: |
+          echo "${{ secrets.GEAR_APT_GPG_KEY }}" | base64 -d | gpg --batch --import
+          echo "${{ secrets.GEAR_APT_GPG_FP }}:6:" | gpg --import-ownertrust
+
+      - name: Checkout packages repo
+        uses: actions/checkout@v4
+        with:
+          repository: cLLeB/gear-packages
+          token: ${{ secrets.PACKAGES_TOKEN }}
+          path: pkgs
+
+      - name: Download .deb
+        run: |
+          curl -fsSL \
+            "https://github.com/${{ github.repository }}/releases/download/${TAG}/Gear_${VERSION}_amd64.deb" \
+            -o "pkgs/apt/pool/main/gear_${VERSION}_amd64.deb"
+
+      - name: Generate APT repo metadata
+        working-directory: pkgs/apt
+        run: |
+          mkdir -p dists/stable/main/binary-amd64
+          dpkg-scanpackages --arch amd64 pool/ > dists/stable/main/binary-amd64/Packages
+          gzip -kf dists/stable/main/binary-amd64/Packages
+
+          cat > dists/stable/Release <<EOF
+          Origin: Gear
+          Label: Gear
+          Suite: stable
+          Codename: stable
+          Architectures: amd64
+          Components: main
+          Description: Gear APT repository
+          EOF
+          apt-ftparchive release dists/stable >> dists/stable/Release
+
+          gpg --batch --yes --armor \
+            -u "${{ secrets.GEAR_APT_GPG_FP }}" \
+            --detach-sign \
+            -o dists/stable/Release.gpg \
+            dists/stable/Release
+
+          gpg --batch --yes --armor \
+            -u "${{ secrets.GEAR_APT_GPG_FP }}" \
+            --clearsign \
+            -o dists/stable/InRelease \
+            dists/stable/Release
+
+      - name: Commit and push
+        working-directory: pkgs
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add apt/
+          git commit -m "apt: release gear ${VERSION}"
+          git push
+
+  # ── RPM repository (Fedora / RHEL / openSUSE) ────────────────────────────
+  # Publishes the .rpm to a repo hosted on GitHub Pages.
+  # Target repo: github.com/cLLeB/gear-packages (same repo as APT, rpm/ subdir)
+  #
+  # Requires:
+  #   PACKAGES_TOKEN — GitHub PAT, public_repo scope on cLLeB/gear-packages
+  rpm:
+    needs: [resolve, apt]  # run after apt so git pushes don't conflict
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.resolve.outputs.version }}
+      TAG: ${{ needs.resolve.outputs.tag }}
+    steps:
+      - name: Install createrepo
+        run: sudo apt-get install -y createrepo-c
+
+      - name: Checkout packages repo
+        uses: actions/checkout@v4
+        with:
+          repository: cLLeB/gear-packages
+          token: ${{ secrets.PACKAGES_TOKEN }}
+          path: pkgs
+
+      - name: Download .rpm
+        run: |
+          curl -fsSL \
+            "https://github.com/${{ github.repository }}/releases/download/${TAG}/Gear-${VERSION}-1.x86_64.rpm" \
+            -o "pkgs/rpm/Gear-${VERSION}-1.x86_64.rpm"
+
+      - name: Generate RPM repo metadata
+        working-directory: pkgs/rpm
+        run: createrepo_c .
+
+      - name: Commit and push
+        working-directory: pkgs
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git pull --rebase  # pick up apt job's push
+          git add rpm/
+          git commit -m "rpm: release gear ${VERSION}"
+          git push
