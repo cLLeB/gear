@@ -94,6 +94,12 @@ pnpm build
 
 ---
 
+## Distribution
+
+We track Windows Winget, macOS Homebrew Cask, and Linux APT/RPM options in `docs/distribution.md`.
+
+---
+
 ## Project structure
 
 ```
