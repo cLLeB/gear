@@ -17,13 +17,13 @@ jobs:
         include:
           - platform: macos-latest
             bundles: "dmg,app"
-            target: ""
+            extra_args: "--target universal-apple-darwin"
           - platform: ubuntu-latest
             bundles: "appimage,deb,rpm"
-            target: ""
+            extra_args: ""
           - platform: windows-latest
             bundles: "msi,nsis"
-            target: ""
+            extra_args: ""
     runs-on: ${{ matrix.platform }}
 
     steps:
@@ -62,6 +62,10 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Add macOS universal targets
+        if: matrix.platform == 'macos-latest'
+        run: rustup target add x86_64-apple-darwin aarch64-apple-darwin
+
       - name: Install JS dependencies
         run: pnpm install --frozen-lockfile
 
@@ -76,4 +80,4 @@ jobs:
           releaseName: "Gear ${{ github.ref_name }}"
           releaseDraft: false
           prerelease: false
-          args: --bundles ${{ matrix.bundles }}
+          args: --bundles ${{ matrix.bundles }} ${{ matrix.extra_args }}
