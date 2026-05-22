@@ -8,8 +8,8 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "tauri": "powershell -ExecutionPolicy Bypass -File ./build.ps1",
-    "tauri:build": "powershell -ExecutionPolicy Bypass -File ./build.ps1",
+  "tauri": "node ./scripts/tauri.mjs",
+  "tauri:build": "node ./scripts/tauri.mjs build",
     "test": "vitest run",
     "test:watch": "vitest"
   },
