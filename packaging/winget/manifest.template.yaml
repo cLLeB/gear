@@ -1,0 +1,15 @@
+PackageIdentifier: cLLeB.Gear
+PackageVersion: 0.1.0
+PackageLocale: en-US
+Publisher: cLLeB
+PackageName: Gear
+License: Proprietary
+ShortDescription: AI-powered developer terminal
+Homepage: https://github.com/cLLeB/gear
+InstallerType: msi
+Installers:
+  - Architecture: x64
+    InstallerUrl: https://github.com/cLLeB/gear/releases/download/v0.1.0/Gear_0.1.0_x64_en-US.msi
+    InstallerSha256: <SHA256>
+ManifestType: singleton
+ManifestVersion: 1.6.0

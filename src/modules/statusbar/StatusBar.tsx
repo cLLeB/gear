@@ -9,11 +9,13 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { IncognitoIcon } from "@hugeicons/core-free-icons";
+import { IncognitoIcon, Download01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { CwdBreadcrumb } from "./CwdBreadcrumb";
 import { WorkspaceEnvSelector } from "./WorkspaceEnvSelector";
 import type { WorkspaceEnv } from "@/modules/workspace";
+import { useUpdaterStore } from "@/modules/updater";
+import { openSettingsWindow } from "@/modules/settings/openSettingsWindow";
 
 type Props = {
   cwd: string | null;
@@ -39,6 +41,11 @@ export function StatusBar({
 }: Props) {
   const panelOpen = useChatStore((s) => s.panelOpen);
   const openPanel = useChatStore((s) => s.openPanel);
+  const updaterStatus = useUpdaterStore((s) => s.status);
+  const hasUpdate =
+    updaterStatus.kind === "available" ||
+    updaterStatus.kind === "manual-available" ||
+    updaterStatus.kind === "ready";
 
   return (
     <footer className="flex h-8 shrink-0 items-center justify-between gap-3 border-t border-border/60 bg-card/60 px-3 text-[11px]">
@@ -61,6 +68,33 @@ export function StatusBar({
         ) : null}
       </div>
       <div className="flex shrink-0 items-center gap-1.5">
+        {hasUpdate && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                onClick={() => void openSettingsWindow("about")}
+                className="flex shrink-0 cursor-pointer items-center gap-1 rounded-full bg-blue-500/15 px-2 py-0.5 text-[10.5px] font-medium text-blue-600 transition-colors hover:bg-blue-500/25 dark:text-blue-400"
+              >
+                <HugeiconsIcon icon={Download01Icon} size={11} strokeWidth={2} />
+                <span>
+                  {updaterStatus.kind === "ready"
+                    ? "Restart to update"
+                    : "Update available"}
+                </span>
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="text-[11px]">
+              {updaterStatus.kind === "ready"
+                ? "Restart Gear to finish installing the update."
+                : updaterStatus.kind === "available"
+                  ? `v${updaterStatus.update.version} is ready to install — click to open settings.`
+                  : updaterStatus.kind === "manual-available"
+                    ? `v${updaterStatus.info.version} is available — click to open settings.`
+                    : "An update is available."}
+            </TooltipContent>
+          </Tooltip>
+        )}
         <AgentStatusPill onClick={onOpenMini} />
         {panelOpen && hasComposer ? (
           <AiStatusBarControls />

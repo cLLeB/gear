@@ -1,8 +1,9 @@
 import { getVersion } from "@tauri-apps/api/app";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { check, type Update } from "@tauri-apps/plugin-updater";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect } from "react";
 import { IS_LINUX } from "@/lib/platform";
+import { useUpdaterStore } from "./updaterStore";
 
 const LAST_CHECK_KEY = "Gear:updater:last-check";
 const CHECK_INTERVAL_MS = 30 * 60 * 1000;
@@ -47,28 +48,35 @@ function isNewer(remote: string, current: string): boolean {
 }
 
 async function checkLinuxRelease(): Promise<ManualUpdateInfo | null> {
-  const [current, res] = await Promise.all([
-    getVersion(),
-    fetch(GITHUB_LATEST_RELEASE, {
-      headers: { Accept: "application/vnd.github+json" },
-    }),
-  ]);
-  if (!res.ok) {
-    throw new Error(`GitHub API ${res.status}`);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10_000);
+  try {
+    const [current, res] = await Promise.all([
+      getVersion(),
+      fetch(GITHUB_LATEST_RELEASE, {
+        headers: { Accept: "application/vnd.github+json" },
+        signal: controller.signal,
+      }),
+    ]);
+    if (!res.ok) {
+      throw new Error(`GitHub API ${res.status}`);
+    }
+    const data = (await res.json()) as {
+      tag_name: string;
+      body?: string;
+      html_url: string;
+    };
+    const remote = data.tag_name.replace(/^v/, "");
+    if (!isNewer(remote, current)) return null;
+    return {
+      version: remote,
+      currentVersion: current,
+      body: data.body ?? "",
+      releaseUrl: data.html_url,
+    };
+  } finally {
+    clearTimeout(timeout);
   }
-  const data = (await res.json()) as {
-    tag_name: string;
-    body?: string;
-    html_url: string;
-  };
-  const remote = data.tag_name.replace(/^v/, "");
-  if (!isNewer(remote, current)) return null;
-  return {
-    version: remote,
-    currentVersion: current,
-    body: data.body ?? "",
-    releaseUrl: data.html_url,
-  };
 }
 
 interface Options {
@@ -82,36 +90,40 @@ interface HookOptions {
 }
 
 export function useUpdater({ autoCheck = true }: HookOptions = {}) {
-  const [status, setStatus] = useState<UpdaterStatus>({ kind: "idle" });
+  const status = useUpdaterStore((s) => s.status);
+  const setStatus = useUpdaterStore((s) => s.setStatus);
 
-  const runCheck = useCallback(async ({ manual }: Options = {}) => {
-    if (!manual) {
-      const last = Number(localStorage.getItem(LAST_CHECK_KEY) ?? 0);
-      if (Date.now() - last < CHECK_INTERVAL_MS) return;
-    }
-    setStatus({ kind: "checking" });
-    try {
-      if (IS_LINUX) {
-        const info = await checkLinuxRelease();
-        if (info) {
-          setStatus({ kind: "manual-available", info });
+  const runCheck = useCallback(
+    async ({ manual }: Options = {}) => {
+      if (!manual) {
+        const last = Number(localStorage.getItem(LAST_CHECK_KEY) ?? 0);
+        if (Date.now() - last < CHECK_INTERVAL_MS) return;
+      }
+      setStatus({ kind: "checking" });
+      try {
+        if (IS_LINUX) {
+          const info = await checkLinuxRelease();
+          if (info) {
+            setStatus({ kind: "manual-available", info });
+          } else {
+            localStorage.setItem(LAST_CHECK_KEY, String(Date.now()));
+            setStatus({ kind: "uptodate" });
+          }
+          return;
+        }
+        const update = await check();
+        if (update) {
+          setStatus({ kind: "available", update });
         } else {
           localStorage.setItem(LAST_CHECK_KEY, String(Date.now()));
           setStatus({ kind: "uptodate" });
         }
-        return;
+      } catch (err) {
+        setStatus({ kind: "error", message: String(err) });
       }
-      const update = await check();
-      if (update) {
-        setStatus({ kind: "available", update });
-      } else {
-        localStorage.setItem(LAST_CHECK_KEY, String(Date.now()));
-        setStatus({ kind: "uptodate" });
-      }
-    } catch (err) {
-      setStatus({ kind: "error", message: String(err) });
-    }
-  }, []);
+    },
+    [setStatus],
+  );
 
   const install = useCallback(async () => {
     if (status.kind !== "available") return;
@@ -139,11 +151,11 @@ export function useUpdater({ autoCheck = true }: HookOptions = {}) {
     } catch (err) {
       setStatus({ kind: "error", message: String(err) });
     }
-  }, [status]);
+  }, [status, setStatus]);
 
   const dismiss = useCallback(() => {
     setStatus({ kind: "idle" });
-  }, []);
+  }, [setStatus]);
 
   useEffect(() => {
     if (!autoCheck) return;
