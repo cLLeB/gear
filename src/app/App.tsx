@@ -60,7 +60,7 @@ import {
   getEffectiveDefaultModelId,
   useWorkspaceConfigStore,
 } from "@/modules/settings/workspaceConfig";
-import { onKeysChanged } from "@/modules/settings/store";
+import { onKeysChanged, setWordWrap, setSidebarPosition } from "@/modules/settings/store";
 import {
   ShortcutsDialog,
   useGlobalShortcuts,
@@ -483,6 +483,8 @@ export default function App() {
   const initPrefs = usePreferencesStore((s) => s.init);
   const prefDefaultModel = usePreferencesStore((s) => s.defaultModelId);
   const prefsHydrated = usePreferencesStore((s) => s.hydrated);
+  const wordWrap = usePreferencesStore((s) => s.wordWrap);
+  const sidebarPosition = usePreferencesStore((s) => s.sidebarPosition);
   const wsConfig = useWorkspaceConfigStore((s) => s.config);
   useEffect(() => {
     void initPrefs();
@@ -998,6 +1000,7 @@ export default function App() {
       "editor.undo": () => editorRefs.current.get(activeId)?.undo(),
       "editor.redo": () => editorRefs.current.get(activeId)?.redo(),
       "editor.findReplace": () => editorRefs.current.get(activeId)?.openFindReplace(),
+      "editor.toggleWordWrap": () => void setWordWrap(!wordWrap),
     }),
     [
       activeId,
@@ -1017,6 +1020,7 @@ export default function App() {
       zoomIn,
       zoomOut,
       zoomReset,
+      wordWrap,
     ],
   );
 
