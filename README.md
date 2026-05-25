@@ -39,6 +39,40 @@ If VS Code already does something better, Gear doesn't try to compete. If a feat
 ---
 
 
+## Installation
+
+### macOS
+
+```bash
+brew install --cask clleb/gear/gear
+```
+
+### Windows
+
+```powershell
+winget install cLLeB.Gear
+```
+
+### Linux
+
+```bash
+curl -fsSL https://gear.kyere.me/install.sh | sh
+```
+
+Auto-detects your distro:
+
+| Distro | Method |
+|--------|--------|
+| Arch / Manjaro / EndeavourOS | `yay -S gear-terminal-bin` (AUR) |
+| Ubuntu / Debian / Mint / Pop | installs `.deb` via `dpkg` |
+| Fedora / RHEL / Rocky / Alma | installs `.rpm` via `dnf` |
+| openSUSE | installs `.rpm` via `zypper` |
+| Everything else | installs AppImage to `~/.local/bin` |
+
+Or grab a package directly from the [releases page](https://github.com/cLLeB/gear/releases).
+
+---
+
 ## Requirements
 
 | Tool                       | Version                                                     |
