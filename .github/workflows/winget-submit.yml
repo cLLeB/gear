@@ -14,5 +14,5 @@ jobs:
         run: |
           wingetcreate new `
             https://github.com/cLLeB/gear/releases/download/v0.1.1/Gear_0.1.1_x64_en-US.msi `
-            --submit `
-            --token ${{ secrets.WINGET_TOKEN }}
+            --token ${{ secrets.WINGET_TOKEN }} `
+            --no-open
