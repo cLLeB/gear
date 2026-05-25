@@ -188,6 +188,7 @@ export default function App() {
     focusNextPaneInTab,
     splitActivePane,
     closeActivePane,
+    closeOtherTabs,
     closePaneByLeaf,
     resetWorkspace,
   } = useTabs(
@@ -984,6 +985,12 @@ export default function App() {
       "tab.selectByIndex": (e) => selectByIndex(parseInt(e.key, 10) - 1),
       "pane.splitRight": () => splitActivePaneInActiveTab("row"),
       "pane.splitDown": () => splitActivePaneInActiveTab("col"),
+      "pane.close": () => {
+        const t = tabsRef.current.find((x) => x.id === activeId);
+        if (t?.kind === "terminal" && leafIds(t.paneTree).length > 1) {
+          closeActivePane(activeId);
+        }
+      },
       "pane.focusNext": () => focusNextPaneInTab(activeId, 1),
       "pane.focusPrev": () => focusNextPaneInTab(activeId, -1),
       "pane.source": toggleSourceControl,
@@ -1332,6 +1339,12 @@ export default function App() {
               activeTerminalTab !== null &&
               leafIds(activeTerminalTab.paneTree).length < MAX_PANES_PER_TAB
             }
+            onClosePane={() => closeActivePane(activeId)}
+            canClosePane={
+              activeTerminalTab !== null &&
+              leafIds(activeTerminalTab.paneTree).length > 1
+            }
+            onCloseOthers={closeOtherTabs}
             onActivateAgent={onActivateAgent}
             onActivateLocalAgent={onActivateLocalAgent}
             onOpenSettings={() => void openSettingsWindow()}

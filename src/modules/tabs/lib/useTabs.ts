@@ -556,6 +556,22 @@ export function useTabs(initial?: Partial<TerminalTab>) {
     for (const lid of toDispose) disposeSession(lid);
   }, []);
 
+  const closeOtherTabs = useCallback((keepId: number): void => {
+    const toDispose: number[] = [];
+    setTabs((curr) => {
+      const keep = curr.find((t) => t.id === keepId);
+      if (!keep || curr.length <= 1) return curr;
+      for (const t of curr) {
+        if (t.id !== keepId && t.kind === "terminal") {
+          toDispose.push(...leafIds(t.paneTree));
+        }
+      }
+      return [keep];
+    });
+    setActiveId(keepId);
+    for (const lid of toDispose) disposeSession(lid);
+  }, []);
+
   const updateTab = useCallback((id: number, patch: TabPatch) => {
     setTabs((t) =>
       t.map((x) => {
@@ -814,6 +830,7 @@ export function useTabs(initial?: Partial<TerminalTab>) {
     setAiDiffStatus,
     closeAiDiffTab,
     closeTab,
+    closeOtherTabs,
     updateTab,
     selectByIndex,
     setLeafCwd,
