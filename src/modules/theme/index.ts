@@ -24,3 +24,16 @@ export {
 } from "./themeFiles";
 export { listBuiltinThemes, getBuiltinTheme, getDefaultTheme } from "./themes";
 export { SurfaceLayer, BG_OPACITY_RENDER_FACTOR } from "./SurfaceLayer";
+export {
+  BUILTIN_WALLPAPERS,
+  WALLPAPER_CATEGORIES,
+  getWallpaperUrl,
+  getWallpaperById,
+} from "./builtinWallpapers";
+export type { BuiltinWallpaper, WallpaperCategory } from "./builtinWallpapers";
+export {
+  BUILTIN_GRADIENTS,
+  GRADIENT_CATEGORIES,
+  getGradientById,
+} from "./builtinGradients";
+export type { BuiltinGradient, GradientCategory } from "./builtinGradients";
