@@ -13,10 +13,12 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useUpdater } from "./useUpdater";
 
-type DistroKey = "debian" | "fedora";
+type DistroKey = "arch" | "debian" | "fedora";
 
 function distroCommand(key: DistroKey, version: string): string {
   switch (key) {
+    case "arch":
+      return "yay -S Gear-bin";
     case "debian":
       return `sudo apt install ./Gear_${version}_amd64.deb`;
     case "fedora":
@@ -25,6 +27,7 @@ function distroCommand(key: DistroKey, version: string): string {
 }
 
 const DISTROS: { key: DistroKey; label: string }[] = [
+  { key: "arch", label: "Arch" },
   { key: "debian", label: "Debian / Ubuntu" },
   { key: "fedora", label: "Fedora / RHEL" },
 ];
@@ -39,7 +42,7 @@ export function UpdaterDialog() {
   const { t } = useTranslation();
   const { status, install, dismiss } = useUpdater();
   const [copied, setCopied] = useState(false);
-  const [distro, setDistro] = useState<DistroKey>("debian");
+  const [distro, setDistro] = useState<DistroKey>("arch");
   const manualVersion =
     status.kind === "manual-available" ? status.info.version : "";
   const activeCommand = distroCommand(distro, manualVersion);
