@@ -16,7 +16,7 @@ export type ThemePref = "system" | "light" | "dark";
 
 export const DEFAULT_THEME_ID = "gear-default";
 
-export type BackgroundKind = "none" | "image";
+export type BackgroundKind = "none" | "image" | "builtin" | "gradient";
 
 export const BG_OPACITY_RENDER_FACTOR = 0.5;
 
@@ -65,6 +65,9 @@ export type Preferences = {
   backgroundImageId: string | null;
   backgroundOpacity: number;
   backgroundBlur: number;
+  backgroundTintColor: string | null;
+  backgroundTintOpacity: number;
+  backgroundNoiseOpacity: number;
   language: string;
   defaultModelId: ModelId;
   editorTheme: EditorThemeId;
@@ -105,6 +108,9 @@ const KEY_BG_KIND = "backgroundKind";
 const KEY_BG_IMAGE_ID = "backgroundImageId";
 const KEY_BG_OPACITY = "backgroundOpacity";
 const KEY_BG_BLUR = "backgroundBlur";
+const KEY_BG_TINT_COLOR = "backgroundTintColor";
+const KEY_BG_TINT_OPACITY = "backgroundTintOpacity";
+const KEY_BG_NOISE_OPACITY = "backgroundNoiseOpacity";
 const KEY_LANGUAGE = "language";
 const KEY_DEFAULT_MODEL = "defaultModelId";
 const KEY_EDITOR_THEME = "editorTheme";
@@ -160,6 +166,9 @@ export const DEFAULT_PREFERENCES: Preferences = {
   backgroundImageId: null,
   backgroundOpacity: 0.7,
   backgroundBlur: 16,
+  backgroundTintColor: null,
+  backgroundTintOpacity: 0,
+  backgroundNoiseOpacity: 0,
   language: "",
   defaultModelId: DEFAULT_MODEL_ID,
   editorTheme: "atomone",
@@ -220,6 +229,9 @@ export async function loadPreferences(): Promise<Preferences> {
     backgroundImageId: get<string | null>(KEY_BG_IMAGE_ID) ?? DEFAULT_PREFERENCES.backgroundImageId,
     backgroundOpacity: clampBgOpacity(get<number>(KEY_BG_OPACITY) ?? DEFAULT_PREFERENCES.backgroundOpacity),
     backgroundBlur: clampBlur(get<number>(KEY_BG_BLUR) ?? DEFAULT_PREFERENCES.backgroundBlur),
+    backgroundTintColor: get<string | null>(KEY_BG_TINT_COLOR) ?? DEFAULT_PREFERENCES.backgroundTintColor,
+    backgroundTintOpacity: clampBgOpacity(get<number>(KEY_BG_TINT_OPACITY) ?? DEFAULT_PREFERENCES.backgroundTintOpacity),
+    backgroundNoiseOpacity: clampBgOpacity(get<number>(KEY_BG_NOISE_OPACITY) ?? DEFAULT_PREFERENCES.backgroundNoiseOpacity),
     language: get<string>(KEY_LANGUAGE) ?? DEFAULT_PREFERENCES.language,
     defaultModelId:
       get<ModelId>(KEY_DEFAULT_MODEL) ?? DEFAULT_PREFERENCES.defaultModelId,
@@ -323,6 +335,18 @@ export async function setBackgroundOpacity(value: number): Promise<void> {
 
 export async function setBackgroundBlur(value: number): Promise<void> {
   await writePref(KEY_BG_BLUR, clampBlur(value));
+}
+
+export async function setBackgroundTintColor(value: string | null): Promise<void> {
+  await writePref(KEY_BG_TINT_COLOR, value);
+}
+
+export async function setBackgroundTintOpacity(value: number): Promise<void> {
+  await writePref(KEY_BG_TINT_OPACITY, clampBgOpacity(value));
+}
+
+export async function setBackgroundNoiseOpacity(value: number): Promise<void> {
+  await writePref(KEY_BG_NOISE_OPACITY, clampBgOpacity(value));
 }
 
 export async function setLanguage(value: string): Promise<void> {
@@ -515,6 +539,9 @@ export async function onPreferencesChange(
     [KEY_BG_IMAGE_ID]: "backgroundImageId",
     [KEY_BG_OPACITY]: "backgroundOpacity",
     [KEY_BG_BLUR]: "backgroundBlur",
+    [KEY_BG_TINT_COLOR]: "backgroundTintColor",
+    [KEY_BG_TINT_OPACITY]: "backgroundTintOpacity",
+    [KEY_BG_NOISE_OPACITY]: "backgroundNoiseOpacity",
     [KEY_LANGUAGE]: "language",
     [KEY_DEFAULT_MODEL]: "defaultModelId",
     [KEY_EDITOR_THEME]: "editorTheme",
