@@ -6,13 +6,79 @@ on:
 jobs:
   submit:
     runs-on: windows-latest
+    env:
+      VERSION: "0.1.1"
+      MSI_URL: "https://github.com/cLLeB/gear/releases/download/v0.1.1/Gear_0.1.1_x64_en-US.msi"
+      PKG_ID: "cLLeB.Gear"
+
     steps:
       - name: Install wingetcreate
         run: winget install Microsoft.WingetCreate --silent --accept-package-agreements --accept-source-agreements
 
-      - name: Submit new package to winget-pkgs
+      - name: Download MSI and compute SHA256
         run: |
-          wingetcreate new `
-            https://github.com/cLLeB/gear/releases/download/v0.1.1/Gear_0.1.1_x64_en-US.msi `
+          Invoke-WebRequest -Uri $env:MSI_URL -OutFile gear.msi
+          $hash = (Get-FileHash gear.msi -Algorithm SHA256).Hash.ToUpper()
+          "MSI_SHA256=$hash" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Create manifest files
+        run: |
+          $dir = "manifests\c\cLLeB\Gear\$env:VERSION"
+          New-Item -ItemType Directory -Path $dir -Force | Out-Null
+
+          # Version manifest
+          Set-Content "$dir\$env:PKG_ID.yaml" @"
+          PackageIdentifier: $env:PKG_ID
+          PackageVersion: $env:VERSION
+          DefaultLocale: en-US
+          ManifestType: version
+          ManifestVersion: 1.12.0
+          "@
+
+          # Installer manifest
+          Set-Content "$dir\$env:PKG_ID.installer.yaml" @"
+          PackageIdentifier: $env:PKG_ID
+          PackageVersion: $env:VERSION
+          Installers:
+            - Architecture: x64
+              InstallerType: msi
+              InstallerUrl: $env:MSI_URL
+              InstallerSha256: $env:MSI_SHA256
+              InstallerSwitches:
+                Silent: /quiet
+                SilentWithProgress: /quiet
+          ManifestType: installer
+          ManifestVersion: 1.12.0
+          "@
+
+          # Locale manifest
+          Set-Content "$dir\$env:PKG_ID.locale.en-US.yaml" @"
+          PackageIdentifier: $env:PKG_ID
+          PackageVersion: $env:VERSION
+          PackageLocale: en-US
+          Publisher: cLLeB
+          PublisherUrl: https://github.com/cLLeB
+          PublisherSupportUrl: https://github.com/cLLeB/gear/issues
+          PackageName: Gear
+          PackageUrl: https://github.com/cLLeB/gear
+          License: Apache-2.0
+          LicenseUrl: https://github.com/cLLeB/gear/blob/main/LICENSE
+          ShortDescription: AI-native developer terminal built on Tauri and Rust
+          Description: |-
+            Gear is a fast, lightweight developer terminal built on Tauri and Rust.
+            It combines a native PTY backend with an integrated AI assistant,
+            code editor, file explorer, and source control panel.
+          Tags:
+            - terminal
+            - developer-tools
+            - ai
+            - rust
+          ManifestType: defaultLocale
+          ManifestVersion: 1.12.0
+          "@
+
+      - name: Submit to winget-pkgs
+        run: |
+          wingetcreate submit "manifests\c\cLLeB\Gear\$env:VERSION" `
             --token ${{ secrets.WINGET_TOKEN }} `
             --no-open
