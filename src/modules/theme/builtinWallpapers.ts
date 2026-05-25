@@ -31,7 +31,7 @@ export const BUILTIN_WALLPAPERS: BuiltinWallpaper[] = [
   { id: "abstract-3", label: "Aurora Swirl", category: "abstract", file: "abstract-3.jpg" },
   { id: "abstract-4", label: "Prism Burst", category: "abstract", file: "abstract-4.jpg" },
   // Minimal / geometric
-  { id: "minimal-1", label: "Sand Dunes", category: "minimal", file: "minimal-1.jpg" },
+  { id: "minimal-1", label: "Clean Room", category: "minimal", file: "minimal-1.jpg" },
   { id: "minimal-2", label: "Icy Blue", category: "minimal", file: "minimal-2.jpg" },
   { id: "minimal-3", label: "Warm Curve", category: "minimal", file: "minimal-3.jpg" },
   { id: "minimal-4", label: "Soft Gradient", category: "minimal", file: "minimal-4.jpg" },
