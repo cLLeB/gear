@@ -272,6 +272,19 @@
     "whatsNew": "Novedades",
     "version": "Versión {{version}}",
     "changelog": "Registro de cambios",
-    "dismiss": "Entendido"
+    "dismiss": "Entendido",
+    "dialog": {
+      "titleReady": "Actualización lista",
+      "titleDownloading": "Descargando actualización…",
+      "titleAvailable": "Gear v{{version}} está disponible",
+      "descReady": "Reinicia Gear para completar la instalación.",
+      "descManual": "Tienes la v{{currentVersion}}. Elige tu distro y ejecuta el comando, o descarga el paquete desde GitHub.",
+      "descAvailable": "Una nueva versión está lista para instalar.",
+      "later": "Más tarde",
+      "installAndRestart": "Instalar y reiniciar",
+      "downloadPackage": "Descargar paquete",
+      "copy": "Copiar",
+      "copied": "Copiado"
+    }
   }
 }

@@ -10,6 +10,7 @@ import { useTranslation } from "react-i18next";
 import { SectionHeader } from "../components/SectionHeader";
 
 const REPO_URL = "https://github.com/cLLeB/gear";
+const WEBSITE_URL = "https://gear.kyere.me";
 
 const PLATFORM_LABEL: Record<string, string> = {
   macos: "macOS",
@@ -102,6 +103,17 @@ export function AboutSection() {
           >
             <HugeiconsIcon icon={GithubIcon} size={12} strokeWidth={1.75} />
             cLLeB/gear
+          </button>
+        </dd>
+
+        <dt className="text-muted-foreground">{t("settings.about.website")}</dt>
+        <dd>
+          <button
+            type="button"
+            onClick={() => void openUrl(WEBSITE_URL)}
+            className="inline-flex items-center gap-1.5 rounded-md text-[12px] underline-offset-2 hover:text-foreground hover:underline"
+          >
+            gear.kyere.me
           </button>
         </dd>
       </dl>
