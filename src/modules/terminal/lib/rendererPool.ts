@@ -158,6 +158,14 @@ function createSlot(): Slot {
       if (event.type === "keydown") bridge.writeToPty("\x1b\r");
       return false;
     }
+    if (isCtrlPaste(event)) {
+      if (event.type === "keydown") {
+        navigator.clipboard.readText().then((text) => {
+          if (text) slot.term.paste(text);
+        }).catch(() => {});
+      }
+      return false;
+    }
     return true;
   });
 
@@ -244,6 +252,7 @@ export function acquireSlot(params: AcquireParams): Slot {
 }
 
 function bindSlot(slot: Slot, p: AcquireParams): void {
+  const stale = !slot.webglAddon || performance.now() - slot.lastUsedAt > SLOT_STALE_MS;
   slot.currentLeafId = p.leafId;
   slot.lastUsedAt = performance.now();
 
@@ -315,15 +324,19 @@ function bindSlot(slot: Slot, p: AcquireParams): void {
     adapter?.resolveLeaf(p.leafId)?.kickPty(slot.term.cols, slot.term.rows);
   }
 
-  scheduleUnhide(slot);
+  scheduleUnhide(slot, stale);
 
   p.onSearchReady(slot.searchAddon);
 }
 
-function scheduleUnhide(slot: Slot): void {
+function scheduleUnhide(slot: Slot, stale: boolean): void {
   slot.unhideRaf = requestAnimationFrame(() => {
     slot.unhideRaf = requestAnimationFrame(() => {
       slot.unhideRaf = null;
+      if (stale) {
+        if (!slot.webglAddon) attachWebgl(slot);
+        try { slot.term.refresh(0, slot.term.rows - 1); } catch {}
+      }
       slot.host.style.visibility = "";
       const leafId = slot.currentLeafId;
       if (leafId !== null && adapter?.isLeafFocused(leafId)) {
@@ -454,6 +467,7 @@ function detachSlotFromLeaf(slot: Slot): void {
 }
 
 const WEBGL_RECOVERY_DELAY_MS = 250;
+const SLOT_STALE_MS = 10_000;
 
 function attachWebgl(slot: Slot): void {
   if (slot.webglAddon || !slot.term.element) return;
@@ -480,6 +494,9 @@ function attachWebgl(slot: Slot): void {
         if (slot.webglAddon) return;
         if (!usePreferencesStore.getState().terminalWebglEnabled) return;
         attachWebgl(slot);
+        if (slot.webglAddon) {
+          try { slot.term.refresh(0, slot.term.rows - 1); } catch {}
+        }
       }, WEBGL_RECOVERY_DELAY_MS);
     });
     slot.term.loadAddon(webgl);
@@ -635,4 +652,11 @@ function isShiftEnter(e: KeyboardEvent): boolean {
   return (
     e.key === "Enter" && e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey
   );
+}
+
+function isCtrlPaste(e: KeyboardEvent): boolean {
+  const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
+  const isMac = /Mac|iPhone|iPad/.test(ua);
+  const mod = isMac ? (e.metaKey && !e.ctrlKey) : (!e.metaKey && e.ctrlKey);
+  return mod && !e.altKey && !e.shiftKey && (e.key === "v" || e.code === "KeyV");
 }

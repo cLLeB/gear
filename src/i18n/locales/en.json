@@ -74,7 +74,7 @@
     },
     "about": {
       "title": "About",
-      "tagline": "AI-powered developer terminal",
+      "tagline": "The terminal built for AI-native development",
       "build": "Build",
       "bundleId": "Bundle ID",
       "license": "License",

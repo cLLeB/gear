@@ -1,5 +1,6 @@
 use std::path::{Path, PathBuf};
 
+use crate::modules::fs::to_canon;
 use crate::modules::git::errors::{GitError, Result};
 use crate::modules::workspace::{resolve_path, WorkspaceEnv, WorkspaceRegistry};
 
@@ -18,7 +19,7 @@ pub fn split_upstream(upstream: &str) -> (Option<String>, Option<String>) {
 }
 
 pub fn display_path(path: &Path) -> String {
-    path.to_string_lossy().replace('\\', "/")
+    to_canon(path)
 }
 
 fn normalize_git_path(path: &str) -> String {

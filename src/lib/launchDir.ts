@@ -3,7 +3,10 @@ import { invoke } from "@tauri-apps/api/core";
 let cached: string | undefined;
 
 export async function initLaunchDir(): Promise<void> {
-  const dir = await invoke<string | null>("get_launch_dir").catch(() => null);
+  let dir = await invoke<string | null>("get_launch_dir").catch(() => null);
+  if (!dir) {
+    dir = await invoke<string>("workspace_current_dir").catch(() => null);
+  }
   cached = dir ? dir.replace(/\\/g, "/") : undefined;
 }
 
