@@ -687,7 +687,7 @@ export default function App() {
     [hasComposer, openPanel, focusInput],
   );
 
-  const askFromSelection = useCallback(() => {
+  const askFromSelection = useCallback((prefix = "") => {
     if (!hasComposer) {
       void openSettingsWindow("models");
       return;
@@ -699,7 +699,8 @@ export default function App() {
     }
     const source: "terminal" | "editor" =
       activeTab?.kind === "editor" ? "editor" : "terminal";
-    attachSelection(selection, source);
+    const text = prefix ? `${prefix}${selection}` : selection;
+    attachSelection(text, source);
   }, [
     hasComposer,
     captureActiveSelection,
@@ -748,8 +749,8 @@ export default function App() {
     };
   }, [captureActiveSelection]);
 
-  const onAskFromSelection = useCallback(() => {
-    askFromSelection();
+  const onAskFromSelection = useCallback((prefix = "") => {
+    askFromSelection(prefix);
     setAskPopup(null);
   }, [askFromSelection]);
 
@@ -996,7 +997,7 @@ export default function App() {
       "pane.source": toggleSourceControl,
       "search.focus": () => searchInlineRef.current?.focus(),
       "ai.toggle": togglePanelAndFocus,
-      "ai.askSelection": askFromSelection,
+      "ai.askSelection": () => askFromSelection(),
       "shortcuts.open": () => setShortcutsOpen((v) => !v),
       "settings.open": () => void openSettingsWindow(),
       "sidebar.toggle": toggleSidebar,
