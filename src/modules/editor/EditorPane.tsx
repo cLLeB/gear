@@ -7,7 +7,7 @@ import {
   SearchQuery,
   setSearchQuery,
 } from "@codemirror/search";
-import { keymap } from "@codemirror/view";
+import { keymap, EditorView } from "@codemirror/view";
 import { usePreferencesStore } from "@/modules/settings/preferences";
 import { useTheme } from "@/modules/theme/ThemeProvider";
 import CodeMirror, { type ReactCodeMirrorRef } from "@uiw/react-codemirror";
@@ -27,6 +27,7 @@ import {
   buildSharedExtensions,
   languageCompartment,
   vimCompartment,
+  wrapCompartment,
 } from "./lib/extensions";
 import { initVimGlobals, vimHandlersExtension } from "./lib/vim";
 
@@ -80,6 +81,7 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
     const editorThemeId = usePreferencesStore((s) => s.editorTheme);
     const { resolvedMode } = useTheme();
     const vimMode = usePreferencesStore((s) => s.vimMode);
+    const wordWrap = usePreferencesStore((s) => s.wordWrap);
     const languageRef = useRef<string | null>(null);
     const apiKeyRef = useRef<string | null>(null);
 
@@ -197,6 +199,16 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
         ),
       });
     }, [vimMode]);
+
+    useEffect(() => {
+      const view = cmRef.current?.view;
+      if (!view) return;
+      view.dispatch({
+        effects: wrapCompartment.reconfigure(
+          wordWrap ? EditorView.lineWrapping : [],
+        ),
+      });
+    }, [wordWrap]);
 
     useEffect(() => {
       let cancelled = false;
