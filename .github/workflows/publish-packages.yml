@@ -155,6 +155,86 @@ jobs:
           git commit -m "apt: release gear ${VERSION}"
           git push
 
+  # ── AUR (Arch User Repository) ───────────────────────────────────────────
+  # Updates gear-terminal-bin on AUR after each release.
+  # Requires: AUR_SSH_KEY secret — contents of ~/.ssh/aur (the private key)
+  aur:
+    needs: resolve
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.resolve.outputs.version }}
+      TAG: ${{ needs.resolve.outputs.tag }}
+    steps:
+      - name: Compute .deb SHA256
+        run: |
+          DEB_URL="https://github.com/${{ github.repository }}/releases/download/${TAG}/Gear_${VERSION}_amd64.deb"
+          curl -fsSL "$DEB_URL" -o gear.deb
+          echo "deb_sha256=$(sha256sum gear.deb | awk '{print $1}')" >> $GITHUB_ENV
+
+      - name: Set up AUR SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.AUR_SSH_KEY }}" > ~/.ssh/aur
+          chmod 600 ~/.ssh/aur
+          ssh-keyscan -t ed25519 aur.archlinux.org >> ~/.ssh/known_hosts
+
+      - name: Clone AUR repo
+        run: |
+          GIT_SSH_COMMAND="ssh -i ~/.ssh/aur" \
+            git clone ssh://aur@aur.archlinux.org/gear-terminal-bin.git aur-pkg
+
+      - name: Write PKGBUILD and .SRCINFO
+        working-directory: aur-pkg
+        run: |
+          SHA="${deb_sha256}"
+          cat > PKGBUILD << EOF
+          # Maintainer: cLLeB <kyereboatengcaleb@gmail.com>
+          pkgname=gear-terminal-bin
+          pkgver=${VERSION}
+          pkgrel=1
+          pkgdesc="AI-native developer terminal built on Tauri and Rust"
+          arch=('x86_64')
+          url="https://gear.kyere.me"
+          license=('Apache-2.0')
+          depends=('webkit2gtk-4.1' 'gtk3')
+          provides=('gear-terminal')
+          conflicts=('gear-terminal')
+          source_x86_64=("https://github.com/cLLeB/gear/releases/download/v\${pkgver}/Gear_\${pkgver}_amd64.deb")
+          sha256sums_x86_64=('${SHA}')
+
+          package() {
+            cd "\$srcdir"
+            bsdtar -xf data.tar.zst -C "\$pkgdir/"
+          }
+          EOF
+
+          cat > .SRCINFO << EOF
+          pkgbase = gear-terminal-bin
+          	pkgdesc = AI-native developer terminal built on Tauri and Rust
+          	pkgver = ${VERSION}
+          	pkgrel = 1
+          	url = https://gear.kyere.me
+          	arch = x86_64
+          	license = Apache-2.0
+          	depends = webkit2gtk-4.1
+          	depends = gtk3
+          	provides = gear-terminal
+          	conflicts = gear-terminal
+          	source_x86_64 = https://github.com/cLLeB/gear/releases/download/v${VERSION}/Gear_${VERSION}_amd64.deb
+          	sha256sums_x86_64 = ${SHA}
+
+          pkgname = gear-terminal-bin
+          EOF
+
+      - name: Commit and push to AUR
+        working-directory: aur-pkg
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add PKGBUILD .SRCINFO
+          git commit -m "upgrade: ${VERSION}"
+          GIT_SSH_COMMAND="ssh -i ~/.ssh/aur" git push origin master
+
   # ── RPM repository (Fedora / RHEL / openSUSE) ────────────────────────────
   # Publishes the .rpm to a repo hosted on GitHub Pages.
   # Target repo: github.com/cLLeB/gear-packages (same repo as APT, rpm/ subdir)
