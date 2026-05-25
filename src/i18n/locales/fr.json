@@ -73,7 +73,7 @@
     },
     "about": {
       "title": "À propos",
-      "tagline": "Terminal développeur propulsé par l'IA",
+      "tagline": "Le terminal conçu pour le développement natif IA",
       "build": "Build",
       "bundleId": "Identifiant de bundle",
       "license": "Licence",

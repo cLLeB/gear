@@ -73,7 +73,7 @@
     },
     "about": {
       "title": "Acerca de",
-      "tagline": "Terminal para desarrolladores con IA",
+      "tagline": "El terminal para el desarrollo nativo con IA",
       "build": "Compilación",
       "bundleId": "ID de bundle",
       "license": "Licencia",

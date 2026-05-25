@@ -15,6 +15,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
+import { AgentNotificationsBridge } from "@/modules/agents";
+import { Toaster } from "@/components/ui/sonner";
 import {
   AgentRunBridge,
   AiInputBar,
@@ -22,6 +24,7 @@ import {
   AiMiniWindow,
   getAllKeys,
   hasAnyKey,
+  LocalAgentNotificationsBridge,
   SelectionAskAi,
   useChatStore,
 } from "@/modules/ai";
@@ -1070,7 +1073,10 @@ export default function App() {
   );
 
   const handleTerminalCwd = useCallback(
-    (leafId: number, cwd: string) => setLeafCwd(leafId, cwd),
+    (leafId: number, cwd: string) => {
+      setLeafCwd(leafId, cwd);
+      native.workspaceAuthorize(cwd).catch(() => {});
+    },
     [setLeafCwd],
   );
 
@@ -1078,6 +1084,19 @@ export default function App() {
     (tabId: number, leafId: number) => focusPane(tabId, leafId),
     [focusPane],
   );
+
+  const onActivateAgent = useCallback(
+    (tabId: number, leafId: number) => {
+      setActiveId(tabId);
+      focusPane(tabId, leafId);
+    },
+    [setActiveId, focusPane],
+  );
+
+  const onActivateLocalAgent = useCallback(() => {
+    openPanel();
+    focusInput(null);
+  }, [openPanel, focusInput]);
 
   const handleLeafExit = useCallback(
     (leafId: number, _code: number) => {
@@ -1290,6 +1309,7 @@ export default function App() {
     <ThemeProvider>
       <TooltipProvider>
         <div className="relative flex h-screen flex-col overflow-hidden bg-background text-foreground">
+          <div className="h-[2px] w-full shrink-0 bg-gradient-to-r from-primary/30 via-primary to-primary/30" />
           <Header
             tabs={tabs}
             activeId={activeId}
@@ -1308,7 +1328,8 @@ export default function App() {
               activeTerminalTab !== null &&
               leafIds(activeTerminalTab.paneTree).length < MAX_PANES_PER_TAB
             }
-            onOpenShortcuts={() => setShortcutsOpen(true)}
+            onActivateAgent={onActivateAgent}
+            onActivateLocalAgent={onActivateLocalAgent}
             onOpenSettings={() => void openSettingsWindow()}
             searchTarget={searchTarget}
             searchRef={searchInlineRef}
@@ -1332,6 +1353,11 @@ export default function App() {
                 }}
               >
                 <div className="flex h-full min-h-0 flex-col border-r border-border bg-card">
+                  <SidebarRail
+                    activeView={sidebarView}
+                    onSelectView={persistSidebarView}
+                    changedCount={sourceControl.changedCount}
+                  />
                   <div className="min-h-0 flex-1">
                     <ErrorBoundary compact label="Sidebar">
                       {sidebarView === "explorer" ? (
@@ -1355,11 +1381,6 @@ export default function App() {
                       )}
                     </ErrorBoundary>
                   </div>
-                  <SidebarRail
-                    activeView={sidebarView}
-                    onSelectView={persistSidebarView}
-                    changedCount={sourceControl.changedCount}
-                  />
                 </div>
               </ResizablePanel>
               <ResizableHandle withHandle />
@@ -1408,11 +1429,21 @@ export default function App() {
             }
           />
 
+          <AgentNotificationsBridge
+            tabs={tabs}
+            activeId={activeId}
+            onActivate={onActivateAgent}
+          />
+          <Toaster position="bottom-right" />
+
           {hasComposer ? (
-            <AgentRunBridge
-              openAiDiffTab={openAiDiffTab}
-              closeAiDiffTab={closeAiDiffTab}
-            />
+            <>
+              <AgentRunBridge
+                openAiDiffTab={openAiDiffTab}
+                closeAiDiffTab={closeAiDiffTab}
+              />
+              <LocalAgentNotificationsBridge />
+            </>
           ) : null}
 
           <AnimatePresence>

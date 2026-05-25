@@ -10,3 +10,5 @@ image.png
 *.map
 .DS_Store
 Thumbs.db
+/landing-page
+tauri.store.conf.json

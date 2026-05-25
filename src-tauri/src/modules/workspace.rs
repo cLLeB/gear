@@ -6,6 +6,7 @@ use std::time::{Duration, Instant};
 use std::os::windows::process::CommandExt;
 
 use serde::{Deserialize, Serialize};
+use crate::modules::fs::to_canon;
 
 // Short TTL keeps the auth-check TOCTOU window tight while still coalescing the
 // burst of canonicalize calls within a single panel refresh (~100ms).
@@ -66,6 +67,29 @@ impl WorkspaceRegistry {
 
 }
 
+/// Like [`authorize_spawn_cwd`] but auto-expands the authorized workspace to
+/// include the target directory. Called when the user explicitly navigates to a
+/// new directory inside a running terminal (OSC 7 / prompt integration) so that
+/// future terminal spawns from breadcrumb/explorer are allowed there too.
+pub fn authorize_user_spawn_cwd(
+    registry: &WorkspaceRegistry,
+    cwd: &str,
+    workspace: &WorkspaceEnv,
+) -> Result<PathBuf, String> {
+    let cwd = cwd.trim();
+    if cwd.is_empty() {
+        return Err("cwd is empty".into());
+    }
+    let resolved = resolve_path(cwd, workspace);
+    let canonical = std::fs::canonicalize(&resolved)
+        .map_err(|e| format!("cwd not accessible: {e}"))?;
+    if !canonical.is_dir() {
+        return Err(format!("cwd is not a directory: {}", canonical.display()));
+    }
+    let _ = registry.authorize(&canonical);
+    Ok(canonical)
+}
+
 // `None` means "use bootstrapped default". `Some` is canonicalized to defeat
 // symlink/`..` traversal and must sit under an authorized root.
 pub fn authorize_spawn_cwd(
@@ -107,9 +131,7 @@ pub async fn workspace_authorize(
     let workspace = WorkspaceEnv::from_option(workspace);
     let resolved = resolve_path(&path, &workspace);
     let canonical = registry.authorize(&resolved).map_err(|e| e.to_string())?;
-    let s = canonical.to_string_lossy();
-    let s = s.strip_prefix(r"\\?\").unwrap_or(&s);
-    Ok(s.replace('\\', "/"))
+    Ok(to_canon(canonical))
 }
 
 #[tauri::command]
@@ -118,17 +140,22 @@ pub async fn workspace_current_dir(
 ) -> Result<String, String> {
     let launch = resolve_launch_dir();
     let canonical = registry.authorize(&launch).map_err(|e| e.to_string())?;
-    let s = canonical.to_string_lossy();
-    let s = s.strip_prefix(r"\\?\").unwrap_or(&s);
-    Ok(s.replace('\\', "/"))
+    Ok(to_canon(canonical))
 }
 
 // Snapshotted once at app startup so the live `current_dir()` drifting later
 // (file dialogs, plugin chdir) can't shift the value seen by IPC or spawn.
 static LAUNCH_CWD: OnceLock<Option<PathBuf>> = OnceLock::new();
 
-pub fn init_launch_cwd() {
+pub fn init_launch_cwd(cli_dir: Option<&str>) {
     LAUNCH_CWD.get_or_init(|| {
+        // Prefer the CLI-supplied directory (already validated by parse_launch_dir).
+        if let Some(dir) = cli_dir {
+            let p = PathBuf::from(dir);
+            if p.is_dir() {
+                return Some(p);
+            }
+        }
         std::env::current_dir()
             .ok()
             .filter(|p| is_usable_launch_dir(p))

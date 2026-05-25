@@ -7,6 +7,7 @@ use tauri::Emitter;
 use tempfile::NamedTempFile;
 
 use crate::modules::workspace::{resolve_path, WorkspaceEnv};
+use super::to_canon;
 
 const MAX_READ_BYTES: u64 = 10 * 1024 * 1024; // 10 MB
 const BINARY_SNIFF_BYTES: usize = 8 * 1024;
@@ -130,11 +131,7 @@ pub fn fs_canonicalize(path: String, workspace: Option<WorkspaceEnv>) -> Result<
     let workspace = WorkspaceEnv::from_option(workspace);
     let p = resolve_path(&path, &workspace);
     let canon = std::fs::canonicalize(&p).map_err(|e| e.to_string())?;
-    // Strip the Windows `\\?\` extended-length prefix so the frontend's
-    // path comparator sees the same form regardless of OS.
-    let s = canon.to_string_lossy().to_string();
-    let s = s.strip_prefix(r"\\?\").unwrap_or(&s).to_string();
-    Ok(s.replace('\\', "/"))
+    Ok(to_canon(canon))
 }
 
 #[tauri::command]

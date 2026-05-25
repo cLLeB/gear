@@ -46,5 +46,6 @@ function fish_prompt
 end
 
 function __gear_preexec --on-event fish_preexec
-    printf '\e]133;C\e\\'
+    set -l cmd (string replace -ra '[\x00-\x1f]' '' -- $argv[1])
+    printf '\e]133;C;%s\e\\' (string sub -l 256 -- $cmd)
 end

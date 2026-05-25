@@ -126,7 +126,7 @@ export function TabBar({
                     setDragOverId(null);
                   }}
                   className={cn(
-                    "group h-7 shrink-0 gap-1.5 rounded-md text-xs text-muted-foreground transition-colors data-[state=active]:bg-accent data-[state=active]:text-foreground hover:text-foreground/80 justify-between",
+                    "group h-7 shrink-0 gap-1.5 rounded-md text-xs text-muted-foreground transition-colors data-[state=active]:bg-primary/[0.09] data-[state=active]:text-primary dark:data-[state=active]:bg-primary/[0.15] hover:text-foreground/80 justify-between",
                     compact
                       ? "px-1.5!"
                       : tabs.length === 1

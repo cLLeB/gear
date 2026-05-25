@@ -1,6 +1,7 @@
 mod modules;
 
-use modules::{fs, git, net, pty, secrets, shell, workspace};
+use modules::{agent, fs, git, net, pty, secrets, shell, workspace};
+use fs::to_canon;
 use std::sync::Mutex;
 use tauri::{Emitter, Manager, State, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_window_state::StateFlags;
@@ -23,8 +24,7 @@ fn parse_launch_dir() -> Option<String> {
         if !canon.is_dir() {
             continue;
         }
-        let s = canon.to_string_lossy();
-        return Some(s.strip_prefix(r"\\?\").unwrap_or(&s).to_string());
+        return Some(to_canon(canon));
     }
     None
 }
@@ -58,10 +58,9 @@ async fn open_settings_window(app: tauri::AppHandle, tab: Option<String>) -> Res
 
     let mut builder = WebviewWindowBuilder::new(&app, "settings", WebviewUrl::App(url_path.into()))
         .title("Settings")
-        .inner_size(820.0, 620.0)
-        .min_inner_size(820.0, 620.0)
-        .max_inner_size(820.0, 620.0)
-        .resizable(false)
+        .inner_size(900.0, 700.0)
+        .min_inner_size(900.0, 700.0)
+        .resizable(true)
         .visible(false)
         // Parent-child relationship keeps settings above the main window.
         // always_on_top is intentionally false so settings doesn't overlay
@@ -97,7 +96,7 @@ async fn open_settings_window(app: tauri::AppHandle, tab: Option<String>) -> Res
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    workspace::init_launch_cwd();
+    workspace::init_launch_cwd(parse_launch_dir().as_deref());
 
     tauri::Builder::default()
         .plugin(tauri_plugin_process::init())
@@ -118,6 +117,7 @@ pub fn run() {
                 .level(tauri_plugin_log::log::LevelFilter::Info)
                 .build(),
         )
+        .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_opener::init())
         .manage(pty::PtyState::default())
         .manage(shell::ShellState::default())
@@ -125,6 +125,9 @@ pub fn run() {
         .manage({
             let registry = workspace::WorkspaceRegistry::default();
             workspace::bootstrap_registry(&registry);
+            if let Some(launch_dir) = parse_launch_dir() {
+                let _ = registry.authorize(&launch_dir);
+            }
             registry
         })
         .manage(LaunchDir(Mutex::new(parse_launch_dir())))
@@ -133,6 +136,8 @@ pub fn run() {
             pty::pty_write,
             pty::pty_resize,
             pty::pty_close,
+            pty::pty_close_all,
+            pty::pty_authorize_cwd,
             fs::tree::list_subdirs,
             fs::tree::fs_read_dir,
             fs::file::fs_read_file,
@@ -194,6 +199,8 @@ pub fn run() {
             net::lm_ping,
             net::ai_http_request,
             net::ai_http_stream,
+            agent::agent_enable_claude_hooks,
+            agent::agent_claude_hooks_status,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

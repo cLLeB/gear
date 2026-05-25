@@ -73,7 +73,7 @@
     },
     "about": {
       "title": "Über",
-      "tagline": "KI-gestütztes Entwickler-Terminal",
+      "tagline": "Das Terminal für KI-native Entwicklung",
       "build": "Build",
       "bundleId": "Bundle-ID",
       "license": "Lizenz",

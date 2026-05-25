@@ -1,6 +1,6 @@
 import type { Theme } from "../types";
 import { DEFAULT_THEME_ID } from "../types";
-import { teraxDefault } from "./terax-default";
+import { gearDefault } from "./gear-default";
 import { caffeine } from "./caffeine";
 import { catppuccin } from "./catppuccin";
 import { gruvbox } from "./gruvbox";
@@ -12,7 +12,7 @@ import { sage } from "./sage";
 import { tide } from "./tide";
 
 const BUILTIN_THEMES: Theme[] = [
-  teraxDefault,
+  gearDefault,
   catppuccin,
   gruvbox,
   nord,
@@ -37,5 +37,5 @@ export function getBuiltinTheme(id: string): Theme | undefined {
 }
 
 export function getDefaultTheme(): Theme {
-  return BUILTIN_MAP.get(DEFAULT_THEME_ID) ?? teraxDefault;
+  return BUILTIN_MAP.get(DEFAULT_THEME_ID) ?? gearDefault;
 }

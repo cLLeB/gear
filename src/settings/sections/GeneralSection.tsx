@@ -21,6 +21,7 @@ import {
   EDITOR_THEMES,
   TERMINAL_FONT_SIZES,
   TERMINAL_SCROLLBACK_PRESETS,
+  setAgentNotifications,
   exportSettings,
   importSettings,
   setAutostart,
@@ -70,6 +71,7 @@ export function GeneralSection() {
   const terminalLetterSpacing = usePreferencesStore((s) => s.terminalLetterSpacing);
   const terminalFontSize = usePreferencesStore((s) => s.terminalFontSize);
   const terminalScrollback = usePreferencesStore((s) => s.terminalScrollback);
+  const agentNotifications = usePreferencesStore((s) => s.agentNotifications);
 
   useEffect(() => {
     let alive = true;
@@ -357,6 +359,19 @@ export function GeneralSection() {
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
+        </SettingRow>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <Label>Agents</Label>
+        <SettingRow
+          title="Coding agent notifications"
+          description="Alert when Claude Code or Codex running in a terminal needs your input or finishes. Desktop notification when Gear is unfocused, in-app otherwise."
+        >
+          <Switch
+            checked={agentNotifications}
+            onCheckedChange={(v) => void setAgentNotifications(v)}
+          />
         </SettingRow>
       </div>
 

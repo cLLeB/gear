@@ -16,16 +16,16 @@ import {
 } from "@/modules/shortcuts/shortcuts";
 import type { Tab } from "@/modules/tabs";
 import { TabBar } from "@/modules/tabs";
+import { NotificationBell } from "@/modules/agents";
 import {
   GridViewIcon,
-  KeyboardIcon,
   LayoutTwoColumnIcon,
   LayoutTwoRowIcon,
   Settings01Icon,
   SidebarLeftIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import {
   SearchInline,
   type SearchInlineHandle,
@@ -49,7 +49,8 @@ type Props = {
   onSplit: (dir: "row" | "col") => void;
   /** Active tab is a terminal and below the per-tab pane cap. */
   canSplit: boolean;
-  onOpenShortcuts: () => void;
+  onActivateAgent: (tabId: number, leafId: number) => void;
+  onActivateLocalAgent: () => void;
   onOpenSettings: () => void;
   searchTarget: SearchTarget;
   searchRef: RefObject<SearchInlineHandle | null>;
@@ -72,7 +73,8 @@ export function Header({
   onToggleSidebar,
   onSplit,
   canSplit,
-  onOpenShortcuts,
+  onActivateAgent,
+  onActivateLocalAgent,
   onOpenSettings,
   searchTarget,
   searchRef,
@@ -89,12 +91,6 @@ export function Header({
     return getBindingTokens(bindings[0]).join(KEY_SEP);
   };
 
-  const shortcutLabel = useMemo(() => {
-    const tokens = tokensFor("shortcuts.open");
-    return tokens ? `Keyboard shortcuts (${tokens})` : "Keyboard shortcuts";
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userShortcuts]);
-
   const splitRightTokens = tokensFor("pane.splitRight");
   const splitDownTokens = tokensFor("pane.splitDown");
 
@@ -108,18 +104,6 @@ export function Header({
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
-
-  const shortcutsButton = (
-    <Button
-      variant="ghost"
-      size="icon"
-      className="size-7 shrink-0 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
-      onClick={onOpenShortcuts}
-      title={shortcutLabel}
-    >
-      <HugeiconsIcon icon={KeyboardIcon} size={16} strokeWidth={1.75} />
-    </Button>
-  );
 
   const settingsButton = (
     <Button
@@ -194,12 +178,23 @@ export function Header({
           </DropdownMenuContent>
         </DropdownMenu>
 
-        {!IS_MAC && shortcutsButton}
+        {!IS_MAC && <NotificationBell
+            onActivate={onActivateAgent}
+            onActivateLocal={onActivateLocalAgent}
+          />}
       </div>
 
       {!IS_MAC && <span className="mx-1 h-5 w-px shrink-0 bg-border" />}
 
       {IS_MAC && <span className="mr-1 h-full w-px shrink-0 bg-border" />}
+
+      {!IS_MAC && (
+        <div className="flex shrink-0 items-center gap-1.5 pr-1" data-tauri-drag-region>
+          <img src="/logo.png" alt="Gear" className="size-4 select-none opacity-90" draggable={false} />
+          <span className="text-[11px] font-semibold tracking-tight text-foreground/60 select-none">Gear</span>
+          <span className="ml-0.5 h-3.5 w-px shrink-0 bg-border/70" />
+        </div>
+      )}
 
       <div
         className="flex min-w-0 flex-1 items-center gap-2"
@@ -225,7 +220,10 @@ export function Header({
 
       {IS_MAC && (
         <>
-          {shortcutsButton}
+          <NotificationBell
+            onActivate={onActivateAgent}
+            onActivateLocal={onActivateLocalAgent}
+          />
           {settingsButton}
         </>
       )}

@@ -73,7 +73,7 @@
     },
     "about": {
       "title": "このアプリについて",
-      "tagline": "AI搭載の開発者向けターミナル",
+      "tagline": "AIネイティブ開発のためのターミナル",
       "build": "ビルド",
       "bundleId": "バンドルID",
       "license": "ライセンス",

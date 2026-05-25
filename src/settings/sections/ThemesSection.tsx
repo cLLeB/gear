@@ -135,7 +135,7 @@ export function ThemesSection() {
 
   const handleDeleteCustomTheme = async (id: string) => {
     await deleteCustomTheme(id);
-    if (themeId === id) setThemeId("terax-default");
+    if (themeId === id) setThemeId("gear-default");
   };
 
   return (
