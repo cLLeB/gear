@@ -18,7 +18,7 @@ type DistroKey = "arch" | "debian" | "fedora";
 function distroCommand(key: DistroKey, version: string): string {
   switch (key) {
     case "arch":
-      return "yay -S Gear-bin";
+      return "yay -S gear-terminal-bin";
     case "debian":
       return `sudo apt install ./Gear_${version}_amd64.deb`;
     case "fedora":
