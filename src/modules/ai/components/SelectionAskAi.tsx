@@ -6,12 +6,18 @@ import { useEffect } from "react";
 export type SelectionAskAiProps = {
   x: number;
   y: number;
-  onAsk: () => void;
+  onAsk: (prefix: string) => void;
   onDismiss: () => void;
 };
 
-const W = 110;
-const OFFSET = 32;
+const W = 240;
+const OFFSET = 36;
+
+const PRESETS: { label: string; prefix: string }[] = [
+  { label: "Explain", prefix: "Explain this code:\n" },
+  { label: "Refactor", prefix: "Refactor this code:\n" },
+  { label: "Fix", prefix: "Fix this code:\n" },
+];
 
 export function SelectionAskAi({ x, y, onAsk, onDismiss }: SelectionAskAiProps) {
   useEffect(() => {
@@ -33,21 +39,36 @@ export function SelectionAskAi({ x, y, onAsk, onDismiss }: SelectionAskAiProps) 
       exit={{ opacity: 0, y: 4, scale: 0.95 }}
       transition={{ duration: 0.12, ease: "easeOut" }}
       style={{ top, left, width: W }}
-      className="fixed z-50"
+      className="fixed z-50 flex gap-1 rounded-md border border-border/60 bg-card/95 p-1 shadow-lg backdrop-blur-md"
     >
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          onAsk();
-        }}
-        className="flex h-7 w-full items-center justify-between gap-1.5 rounded-md border border-border/60 bg-card/95 px-2 text-xs shadow-lg backdrop-blur-md hover:border-border hover:bg-accent"
-      >
-        <span>Ask Gear</span>
-        <KbdGroup>
-          <Kbd className="h-4 min-w-4 px-1 text-[10px]">{fmtShortcut(MOD_KEY, "L")}</Kbd>
-        </KbdGroup>
-      </button>
+      {PRESETS.map(({ label, prefix }) => (
+        <button
+          key={label}
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onAsk(prefix);
+          }}
+          className="flex flex-1 items-center justify-center rounded px-2 py-1 text-xs hover:bg-accent"
+        >
+          {label}
+        </button>
+      ))}
+      <div className="flex items-center border-l border-border/60 pl-1">
+        <button
+          type="button"
+          title="Ask Gear"
+          onClick={(e) => {
+            e.stopPropagation();
+            onAsk("");
+          }}
+          className="flex h-6 items-center gap-1 rounded px-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
+        >
+          <KbdGroup>
+            <Kbd className="h-4 min-w-4 px-1 text-[10px]">{fmtShortcut(MOD_KEY, "L")}</Kbd>
+          </KbdGroup>
+        </button>
+      </div>
     </motion.div>
   );
 }
