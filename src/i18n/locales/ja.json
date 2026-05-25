@@ -272,6 +272,19 @@
     "whatsNew": "新着情報",
     "version": "バージョン {{version}}",
     "changelog": "変更履歴",
-    "dismiss": "了解"
+    "dismiss": "了解",
+    "dialog": {
+      "titleReady": "アップデート準備完了",
+      "titleDownloading": "アップデートをダウンロード中…",
+      "titleAvailable": "Gear v{{version}} が利用可能です",
+      "descReady": "インストールを完了するにはGearを再起動してください。",
+      "descManual": "現在v{{currentVersion}}をお使いです。ディストリビューションを選んでコマンドを実行するか、GitHubからパッケージをダウンロードしてください。",
+      "descAvailable": "新しいバージョンをインストールする準備ができました。",
+      "later": "後で",
+      "installAndRestart": "インストールして再起動",
+      "downloadPackage": "パッケージをダウンロード",
+      "copy": "コピー",
+      "copied": "コピーしました"
+    }
   }
 }

@@ -10,14 +10,13 @@ import {
 import { Progress } from "@/components/ui/progress";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useUpdater } from "./useUpdater";
 
-type DistroKey = "arch" | "debian" | "fedora";
+type DistroKey = "debian" | "fedora";
 
 function distroCommand(key: DistroKey, version: string): string {
   switch (key) {
-    case "arch":
-      return "yay -S Gear-bin";
     case "debian":
       return `sudo apt install ./Gear_${version}_amd64.deb`;
     case "fedora":
@@ -26,7 +25,6 @@ function distroCommand(key: DistroKey, version: string): string {
 }
 
 const DISTROS: { key: DistroKey; label: string }[] = [
-  { key: "arch", label: "Arch" },
   { key: "debian", label: "Debian / Ubuntu" },
   { key: "fedora", label: "Fedora / RHEL" },
 ];
@@ -38,9 +36,10 @@ function formatBytes(n: number): string {
 }
 
 export function UpdaterDialog() {
+  const { t } = useTranslation();
   const { status, install, dismiss } = useUpdater();
   const [copied, setCopied] = useState(false);
-  const [distro, setDistro] = useState<DistroKey>("arch");
+  const [distro, setDistro] = useState<DistroKey>("debian");
   const manualVersion =
     status.kind === "manual-available" ? status.info.version : "";
   const activeCommand = distroCommand(distro, manualVersion);
@@ -88,23 +87,23 @@ export function UpdaterDialog() {
         <DialogHeader>
           <DialogTitle>
             {ready
-              ? "Update ready"
+              ? t("updater.dialog.titleReady")
               : downloading
-                ? "Downloading update…"
-                : manual
-                  ? `Gear v${manual.version} is available`
-                  : `Gear v${update?.version} is available`}
+                ? t("updater.dialog.titleDownloading")
+                : t("updater.dialog.titleAvailable", {
+                    version: manual ? manual.version : update?.version,
+                  })}
           </DialogTitle>
           <DialogDescription>
             {ready
-              ? "Restart Gear to finish installing."
+              ? t("updater.dialog.descReady")
               : downloading
                 ? progress !== null
                   ? `${progress.toFixed(0)}% — ${formatBytes(status.downloaded)}`
                   : formatBytes(status.downloaded)
                 : manual
-                  ? `You're on v${manual.currentVersion}. Pick your distro and run the command, or grab the package from GitHub.`
-                  : update?.body || "A new version is ready to install."}
+                  ? t("updater.dialog.descManual", { currentVersion: manual.currentVersion })
+                  : update?.body || t("updater.dialog.descAvailable")}
           </DialogDescription>
         </DialogHeader>
 
@@ -141,7 +140,7 @@ export function UpdaterDialog() {
                 className="h-7 px-2 text-[11px]"
                 onClick={() => void copyCommand()}
               >
-                {copied ? "Copied" : "Copy"}
+                {copied ? t("updater.dialog.copied") : t("updater.dialog.copy")}
               </Button>
             </div>
           </div>
@@ -151,23 +150,23 @@ export function UpdaterDialog() {
           {status.kind === "available" && (
             <>
               <Button variant="ghost" size="sm" onClick={dismiss}>
-                Later
+                {t("updater.dialog.later")}
               </Button>
               <Button size="sm" onClick={() => void install()}>
-                Install &amp; restart
+                {t("updater.dialog.installAndRestart")}
               </Button>
             </>
           )}
           {manual && (
             <>
               <Button variant="ghost" size="sm" onClick={dismiss}>
-                Later
+                {t("updater.dialog.later")}
               </Button>
               <Button
                 size="sm"
                 onClick={() => void openUrl(manual.releaseUrl)}
               >
-                Download package
+                {t("updater.dialog.downloadPackage")}
               </Button>
             </>
           )}

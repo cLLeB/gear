@@ -273,6 +273,19 @@
     "whatsNew": "What's New",
     "version": "Version {{version}}",
     "changelog": "Changelog",
-    "dismiss": "Got it"
+    "dismiss": "Got it",
+    "dialog": {
+      "titleReady": "Update ready",
+      "titleDownloading": "Downloading update…",
+      "titleAvailable": "Gear v{{version}} is available",
+      "descReady": "Restart Gear to finish installing.",
+      "descManual": "You're on v{{currentVersion}}. Pick your distro and run the command, or grab the package from GitHub.",
+      "descAvailable": "A new version is ready to install.",
+      "later": "Later",
+      "installAndRestart": "Install & restart",
+      "downloadPackage": "Download package",
+      "copy": "Copy",
+      "copied": "Copied"
+    }
   }
 }
