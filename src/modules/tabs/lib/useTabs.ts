@@ -682,9 +682,10 @@ export function useTabs(initial?: Partial<TerminalTab>) {
     );
   }, []);
 
-  /** Split the active leaf of `tabId` along `dir`. Returns the new leaf id. */
+  /** Split the active leaf of `tabId` along `dir`. Returns the new leaf id.
+   *  Pass `focusNew = false` to keep focus on the existing pane. */
   const splitActivePane = useCallback(
-    (tabId: number, dir: SplitDir): number | null => {
+    (tabId: number, dir: SplitDir, focusNew = true): number | null => {
       let newLeafId: number | null = null;
       setTabs((curr) =>
         curr.map((t) => {
@@ -701,7 +702,11 @@ export function useTabs(initial?: Partial<TerminalTab>) {
             dir,
             t.cwd,
           );
-          return { ...t, paneTree, activeLeafId: leafId };
+          return {
+            ...t,
+            paneTree,
+            activeLeafId: focusNew ? leafId : t.activeLeafId,
+          };
         }),
       );
       return newLeafId;
