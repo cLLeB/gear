@@ -98,6 +98,8 @@ export type Preferences = {
   lastWslDistro: string | null;
   zoomLevel: number;
   agentNotifications: boolean;
+  wordWrap: boolean;
+  sidebarPosition: "left" | "right";
   shortcuts: Record<ShortcutId, KeyBinding[]>;
 };
 
@@ -142,6 +144,8 @@ const KEY_TERMINAL_SCROLLBACK = "terminalScrollback";
 const KEY_LAST_WSL_DISTRO = "lastWslDistro";
 const KEY_ZOOM_LEVEL = "zoomLevel";
 const KEY_AGENT_NOTIFICATIONS = "agentNotifications";
+const KEY_WORD_WRAP = "wordWrap";
+const KEY_SIDEBAR_POSITION = "sidebarPosition";
 const KEY_SHORTCUTS = "shortcuts";
 
 export const TERMINAL_FONT_SIZE_DEFAULT = 14;
@@ -199,6 +203,8 @@ export const DEFAULT_PREFERENCES: Preferences = {
   lastWslDistro: null,
   zoomLevel: 1.0,
   agentNotifications: true,
+  wordWrap: false,
+  sidebarPosition: "left",
   shortcuts: {} as Record<ShortcutId, KeyBinding[]>,
 };
 
@@ -307,6 +313,10 @@ export async function loadPreferences(): Promise<Preferences> {
     agentNotifications:
       get<boolean>(KEY_AGENT_NOTIFICATIONS) ??
       DEFAULT_PREFERENCES.agentNotifications,
+    wordWrap: get<boolean>(KEY_WORD_WRAP) ?? DEFAULT_PREFERENCES.wordWrap,
+    sidebarPosition:
+      (get<string>(KEY_SIDEBAR_POSITION) as "left" | "right") ??
+      DEFAULT_PREFERENCES.sidebarPosition,
     shortcuts:
       get<Record<ShortcutId, KeyBinding[]>>(KEY_SHORTCUTS) ??
       DEFAULT_PREFERENCES.shortcuts,
@@ -438,6 +448,14 @@ export async function setRecentModelIds(value: string[]): Promise<void> {
 
 export async function setVimMode(value: boolean): Promise<void> {
   await writePref(KEY_VIM_MODE, value);
+}
+
+export async function setWordWrap(value: boolean): Promise<void> {
+  await writePref(KEY_WORD_WRAP, value);
+}
+
+export async function setSidebarPosition(value: "left" | "right"): Promise<void> {
+  await writePref(KEY_SIDEBAR_POSITION, value);
 }
 
 export async function setShowHidden(value: boolean): Promise<void> {
@@ -572,6 +590,8 @@ export async function onPreferencesChange(
     [KEY_LAST_WSL_DISTRO]: "lastWslDistro",
     [KEY_ZOOM_LEVEL]: "zoomLevel",
     [KEY_AGENT_NOTIFICATIONS]: "agentNotifications",
+    [KEY_WORD_WRAP]: "wordWrap",
+    [KEY_SIDEBAR_POSITION]: "sidebarPosition",
     [KEY_SHORTCUTS]: "shortcuts",
   };
   // Same-process writes still fire onChange immediately; cross-window writes

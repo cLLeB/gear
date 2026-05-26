@@ -18,6 +18,7 @@ import type { Tab } from "@/modules/tabs";
 import { TabBar } from "@/modules/tabs";
 import { NotificationBell } from "@/modules/agents";
 import {
+  Cancel01Icon,
   GridViewIcon,
   LayoutTwoColumnIcon,
   LayoutTwoRowIcon,
@@ -49,6 +50,10 @@ type Props = {
   onSplit: (dir: "row" | "col") => void;
   /** Active tab is a terminal and below the per-tab pane cap. */
   canSplit: boolean;
+  onClosePane: () => void;
+  /** Active terminal tab has more than one pane open. */
+  canClosePane: boolean;
+  onCloseOthers: (id: number) => void;
   onActivateAgent: (tabId: number, leafId: number) => void;
   onActivateLocalAgent: () => void;
   onOpenSettings: () => void;
@@ -73,6 +78,9 @@ export function Header({
   onToggleSidebar,
   onSplit,
   canSplit,
+  onClosePane,
+  canClosePane,
+  onCloseOthers,
   onActivateAgent,
   onActivateLocalAgent,
   onOpenSettings,
@@ -178,6 +186,18 @@ export function Header({
           </DropdownMenuContent>
         </DropdownMenu>
 
+        {canClosePane && (
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="shrink-0 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+            title={`Close pane (${tokensFor("pane.close")})`}
+            onClick={onClosePane}
+          >
+            <HugeiconsIcon icon={Cancel01Icon} size={16} strokeWidth={1.75} />
+          </Button>
+        )}
+
         {!IS_MAC && <NotificationBell
             onActivate={onActivateAgent}
             onActivateLocal={onActivateLocalAgent}
@@ -211,6 +231,7 @@ export function Header({
           onClose={onClose}
           onPin={onPin}
           onReorder={onReorder}
+          onCloseOthers={onCloseOthers}
           compact={compact}
         />
         <div data-tauri-drag-region className="h-full min-w-2 flex-1" />
