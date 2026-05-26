@@ -41,6 +41,10 @@ export type Slot = {
   webglAddon: WebglAddon | null;
   webglCanvases: HTMLCanvasElement[];
   currentLeafId: number | null;
+  /** Tracks the leafId just released; cleared after one microtask. Used to
+   *  detect immediate re-acquire (split/structural remount) so we can rewire
+   *  without clearing the terminal buffer. */
+  recentReleaseFor: number | null;
   oscDisposers: (() => void)[];
   observer: ResizeObserver | null;
   fitTimer: ReturnType<typeof setTimeout> | null;
@@ -123,6 +127,7 @@ function createSlot(): Slot {
     webglAddon: null,
     webglCanvases: [],
     currentLeafId: null,
+    recentReleaseFor: null,
     oscDisposers: [],
     observer: null,
     fitTimer: null,
@@ -235,6 +240,19 @@ export function acquireSlot(params: AcquireParams): Slot {
   if (existing) {
     rewireSlot(existing, params);
     return existing;
+  }
+
+  // If the slot was just released for this leafId (within the current
+  // microtask — typical during a pane-tree structural remount like a split),
+  // rewire it directly without clearing the terminal buffer.
+  const recent = slots.find(
+    (s) => s.recentReleaseFor === params.leafId && s.currentLeafId === null,
+  );
+  if (recent) {
+    recent.recentReleaseFor = null;
+    recent.currentLeafId = params.leafId;
+    rewireSlot(recent, params);
+    return recent;
   }
 
   const pick = pickSlotFor(params.leafId);
@@ -358,6 +376,9 @@ function rewireSlot(slot: Slot, p: AcquireParams): void {
   if (slot.host.parentNode !== p.container) {
     p.container.appendChild(slot.host);
   }
+  // Re-register OSC handlers — they were disposed in detachSlotFromLeaf.
+  for (const d of slot.oscDisposers) { try { d(); } catch {} }
+  slot.oscDisposers = p.registerOsc(slot.term);
   setupResizeObserver(slot, p);
   slot.fitAddon.fit();
   slot.lastW = p.container.clientWidth;
@@ -367,6 +388,7 @@ function rewireSlot(slot: Slot, p: AcquireParams): void {
   }
   slot.lastCols = slot.term.cols;
   slot.lastRows = slot.term.rows;
+  applyCursorBlinkOnSlot(slot, adapter?.isLeafFocused(p.leafId) ?? false);
   p.onSearchReady(slot.searchAddon);
 }
 
@@ -462,6 +484,14 @@ function detachSlotFromLeaf(slot: Slot): void {
     getRecycler().appendChild(slot.host);
   }
 
+  // Keep a short-lived reference so that an immediate re-acquire (e.g. the
+  // existing pane remounting after a split) can rewire without clearing the
+  // terminal buffer.  Cleared after one microtask — long enough for React's
+  // passive-effect flush but short enough to not interfere with eviction.
+  slot.recentReleaseFor = slot.currentLeafId;
+  Promise.resolve().then(() => {
+    if (slot.recentReleaseFor !== null) slot.recentReleaseFor = null;
+  });
   slot.currentLeafId = null;
   slot.lastUsedAt = performance.now();
 }
