@@ -1,5 +1,11 @@
 import { Button } from "@/components/ui/button";
 import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -37,6 +43,7 @@ type Props = {
   /** Pin (promote) a preview tab to persistent on double-click. */
   onPin: (id: number) => void;
   onReorder?: (fromId: number, toId: number) => void;
+  onCloseOthers?: (id: number) => void;
   compact?: boolean;
 };
 
@@ -52,6 +59,7 @@ export function TabBar({
   onClose,
   onPin,
   onReorder,
+  onCloseOthers,
   compact,
 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -95,83 +103,94 @@ export function TabBar({
               const isPreview = t.kind === "editor" && (t as EditorTab).preview;
               const isDragTarget = dragOverId === t.id && dragIdRef.current !== t.id;
               return (
-                <TabsTrigger
-                  key={t.id}
-                  value={String(t.id)}
-                  data-tab-id={t.id}
-                  draggable={!!onReorder}
-                  onDoubleClick={() => isPreview && onPin(t.id)}
-                  onDragStart={(e) => {
-                    dragIdRef.current = t.id;
-                    e.dataTransfer.effectAllowed = "move";
-                  }}
-                  onDragOver={(e) => {
-                    if (dragIdRef.current === null || dragIdRef.current === t.id) return;
-                    e.preventDefault();
-                    e.dataTransfer.dropEffect = "move";
-                    setDragOverId(t.id);
-                  }}
-                  onDragLeave={() => {
-                    setDragOverId((prev) => (prev === t.id ? null : prev));
-                  }}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    const fromId = dragIdRef.current;
-                    dragIdRef.current = null;
-                    setDragOverId(null);
-                    if (fromId !== null && fromId !== t.id) onReorder?.(fromId, t.id);
-                  }}
-                  onDragEnd={() => {
-                    dragIdRef.current = null;
-                    setDragOverId(null);
-                  }}
-                  className={cn(
-                    "group h-7 shrink-0 gap-1.5 rounded-md text-xs text-muted-foreground transition-colors data-[state=active]:bg-primary/[0.09] data-[state=active]:text-primary dark:data-[state=active]:bg-primary/[0.15] hover:text-foreground/80 justify-between",
-                    compact
-                      ? "px-1.5!"
-                      : tabs.length === 1
-                        ? "px-2!"
-                        : "ps-2! pe-1!",
-                    isDragTarget && "ring-1 ring-inset ring-primary/60",
-                  )}
-                >
-                  <span
-                    className={cn(
-                      "flex items-center gap-1.5 truncate",
-                      compact ? "max-w-48" : "max-w-80",
-                    )}
-                  >
-                    <TabIcon tab={t} />
-                    {/* Preview tabs use italic to signal the transient state,
-                        matching the visual convention from VSCode. */}
-                    <span className={cn("truncate", isPreview && "italic")}>
-                      {labelFor(t)}
-                    </span>
-                    {t.kind === "editor" && t.dirty ? (
-                      <span
-                        aria-label="Unsaved changes"
-                        className="size-1.5 shrink-0 rounded-full bg-foreground/70"
-                      />
-                    ) : null}
-                  </span>
-                  {tabs.length > 1 && (
-                    <span
-                      role="button"
-                      aria-label="Close tab"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onClose(t.id);
+                <ContextMenu key={t.id}>
+                  <ContextMenuTrigger asChild>
+                    <TabsTrigger
+                      value={String(t.id)}
+                      data-tab-id={t.id}
+                      draggable={!!onReorder}
+                      onDoubleClick={() => isPreview && onPin(t.id)}
+                      onDragStart={(e) => {
+                        dragIdRef.current = t.id;
+                        e.dataTransfer.effectAllowed = "move";
                       }}
-                      className="rounded p-0.5 opacity-0 transition-opacity hover:bg-accent hover:opacity-100 group-hover:opacity-60"
+                      onDragOver={(e) => {
+                        if (dragIdRef.current === null || dragIdRef.current === t.id) return;
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = "move";
+                        setDragOverId(t.id);
+                      }}
+                      onDragLeave={() => {
+                        setDragOverId((prev) => (prev === t.id ? null : prev));
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        const fromId = dragIdRef.current;
+                        dragIdRef.current = null;
+                        setDragOverId(null);
+                        if (fromId !== null && fromId !== t.id) onReorder?.(fromId, t.id);
+                      }}
+                      onDragEnd={() => {
+                        dragIdRef.current = null;
+                        setDragOverId(null);
+                      }}
+                      className={cn(
+                        "group h-7 shrink-0 gap-1.5 rounded-md text-xs text-muted-foreground transition-colors data-[state=active]:bg-primary/[0.09] data-[state=active]:text-primary dark:data-[state=active]:bg-primary/[0.15] hover:text-foreground/80 justify-between",
+                        compact
+                          ? "px-1.5!"
+                          : tabs.length === 1
+                            ? "px-2!"
+                            : "ps-2! pe-1!",
+                        isDragTarget && "ring-1 ring-inset ring-primary/60",
+                      )}
                     >
-                      <HugeiconsIcon
-                        icon={Cancel01Icon}
-                        size={11}
-                        strokeWidth={2}
-                      />
-                    </span>
-                  )}
-                </TabsTrigger>
+                      <span
+                        className={cn(
+                          "flex items-center gap-1.5 truncate",
+                          compact ? "max-w-48" : "max-w-80",
+                        )}
+                      >
+                        <TabIcon tab={t} />
+                        {/* Preview tabs use italic to signal the transient state,
+                            matching the visual convention from VSCode. */}
+                        <span className={cn("truncate", isPreview && "italic")}>
+                          {labelFor(t)}
+                        </span>
+                        {t.kind === "editor" && t.dirty ? (
+                          <span
+                            aria-label="Unsaved changes"
+                            className="size-1.5 shrink-0 rounded-full bg-foreground/70"
+                          />
+                        ) : null}
+                      </span>
+                      {tabs.length > 1 && (
+                        <span
+                          role="button"
+                          aria-label="Close tab"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onClose(t.id);
+                          }}
+                          className="rounded p-0.5 opacity-0 transition-opacity hover:bg-accent hover:opacity-100 group-hover:opacity-60"
+                        >
+                          <HugeiconsIcon
+                            icon={Cancel01Icon}
+                            size={11}
+                            strokeWidth={2}
+                          />
+                        </span>
+                      )}
+                    </TabsTrigger>
+                  </ContextMenuTrigger>
+                  <ContextMenuContent className="min-w-44">
+                    <ContextMenuItem onSelect={() => onClose(t.id)} disabled={tabs.length <= 1}>
+                      Close tab
+                    </ContextMenuItem>
+                    <ContextMenuItem onSelect={() => onCloseOthers?.(t.id)} disabled={tabs.length <= 1}>
+                      Close other tabs
+                    </ContextMenuItem>
+                  </ContextMenuContent>
+                </ContextMenu>
               );
             })}
           </TabsList>

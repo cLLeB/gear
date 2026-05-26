@@ -10,11 +10,13 @@ export type ShortcutId =
   | "tab.newPreview"
   | "tab.newEditor"
   | "tab.close"
+  | "tab.closeOthers"
   | "tab.next"
   | "tab.prev"
   | "tab.selectByIndex"
   | "pane.splitRight"
   | "pane.splitDown"
+  | "pane.close"
   | "pane.focusNext"
   | "pane.focusPrev"
   | "pane.source"
@@ -24,16 +26,25 @@ export type ShortcutId =
   | "view.zoomIn"
   | "view.zoomOut"
   | "view.zoomReset"
+  | "view.zenMode"
   | "ai.toggle"
   | "ai.askSelection"
   | "shortcuts.open"
   | "settings.open"
   | "sidebar.toggle"
+  | "terminal.clear"
   | "editor.undo"
   | "editor.redo"
   | "editor.findReplace"
   | "editor.fold"
-  | "editor.unfold";
+  | "editor.unfold"
+  | "editor.toggleComment"
+  | "editor.duplicateLine"
+  | "editor.moveLineUp"
+  | "editor.moveLineDown"
+  | "editor.deleteLine"
+  | "editor.gotoLine"
+  | "editor.toggleWordWrap";
 
 export type ShortcutGroup =
   | "General"
@@ -247,6 +258,81 @@ export const SHORTCUTS: Shortcut[] = [
     label: "Unfold code",
     group: "Editor",
     defaultBindings: [{ [MOD_PROP]: true, shift: true, key: "]" }],
+  },
+  // --- Panes ---
+  {
+    id: "pane.close",
+    label: "Close active pane",
+    group: "Panes",
+    defaultBindings: [{ [MOD_PROP]: true, shift: true, key: "w" }],
+  },
+  // --- Tabs ---
+  {
+    id: "tab.closeOthers",
+    label: "Close other tabs",
+    group: "Tabs",
+    defaultBindings: [],
+  },
+  // --- View ---
+  {
+    id: "view.zenMode",
+    label: "Toggle zen mode",
+    group: "View",
+    defaultBindings: IS_MAC
+      ? [{ meta: true, shift: true, key: "z" }]
+      : [{ ctrl: true, shift: true, key: "z" }],
+  },
+  // --- Terminal ---
+  {
+    id: "terminal.clear",
+    label: "Clear terminal",
+    group: "General",
+    defaultBindings: [{ ctrl: true, key: "k" }],
+  },
+  // --- Editor (display-only; CodeMirror handles these keys natively) ---
+  {
+    id: "editor.toggleComment",
+    label: "Toggle line comment",
+    group: "Editor",
+    defaultBindings: [{ [MOD_PROP]: true, key: "/" }],
+  },
+  {
+    id: "editor.duplicateLine",
+    label: "Duplicate line",
+    group: "Editor",
+    defaultBindings: [{ shift: true, alt: true, key: "ArrowDown" }],
+  },
+  {
+    id: "editor.moveLineUp",
+    label: "Move line up",
+    group: "Editor",
+    defaultBindings: [{ alt: true, key: "ArrowUp" }],
+    allowRepeat: true,
+  },
+  {
+    id: "editor.moveLineDown",
+    label: "Move line down",
+    group: "Editor",
+    defaultBindings: [{ alt: true, key: "ArrowDown" }],
+    allowRepeat: true,
+  },
+  {
+    id: "editor.deleteLine",
+    label: "Delete line",
+    group: "Editor",
+    defaultBindings: [{ [MOD_PROP]: true, shift: true, key: "k" }],
+  },
+  {
+    id: "editor.gotoLine",
+    label: "Go to line",
+    group: "Editor",
+    defaultBindings: [{ alt: true, key: "g" }],
+  },
+  {
+    id: "editor.toggleWordWrap",
+    label: "Toggle word wrap",
+    group: "Editor",
+    defaultBindings: [{ alt: true, key: "z" }],
   },
 ];
 

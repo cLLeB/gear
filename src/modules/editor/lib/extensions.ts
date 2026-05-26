@@ -3,7 +3,7 @@ import { codeFolding, indentUnit } from "@codemirror/language";
 import { lintGutter } from "@codemirror/lint";
 import { search } from "@codemirror/search";
 import { Compartment, EditorState, type Extension } from "@codemirror/state";
-import { EditorView } from "@codemirror/view";
+import { EditorView, rectangularSelection, crosshairCursor } from "@codemirror/view";
 
 // Compartments allow runtime reconfiguration without rebuilding state.
 export const languageCompartment = new Compartment();
@@ -22,6 +22,9 @@ export function buildSharedExtensions(): Extension[] {
     codeFolding(),
     search({ top: true }),
     lintGutter(),
+    wrapCompartment.of([]),
+    rectangularSelection(),
+    crosshairCursor(),
     EditorView.theme({
       "&, &.cm-editor, &.cm-editor.cm-focused": {
         backgroundColor: "transparent !important",

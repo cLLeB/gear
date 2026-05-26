@@ -60,7 +60,7 @@ import {
   getEffectiveDefaultModelId,
   useWorkspaceConfigStore,
 } from "@/modules/settings/workspaceConfig";
-import { onKeysChanged } from "@/modules/settings/store";
+import { onKeysChanged, setWordWrap, setSidebarPosition } from "@/modules/settings/store";
 import {
   ShortcutsDialog,
   useGlobalShortcuts,
@@ -188,6 +188,7 @@ export default function App() {
     focusNextPaneInTab,
     splitActivePane,
     closeActivePane,
+    closeOtherTabs,
     closePaneByLeaf,
     resetWorkspace,
   } = useTabs(
@@ -483,6 +484,8 @@ export default function App() {
   const initPrefs = usePreferencesStore((s) => s.init);
   const prefDefaultModel = usePreferencesStore((s) => s.defaultModelId);
   const prefsHydrated = usePreferencesStore((s) => s.hydrated);
+  const wordWrap = usePreferencesStore((s) => s.wordWrap);
+  const sidebarPosition = usePreferencesStore((s) => s.sidebarPosition);
   const wsConfig = useWorkspaceConfigStore((s) => s.config);
   useEffect(() => {
     void initPrefs();
@@ -684,7 +687,7 @@ export default function App() {
     [hasComposer, openPanel, focusInput],
   );
 
-  const askFromSelection = useCallback(() => {
+  const askFromSelection = useCallback((prefix = "") => {
     if (!hasComposer) {
       void openSettingsWindow("models");
       return;
@@ -696,7 +699,8 @@ export default function App() {
     }
     const source: "terminal" | "editor" =
       activeTab?.kind === "editor" ? "editor" : "terminal";
-    attachSelection(selection, source);
+    const text = prefix ? `${prefix}${selection}` : selection;
+    attachSelection(text, source);
   }, [
     hasComposer,
     captureActiveSelection,
@@ -745,8 +749,8 @@ export default function App() {
     };
   }, [captureActiveSelection]);
 
-  const onAskFromSelection = useCallback(() => {
-    askFromSelection();
+  const onAskFromSelection = useCallback((prefix = "") => {
+    askFromSelection(prefix);
     setAskPopup(null);
   }, [askFromSelection]);
 
@@ -982,12 +986,18 @@ export default function App() {
       "tab.selectByIndex": (e) => selectByIndex(parseInt(e.key, 10) - 1),
       "pane.splitRight": () => splitActivePaneInActiveTab("row"),
       "pane.splitDown": () => splitActivePaneInActiveTab("col"),
+      "pane.close": () => {
+        const t = tabsRef.current.find((x) => x.id === activeId);
+        if (t?.kind === "terminal" && leafIds(t.paneTree).length > 1) {
+          closeActivePane(activeId);
+        }
+      },
       "pane.focusNext": () => focusNextPaneInTab(activeId, 1),
       "pane.focusPrev": () => focusNextPaneInTab(activeId, -1),
       "pane.source": toggleSourceControl,
       "search.focus": () => searchInlineRef.current?.focus(),
       "ai.toggle": togglePanelAndFocus,
-      "ai.askSelection": askFromSelection,
+      "ai.askSelection": () => askFromSelection(),
       "shortcuts.open": () => setShortcutsOpen((v) => !v),
       "settings.open": () => void openSettingsWindow(),
       "sidebar.toggle": toggleSidebar,
@@ -998,6 +1008,7 @@ export default function App() {
       "editor.undo": () => editorRefs.current.get(activeId)?.undo(),
       "editor.redo": () => editorRefs.current.get(activeId)?.redo(),
       "editor.findReplace": () => editorRefs.current.get(activeId)?.openFindReplace(),
+      "editor.toggleWordWrap": () => void setWordWrap(!wordWrap),
     }),
     [
       activeId,
@@ -1017,6 +1028,7 @@ export default function App() {
       zoomIn,
       zoomOut,
       zoomReset,
+      wordWrap,
     ],
   );
 
@@ -1328,6 +1340,12 @@ export default function App() {
               activeTerminalTab !== null &&
               leafIds(activeTerminalTab.paneTree).length < MAX_PANES_PER_TAB
             }
+            onClosePane={() => closeActivePane(activeId)}
+            canClosePane={
+              activeTerminalTab !== null &&
+              leafIds(activeTerminalTab.paneTree).length > 1
+            }
+            onCloseOthers={closeOtherTabs}
             onActivateAgent={onActivateAgent}
             onActivateLocalAgent={onActivateLocalAgent}
             onOpenSettings={() => void openSettingsWindow()}
