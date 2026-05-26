@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { FolderGitTwoIcon, FolderTreeIcon } from "@hugeicons/core-free-icons";
+import { FolderGitTwoIcon, FolderTreeIcon, SidebarLeft01Icon, SidebarRight01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import type { SidebarViewId } from "./types";
 
@@ -16,9 +16,11 @@ type Props = {
   activeView: SidebarViewId;
   onSelectView: (view: SidebarViewId) => void;
   changedCount: number;
+  sidebarPosition: "left" | "right";
+  onToggleSidebarPosition: () => void;
 };
 
-export function SidebarRail({ activeView, onSelectView, changedCount }: Props) {
+export function SidebarRail({ activeView, onSelectView, changedCount, sidebarPosition, onToggleSidebarPosition }: Props) {
   const items: RailItem[] = [
     { id: "explorer", label: "Files", icon: FolderTreeIcon },
     {
@@ -34,6 +36,7 @@ export function SidebarRail({ activeView, onSelectView, changedCount }: Props) {
       style={{ height: SIDEBAR_RAIL_HEIGHT }}
       className="flex shrink-0 items-stretch gap-1 border-b border-border/60 bg-card/85 px-1.5 py-1 backdrop-blur"
     >
+      <div className="flex min-w-0 flex-1 items-stretch gap-1">
       {items.map((item) => {
         const isActive = item.id === activeView;
         const showBadge = !!item.badge && item.badge > 0;
@@ -67,6 +70,21 @@ export function SidebarRail({ activeView, onSelectView, changedCount }: Props) {
           </button>
         );
       })}
+      </div>
+      <button
+        type="button"
+        aria-label={sidebarPosition === "left" ? "Move sidebar to right" : "Move sidebar to left"}
+        title={sidebarPosition === "left" ? "Move sidebar to right" : "Move sidebar to left"}
+        onClick={onToggleSidebarPosition}
+        className="shrink-0 cursor-pointer rounded-md p-1 text-muted-foreground outline-none transition-colors duration-150 hover:bg-foreground/[0.045] hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/40"
+      >
+        <HugeiconsIcon
+          icon={sidebarPosition === "left" ? SidebarRight01Icon : SidebarLeft01Icon}
+          size={14}
+          strokeWidth={1.75}
+          className="shrink-0"
+        />
+      </button>
     </div>
   );
 }

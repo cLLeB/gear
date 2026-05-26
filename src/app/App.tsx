@@ -430,6 +430,7 @@ export default function App() {
   }, []);
 
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [zenMode, setZenMode] = useState(false);
   const [newEditorOpen, setNewEditorOpen] = useState(false);
   const miniOpen = useChatStore((s) => s.mini.open);
   const openMini = useChatStore((s) => s.openMini);
@@ -908,6 +909,10 @@ export default function App() {
     : badgeContextPath;
   const sourceControl = useSourceControl(sourceControlPath, true);
 
+  const toggleSidebarPosition = useCallback(() => {
+    void setSidebarPosition(sidebarPosition === "left" ? "right" : "left");
+  }, [sidebarPosition]);
+
   const toggleSourceControl = useCallback(() => {
     cycleSidebarView("source-control");
   }, [cycleSidebarView]);
@@ -1009,6 +1014,11 @@ export default function App() {
       "editor.redo": () => editorRefs.current.get(activeId)?.redo(),
       "editor.findReplace": () => editorRefs.current.get(activeId)?.openFindReplace(),
       "editor.toggleWordWrap": () => void setWordWrap(!wordWrap),
+      "terminal.clear": () => {
+        if (activeLeafId === null) return;
+        terminalRefs.current.get(activeLeafId)?.write("clear\r");
+      },
+      "view.zenMode": () => setZenMode((v) => !v),
     }),
     [
       activeId,
@@ -1321,8 +1331,8 @@ export default function App() {
     <ThemeProvider>
       <TooltipProvider>
         <div className="relative flex h-screen flex-col overflow-hidden bg-background text-foreground">
-          <div className="h-[2px] w-full shrink-0 bg-gradient-to-r from-primary/30 via-primary to-primary/30" />
-          <Header
+          {!zenMode && <div className="h-[2px] w-full shrink-0 bg-gradient-to-r from-primary/30 via-primary to-primary/30" />}
+          {!zenMode && <Header
             tabs={tabs}
             activeId={activeId}
             onSelect={setActiveId}
@@ -1351,63 +1361,68 @@ export default function App() {
             onOpenSettings={() => void openSettingsWindow()}
             searchTarget={searchTarget}
             searchRef={searchInlineRef}
-          />
+          />}
 
           <main className="zoom-content flex min-h-0 flex-1 flex-col">
             <ResizablePanelGroup
               orientation="horizontal"
               className="min-h-0 flex-1"
             >
-              <ResizablePanel
-                id="sidebar"
-                panelRef={sidebarRef}
-                defaultSize={`${sidebarWidthRef.current}px`}
-                minSize={`${SIDEBAR_MIN_WIDTH}px`}
-                maxSize={`${SIDEBAR_MAX_WIDTH}px`}
-                collapsible
-                collapsedSize={0}
-                onResize={(size) => {
-                  if (size.inPixels > 0) persistSidebarWidth(size.inPixels);
-                }}
-              >
-                <div className="flex h-full min-h-0 flex-col border-r border-border bg-card">
-                  <SidebarRail
-                    activeView={sidebarView}
-                    onSelectView={persistSidebarView}
-                    changedCount={sourceControl.changedCount}
-                  />
-                  <div className="min-h-0 flex-1">
-                    <ErrorBoundary compact label="Sidebar">
-                      {sidebarView === "explorer" ? (
-                        <FileExplorer
-                          ref={explorerRef}
-                          rootPath={explorerRoot}
-                          onOpenFile={handleOpenFile}
-                          onPathRenamed={handlePathRenamed}
-                          onPathDeleted={handlePathDeleted}
-                          onRevealInTerminal={cdInNewTab}
-                          onAttachToAgent={handleAttachFileToAgent}
-                          onOpenMarkdownPreview={openMarkdownPreview}
-                        />
-                      ) : (
-                        <SourceControlPanel
-                          open
-                          sourceControl={sourceControl}
-                          onOpenDiff={openGitDiffTab}
-                          onOpenGitGraph={openGitGraphFromContext}
-                        />
-                      )}
-                    </ErrorBoundary>
-                  </div>
-                </div>
-              </ResizablePanel>
-              <ResizableHandle withHandle />
+              {!zenMode && sidebarPosition === "left" && (
+                <>
+                  <ResizablePanel
+                    id="sidebar"
+                    panelRef={sidebarRef}
+                    defaultSize={`${sidebarWidthRef.current}px`}
+                    minSize={`${SIDEBAR_MIN_WIDTH}px`}
+                    maxSize={`${SIDEBAR_MAX_WIDTH}px`}
+                    collapsible
+                    collapsedSize={0}
+                    onResize={(size) => {
+                      if (size.inPixels > 0) persistSidebarWidth(size.inPixels);
+                    }}
+                  >
+                    <div className="flex h-full min-h-0 flex-col border-r border-border bg-card">
+                      <SidebarRail
+                        activeView={sidebarView}
+                        onSelectView={persistSidebarView}
+                        changedCount={sourceControl.changedCount}
+                        sidebarPosition={sidebarPosition}
+                        onToggleSidebarPosition={toggleSidebarPosition}
+                      />
+                      <div className="min-h-0 flex-1">
+                        <ErrorBoundary compact label="Sidebar">
+                          {sidebarView === "explorer" ? (
+                            <FileExplorer
+                              ref={explorerRef}
+                              rootPath={explorerRoot}
+                              onOpenFile={handleOpenFile}
+                              onPathRenamed={handlePathRenamed}
+                              onPathDeleted={handlePathDeleted}
+                              onRevealInTerminal={cdInNewTab}
+                              onAttachToAgent={handleAttachFileToAgent}
+                              onOpenMarkdownPreview={openMarkdownPreview}
+                            />
+                          ) : (
+                            <SourceControlPanel
+                              open
+                              sourceControl={sourceControl}
+                              onOpenDiff={openGitDiffTab}
+                              onOpenGitGraph={openGitGraphFromContext}
+                            />
+                          )}
+                        </ErrorBoundary>
+                      </div>
+                    </div>
+                  </ResizablePanel>
+                  <ResizableHandle withHandle />
+                </>
+              )}
               <ResizablePanel id="workspace" defaultSize="78%" minSize="30%">
                 <div className="flex h-full min-h-0 flex-col">
                   <div className="relative min-h-0 flex-1">
                     {workspaceSurface}
                   </div>
-
                   {keysLoaded ? (
                     <motion.div
                       data-ai-input-bar
@@ -1431,21 +1446,73 @@ export default function App() {
                   ) : null}
                 </div>
               </ResizablePanel>
+              {!zenMode && sidebarPosition === "right" && (
+                <>
+                  <ResizableHandle withHandle />
+                  <ResizablePanel
+                    id="sidebar"
+                    panelRef={sidebarRef}
+                    defaultSize={`${sidebarWidthRef.current}px`}
+                    minSize={`${SIDEBAR_MIN_WIDTH}px`}
+                    maxSize={`${SIDEBAR_MAX_WIDTH}px`}
+                    collapsible
+                    collapsedSize={0}
+                    onResize={(size) => {
+                      if (size.inPixels > 0) persistSidebarWidth(size.inPixels);
+                    }}
+                  >
+                    <div className="flex h-full min-h-0 flex-col border-l border-border bg-card">
+                      <SidebarRail
+                        activeView={sidebarView}
+                        onSelectView={persistSidebarView}
+                        changedCount={sourceControl.changedCount}
+                        sidebarPosition={sidebarPosition}
+                        onToggleSidebarPosition={toggleSidebarPosition}
+                      />
+                      <div className="min-h-0 flex-1">
+                        <ErrorBoundary compact label="Sidebar">
+                          {sidebarView === "explorer" ? (
+                            <FileExplorer
+                              ref={explorerRef}
+                              rootPath={explorerRoot}
+                              onOpenFile={handleOpenFile}
+                              onPathRenamed={handlePathRenamed}
+                              onPathDeleted={handlePathDeleted}
+                              onRevealInTerminal={cdInNewTab}
+                              onAttachToAgent={handleAttachFileToAgent}
+                              onOpenMarkdownPreview={openMarkdownPreview}
+                            />
+                          ) : (
+                            <SourceControlPanel
+                              open
+                              sourceControl={sourceControl}
+                              onOpenDiff={openGitDiffTab}
+                              onOpenGitGraph={openGitGraphFromContext}
+                            />
+                          )}
+                        </ErrorBoundary>
+                      </div>
+                    </div>
+                  </ResizablePanel>
+                </>
+              )}
             </ResizablePanelGroup>
           </main>
 
-          <StatusBar
-            cwd={activeCwd}
-            filePath={activeFilePath}
-            home={home}
-            onCd={sendCd}
-            onWorkspaceChange={switchWorkspace}
-            onOpenMini={openMini}
-            hasComposer={hasComposer}
-            privateActive={
-              activeTab?.kind === "terminal" && activeTab.private === true
-            }
-          />
+          {!zenMode && (
+            <StatusBar
+              cwd={activeCwd}
+              filePath={activeFilePath}
+              home={home}
+              onCd={sendCd}
+              onWorkspaceChange={switchWorkspace}
+              onOpenMini={openMini}
+              hasComposer={hasComposer}
+              privateActive={
+                activeTab?.kind === "terminal" && activeTab.private === true
+              }
+            />
+          )}
 
           <AgentNotificationsBridge
             tabs={tabs}
@@ -1474,6 +1541,18 @@ export default function App() {
                 onAsk={onAskFromSelection}
                 onDismiss={() => setAskPopup(null)}
               />
+            ) : null}
+            {zenMode ? (
+              <motion.div
+                key="zen-hint"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ delay: 1.5, duration: 0.4 }}
+                className="pointer-events-none fixed bottom-3 right-3 z-50 rounded-md border border-border/40 bg-background/60 px-2 py-1 text-[10px] text-muted-foreground/60 backdrop-blur"
+              >
+                Zen Mode — press Ctrl+Shift+Z to exit
+              </motion.div>
             ) : null}
           </AnimatePresence>
 
