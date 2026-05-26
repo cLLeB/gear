@@ -70,7 +70,7 @@ export const TerminalPane = forwardRef<TerminalPaneHandle, Props>(
     return (
       <div
         ref={containerRef}
-        className="zoom-exempt h-full w-full"
+        className="zoom-exempt min-h-0 flex-1 w-full"
         style={{
           visibility: visible ? "visible" : "hidden",
           pointerEvents: visible ? "auto" : "none",
