@@ -38,6 +38,7 @@ import {
   setOpenaiCompatibleBaseURL,
   setOpenaiCompatibleContextLimit,
   setOpenaiCompatibleModelId,
+  setOpenrouterModelId,
 } from "@/modules/settings/store";
 import {
   Add01Icon,
@@ -57,13 +58,15 @@ import { SectionHeader } from "../components/SectionHeader";
 
 type KeysMap = Record<ProviderId, string | null>;
 
-const isLocalProvider = (id: ProviderId): boolean => !providerNeedsKey(id);
+const isLocalProvider = (id: ProviderId): boolean =>
+  !providerNeedsKey(id) || id === "openrouter";
 
 type LocalMeta = {
   urlPlaceholder: string;
   modelPlaceholder: string;
   description: string;
   modelHint: React.ReactNode;
+  noBaseURL?: boolean;
 };
 
 const LOCAL_META: Partial<Record<ProviderId, LocalMeta>> = {
@@ -100,6 +103,18 @@ const LOCAL_META: Partial<Record<ProviderId, LocalMeta>> = {
     description: "Any OpenAI-compatible endpoint — vLLM, Z.AI, Fireworks, etc.",
     modelHint: null,
   },
+  openrouter: {
+    urlPlaceholder: "",
+    modelPlaceholder: "anthropic/claude-sonnet-4-6",
+    description:
+      "Access hundreds of models via OpenRouter's unified API.",
+    modelHint: (
+      <>
+        The model ID from the <code>Model ID</code> column at openrouter.ai/models.
+      </>
+    ),
+    noBaseURL: true,
+  },
 };
 
 export function ModelsSection() {
@@ -119,6 +134,7 @@ export function ModelsSection() {
   const compatContextLimit = usePreferencesStore(
     (s) => s.openaiCompatibleContextLimit,
   );
+  const openrouterModelId = usePreferencesStore((s) => s.openrouterModelId);
 
   useEffect(() => {
     void getAllKeys().then(setKeys);
@@ -168,6 +184,13 @@ export function ModelsSection() {
           contextLimit: compatContextLimit,
           setContextLimit: setOpenaiCompatibleContextLimit,
         };
+      case "openrouter":
+        return {
+          baseURL: "",
+          modelId: openrouterModelId,
+          setBaseURL: async () => {},
+          setModelId: setOpenrouterModelId,
+        };
       default:
         return null;
     }
@@ -179,6 +202,8 @@ export function ModelsSection() {
     if (!cfg) return false;
     if (id === "openai-compatible")
       return !!cfg.baseURL.trim() && !!cfg.modelId.trim();
+    if (id === "openrouter")
+      return !!cfg.modelId.trim() && !!keys?.[id];
     return !!cfg.modelId.trim();
   };
 
@@ -201,7 +226,7 @@ export function ModelsSection() {
         void cfg.setModelId("");
         if (id === "openai-compatible") void cfg.setBaseURL("");
       }
-      if (id === "openai-compatible") void onClearKey(id);
+      if (id === "openai-compatible" || id === "openrouter") void onClearKey(id);
     } else {
       void onClearKey(id);
     }
@@ -257,7 +282,7 @@ export function ModelsSection() {
                   configured={configuredIds.has(p.id)}
                   config={localConfig(p.id)!}
                   meta={LOCAL_META[p.id]!}
-                  compatKey={p.id === "openai-compatible" ? keys[p.id] : undefined}
+                  compatKey={(p.id === "openai-compatible" || p.id === "openrouter") ? keys[p.id] : undefined}
                   onSaveKey={(v) => onSaveKey(p.id, v)}
                   onClearKey={() => onClearKey(p.id)}
                   onRemove={() => removeProvider(p.id)}
@@ -371,15 +396,23 @@ function DefaultsBlock({
   return (
     <div className="flex flex-col gap-3">
       <Label>{t("settings.models.defaults")}</Label>
-      <div className="flex flex-col gap-2.5 rounded-lg border border-border/60 bg-card/60 px-3 py-2.5">
-        <FieldRow label={t("settings.models.chatModel")}>
-          <DefaultModelPicker
-            defaultModel={defaultModel}
-            configuredIds={configuredIds}
-          />
-        </FieldRow>
-        <AutocompleteRow keys={keys} configuredIds={configuredIds} t={t} />
-      </div>
+      {configuredIds.size === 0 ? (
+        <div className="rounded-lg border border-dashed border-border/60 bg-card/40 px-4 py-4 text-center">
+          <p className="text-[11px] text-muted-foreground/70">
+            Connect a provider below to configure chat model and autocomplete defaults.
+          </p>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-2.5 rounded-lg border border-border/60 bg-card/60 px-3 py-2.5">
+          <FieldRow label={t("settings.models.chatModel")}>
+            <DefaultModelPicker
+              defaultModel={defaultModel}
+              configuredIds={configuredIds}
+            />
+          </FieldRow>
+          <AutocompleteRow keys={keys} configuredIds={configuredIds} t={t} />
+        </div>
+      )}
     </div>
   );
 }
@@ -402,10 +435,10 @@ function DefaultModelPicker({
           disabled={!hasAny}
           className="h-8 flex-1 justify-between gap-2 px-2.5 text-[11.5px]"
         >
-          <span className="flex items-center gap-2 truncate">
-            <ProviderIcon provider={m.provider} size={13} />
-            <span className="truncate">{m.label}</span>
-            <span className="text-muted-foreground">· {m.hint}</span>
+          <span className="flex min-w-0 items-center gap-1.5">
+            <ProviderIcon provider={m.provider} size={13} className="shrink-0" />
+            <span className="min-w-0 truncate">{m.label}</span>
+            <span className="shrink-0 text-muted-foreground">· {m.hint}</span>
           </span>
           <HugeiconsIcon
             icon={ArrowDown01Icon}
@@ -526,10 +559,10 @@ function AutocompleteRow({
                 disabled={!enabled}
                 className="h-8 flex-1 justify-between gap-2 px-2.5 text-[11.5px]"
               >
-                <span className="flex items-center gap-2 truncate">
-                  <ProviderIcon provider={currentModel.provider} size={12} />
-                  <span className="truncate">{currentModel.label}</span>
-                  <span className="text-muted-foreground">
+                <span className="flex min-w-0 items-center gap-1.5">
+                  <ProviderIcon provider={currentModel.provider} size={12} className="shrink-0" />
+                  <span className="min-w-0 truncate">{currentModel.label}</span>
+                  <span className="shrink-0 text-muted-foreground">
                     · {currentModel.hint}
                   </span>
                 </span>
@@ -629,7 +662,8 @@ function LocalProviderCard({
   useEffect(() => setModelDraft(modelId), [modelId]);
   useEffect(() => setContextDraft(String(contextLimit ?? "")), [contextLimit]);
 
-  const supportsKey = provider.id === "openai-compatible";
+  const supportsKey =
+    provider.id === "openai-compatible" || provider.id === "openrouter";
 
   const test = async () => {
     setTestStatus("testing");
@@ -679,30 +713,32 @@ function LocalProviderCard({
       </span>
 
       <div className="mt-0.5 flex flex-col gap-2.5">
-        <FieldRow label={t("settings.models.baseUrl")}>
-          <div className="flex flex-1 gap-1.5">
-            <Input
-              value={urlDraft}
-              onChange={(e) => setUrlDraft(e.target.value)}
-              onBlur={() => {
-                const v = urlDraft.trim();
-                if (v !== baseURL) void setBaseURL(v);
-              }}
-              placeholder={meta.urlPlaceholder}
-              spellCheck={false}
-              className="h-8 flex-1 font-mono text-[11.5px]"
-            />
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => void test()}
-              disabled={!urlDraft.trim()}
-              className="h-8 px-3 text-[11px]"
-            >
-              {t("common.test")}
-            </Button>
-          </div>
-        </FieldRow>
+        {!meta.noBaseURL ? (
+          <FieldRow label={t("settings.models.baseUrl")}>
+            <div className="flex flex-1 gap-1.5">
+              <Input
+                value={urlDraft}
+                onChange={(e) => setUrlDraft(e.target.value)}
+                onBlur={() => {
+                  const v = urlDraft.trim();
+                  if (v !== baseURL) void setBaseURL(v);
+                }}
+                placeholder={meta.urlPlaceholder}
+                spellCheck={false}
+                className="h-8 flex-1 font-mono text-[11.5px]"
+              />
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => void test()}
+                disabled={!urlDraft.trim()}
+                className="h-8 px-3 text-[11px]"
+              >
+                {t("common.test")}
+              </Button>
+            </div>
+          </FieldRow>
+        ) : null}
 
         <FieldRow label={t("settings.models.modelId")}>
           <Input
@@ -783,7 +819,7 @@ function LocalProviderCard({
           </FieldRow>
         ) : null}
 
-        <StatusLine status={testStatus} />
+        {!meta.noBaseURL ? <StatusLine status={testStatus} /> : null}
 
         {!modelId.trim() && meta.modelHint ? (
           <p className="text-[10.5px] leading-relaxed text-muted-foreground">

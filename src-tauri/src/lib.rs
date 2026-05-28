@@ -3,7 +3,7 @@ mod modules;
 use modules::{agent, fs, git, net, pty, secrets, shell, workspace};
 use fs::to_canon;
 use std::sync::Mutex;
-use tauri::{Emitter, Manager, State, WebviewUrl, WebviewWindowBuilder};
+use tauri::State;
 use tauri_plugin_window_state::StateFlags;
 
 /// Drained on first read so HMR / re-mounts can't replay the launch dir.
@@ -30,6 +30,11 @@ fn parse_launch_dir() -> Option<String> {
 }
 
 #[tauri::command]
+fn is_store_build() -> bool {
+    cfg!(feature = "store-build")
+}
+
+#[tauri::command]
 fn toggle_devtools(window: tauri::WebviewWindow, open: bool) {
     if open {
         window.open_devtools();
@@ -38,69 +43,22 @@ fn toggle_devtools(window: tauri::WebviewWindow, open: bool) {
     }
 }
 
-#[tauri::command]
-async fn open_settings_window(app: tauri::AppHandle, tab: Option<String>) -> Result<(), String> {
-    let url_path = match tab.as_deref() {
-        Some(t) if !t.is_empty() => format!("settings.html?tab={}", t),
-        _ => "settings.html".to_string(),
-    };
-
-    if let Some(window) = app.get_webview_window("settings") {
-        let _ = window.show();
-        let _ = window.set_focus();
-        if let Some(t) = tab.as_deref().filter(|s| !s.is_empty()) {
-            // emit() serializes via JSON — no string-escape footgun, unlike
-            // eval() with format!(). Frontend listens via Tauri event API.
-            let _ = window.emit("Gear:settings-tab", t);
-        }
-        return Ok(());
-    }
-
-    let mut builder = WebviewWindowBuilder::new(&app, "settings", WebviewUrl::App(url_path.into()))
-        .title("Settings")
-        .inner_size(900.0, 700.0)
-        .min_inner_size(900.0, 700.0)
-        .resizable(true)
-        .visible(false)
-        // Parent-child relationship keeps settings above the main window.
-        // always_on_top is intentionally false so settings doesn't overlay
-        // other apps when Gear loses focus.
-        .always_on_top(false);
-
-    // Tie lifecycle to the main window so settings minimizes/closes with it.
-    if let Some(main) = app.get_webview_window("main") {
-        builder = builder.parent(&main).map_err(|e| e.to_string())?;
-    }
-
-    #[cfg(target_os = "macos")]
-    let builder = builder
-        .title_bar_style(tauri::TitleBarStyle::Overlay)
-        .hidden_title(true);
-
-    // On Linux/Windows we render our own titlebar, so drop native chrome
-    // and make the window transparent.
-    #[cfg(any(target_os = "linux", target_os = "windows"))]
-    let builder = builder.decorations(false).transparent(true);
-
-    let window = builder.build().map_err(|e| e.to_string())?;
-
-    // Some Linux compositors (GNOME/Mutter with CSD-by-default) ignore the
-    // builder-time decorations flag — re-assert it after realize.
-    #[cfg(target_os = "linux")]
-    {
-        let _ = window.set_decorations(false);
-    }
-    let _ = window;
-    Ok(())
-}
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     workspace::init_launch_cwd(parse_launch_dir().as_deref());
 
-    tauri::Builder::default()
-        .plugin(tauri_plugin_process::init())
-        .plugin(tauri_plugin_updater::Builder::new().build())
+    // For Microsoft Store builds this binary is compiled with --no-default-features
+    // which drops the `updater` feature. The Store manages updates itself.
+    #[allow(unused_mut)]
+    let mut builder = tauri::Builder::default()
+        .plugin(tauri_plugin_process::init());
+
+    #[cfg(not(feature = "store-build"))]
+    {
+        builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
+    }
+
+    builder
         // Skip restoring VISIBLE — frontend calls window.show() after first
         // paint so the user never sees a transparent window-shadow flash on
         // Windows/Linux.
@@ -122,6 +80,7 @@ pub fn run() {
         .manage(pty::PtyState::default())
         .manage(shell::ShellState::default())
         .manage(secrets::SecretsState::default())
+        .manage(fs::watch::FsWatchState::default())
         .manage({
             let registry = workspace::WorkspaceRegistry::default();
             workspace::bootstrap_registry(&registry);
@@ -148,6 +107,8 @@ pub fn run() {
             fs::mutate::fs_create_dir,
             fs::mutate::fs_rename,
             fs::mutate::fs_delete,
+            fs::watch::fs_watch_add,
+            fs::watch::fs_watch_remove,
             fs::search::fs_search,
             fs::search::fs_list_files,
             fs::grep::fs_grep,
@@ -190,8 +151,8 @@ pub fn run() {
             workspace::workspace_authorize,
             workspace::workspace_current_dir,
             get_launch_dir,
-            open_settings_window,
             toggle_devtools,
+            is_store_build,
             secrets::secrets_get,
             secrets::secrets_set,
             secrets::secrets_delete,

@@ -101,6 +101,13 @@ export type GitCommitFileDiffTab = {
   originalPath: string | null;
 };
 
+export type SettingsViewTab = {
+  id: number;
+  kind: "settings";
+  title: string;
+  section?: string;
+};
+
 export type Tab =
   | TerminalTab
   | EditorTab
@@ -109,7 +116,8 @@ export type Tab =
   | AiDiffTab
   | GitDiffTab
   | GitHistoryTab
-  | GitCommitFileDiffTab;
+  | GitCommitFileDiffTab
+  | SettingsViewTab;
 
 export type TabPatch = Partial<{
   title: string;
@@ -117,6 +125,7 @@ export type TabPatch = Partial<{
   path: string;
   dirty: boolean;
   url: string;
+  section: string;
 }>;
 
 function basename(path: string): string {
@@ -173,6 +182,27 @@ export function useTabs(initial?: Partial<TerminalTab>) {
     setActiveId(tabId);
     return tabId;
   }, []);
+
+  const newAgentTab = useCallback(
+    (cwd: string | undefined, title: string) => {
+      const tabId = nextIdRef.current++;
+      const leafId = nextIdRef.current++;
+      setTabs((t) => [
+        ...t,
+        {
+          id: tabId,
+          kind: "terminal",
+          title,
+          cwd,
+          paneTree: { kind: "leaf", id: leafId, cwd },
+          activeLeafId: leafId,
+        },
+      ]);
+      setActiveId(tabId);
+      return { tabId, leafId };
+    },
+    [],
+  );
 
   const newPrivateTab = useCallback((cwd?: string) => {
     const tabId = nextIdRef.current++;
@@ -599,6 +629,13 @@ export function useTabs(initial?: Partial<TerminalTab>) {
             ...(patch.title !== undefined && { title: patch.title }),
           };
         }
+        if (x.kind === "settings") {
+          return {
+            ...x,
+            ...(patch.title !== undefined && { title: patch.title }),
+            ...(patch.section !== undefined && { section: patch.section }),
+          };
+        }
         // editor tab: auto-promote from preview the moment the file becomes dirty.
         const autoPin =
           patch.dirty === true && (x as EditorTab).preview
@@ -795,6 +832,27 @@ export function useTabs(initial?: Partial<TerminalTab>) {
     });
   }, []);
 
+  const openSettingsTab = useCallback((section?: string) => {
+    let targetId: number | null = null;
+    setTabs((curr) => {
+      const existing = curr.find((t) => t.kind === "settings");
+      if (existing) {
+        targetId = existing.id;
+        return section
+          ? curr.map((t) => t.id === existing.id ? { ...t, section } : t)
+          : curr;
+      }
+      const id = nextIdRef.current++;
+      targetId = id;
+      return [
+        ...curr,
+        { id, kind: "settings", title: "Settings", section } satisfies SettingsViewTab,
+      ];
+    });
+    if (targetId !== null) setActiveId(targetId);
+    return targetId as number | null;
+  }, []);
+
   const resetWorkspace = useCallback((cwd?: string) => {
     const tabId = nextIdRef.current++;
     const leafId = nextIdRef.current++;
@@ -823,6 +881,7 @@ export function useTabs(initial?: Partial<TerminalTab>) {
     activeId,
     setActiveId,
     newTab,
+    newAgentTab,
     newPrivateTab,
     openFileTab,
     pinTab,
@@ -847,5 +906,6 @@ export function useTabs(initial?: Partial<TerminalTab>) {
     closeActivePane,
     closePaneByLeaf,
     resetWorkspace,
+    openSettingsTab,
   };
 }

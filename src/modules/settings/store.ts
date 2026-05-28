@@ -88,6 +88,7 @@ export type Preferences = {
   openaiCompatibleContextLimit: number;
   favoriteModelIds: string[];
   recentModelIds: string[];
+  openrouterModelId: string;
   vimMode: boolean;
   showHidden: boolean;
   terminalWebglEnabled: boolean;
@@ -131,6 +132,7 @@ const KEY_OLLAMA_MODEL_ID = "ollamaModelId";
 const KEY_OPENAI_COMPAT_BASE_URL = "openaiCompatibleBaseURL";
 const KEY_OPENAI_COMPAT_MODEL_ID = "openaiCompatibleModelId";
 const KEY_OPENAI_COMPAT_CONTEXT_LIMIT = "openaiCompatibleContextLimit";
+const KEY_OPENROUTER_MODEL_ID = "openrouterModelId";
 const KEY_FAVORITE_MODELS = "favoriteModelIds";
 const KEY_RECENT_MODELS = "recentModelIds";
 const KEY_VIM_MODE = "vimMode";
@@ -191,6 +193,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   openaiCompatibleBaseURL: OPENAI_COMPATIBLE_DEFAULT_BASE_URL,
   openaiCompatibleModelId: "",
   openaiCompatibleContextLimit: 128_000,
+  openrouterModelId: "",
   favoriteModelIds: [],
   recentModelIds: [],
   vimMode: false,
@@ -280,6 +283,9 @@ export async function loadPreferences(): Promise<Preferences> {
     openaiCompatibleContextLimit:
       get<number>(KEY_OPENAI_COMPAT_CONTEXT_LIMIT) ??
       DEFAULT_PREFERENCES.openaiCompatibleContextLimit,
+    openrouterModelId:
+      get<string>(KEY_OPENROUTER_MODEL_ID) ??
+      DEFAULT_PREFERENCES.openrouterModelId,
     favoriteModelIds:
       get<string[]>(KEY_FAVORITE_MODELS) ??
       DEFAULT_PREFERENCES.favoriteModelIds,
@@ -427,6 +433,10 @@ export async function setOpenaiCompatibleBaseURL(value: string): Promise<void> {
 
 export async function setOpenaiCompatibleModelId(value: string): Promise<void> {
   await writePref(KEY_OPENAI_COMPAT_MODEL_ID, value);
+}
+
+export async function setOpenrouterModelId(value: string): Promise<void> {
+  await writePref(KEY_OPENROUTER_MODEL_ID, value.trim());
 }
 
 export async function setOpenaiCompatibleContextLimit(
@@ -578,6 +588,7 @@ export async function onPreferencesChange(
     [KEY_OPENAI_COMPAT_BASE_URL]: "openaiCompatibleBaseURL",
     [KEY_OPENAI_COMPAT_MODEL_ID]: "openaiCompatibleModelId",
     [KEY_OPENAI_COMPAT_CONTEXT_LIMIT]: "openaiCompatibleContextLimit",
+    [KEY_OPENROUTER_MODEL_ID]: "openrouterModelId",
     [KEY_FAVORITE_MODELS]: "favoriteModelIds",
     [KEY_RECENT_MODELS]: "recentModelIds",
     [KEY_VIM_MODE]: "vimMode",

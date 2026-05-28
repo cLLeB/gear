@@ -89,7 +89,11 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
       let cancelled = false;
       const refresh = async () => {
         const provider = usePreferencesStore.getState().autocompleteProvider;
-        if (provider === "lmstudio" || provider === "mlx" || provider === "ollama") {
+        if (
+          provider === "lmstudio" ||
+          provider === "mlx" ||
+          provider === "ollama"
+        ) {
           apiKeyRef.current = null;
           return;
         }
@@ -158,7 +162,9 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
                     ? s.ollamaModelId
                     : p === "openai-compatible"
                       ? s.openaiCompatibleModelId
-                      : s.autocompleteModelId;
+                      : p === "openrouter"
+                        ? s.openrouterModelId
+                        : s.autocompleteModelId;
             return {
               enabled: s.autocompleteEnabled,
               provider: p,

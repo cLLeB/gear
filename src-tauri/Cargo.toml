@@ -1,6 +1,6 @@
 [package]
 name = "gear"
-version = "0.1.1" # x-release-please-version
+version = "0.1.2" # x-release-please-version
 description = "Gear — a fast, AI-powered developer terminal for macOS, Linux, and Windows"
 authors = ["cLLeB"]
 edition = "2021"
@@ -44,6 +44,7 @@ bytes = "1"
 futures-util = "0.3"
 tokio = { version = "1", default-features = false, features = ["rt"] }
 tempfile = "3"
+notify = "8.2.0"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
@@ -63,6 +64,13 @@ windows-sys = { version = "0.59", features = [
 	"Win32_System_JobObjects",
 	"Win32_System_Threading",
 ] }
+
+[features]
+# Pass --features store-build when building for the Microsoft Store.
+# The dep stays compiled so Tauri's build system sees its permissions (required
+# for capabilities validation). The plugin is just not *registered* at runtime,
+# so it never checks for or installs updates — the Store manages that itself.
+store-build = []
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-autostart = "2"
