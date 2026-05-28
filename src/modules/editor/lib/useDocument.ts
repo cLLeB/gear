@@ -81,9 +81,15 @@ export function useDocument({ path, onDirtyChange }: Options) {
    *  callers shouldn't clobber unsaved user edits. Returns whether reload ran. */
   const reload = useCallback((): boolean => {
     if (dirtyRef.current) return false;
-    setReloadCounter((n) => n + 1);
+    invoke<ReadResult>("fs_read_file", { path, workspace: currentWorkspaceEnv() })
+      .then((res) => {
+        if (res.kind === "text" && res.content !== savedRef.current) {
+          setReloadCounter((n) => n + 1);
+        }
+      })
+      .catch(() => {});
     return true;
-  }, []);
+  }, [path]);
 
   const onChange = useCallback((next: string) => {
     bufferRef.current = next;

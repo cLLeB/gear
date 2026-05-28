@@ -26,6 +26,8 @@ type Props = {
   onOpenMini: () => void;
   /** Only rendered when the AI panel is open and a key is loaded. */
   hasComposer: boolean;
+  /** Called when no provider is connected and the user clicks the AI button. */
+  onConnectProvider: () => void;
   privateActive: boolean;
 };
 
@@ -37,6 +39,7 @@ export function StatusBar({
   onWorkspaceChange,
   onOpenMini,
   hasComposer,
+  onConnectProvider,
   privateActive,
 }: Props) {
   const panelOpen = useChatStore((s) => s.panelOpen);
@@ -99,7 +102,7 @@ export function StatusBar({
         {panelOpen && hasComposer ? (
           <AiStatusBarControls />
         ) : (
-          <AiOpenButton onOpen={openPanel} />
+          <AiOpenButton onOpen={hasComposer ? openPanel : onConnectProvider} />
         )}
       </div>
     </footer>

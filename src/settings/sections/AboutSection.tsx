@@ -2,9 +2,9 @@ import { Button } from "@/components/ui/button";
 import { useUpdater } from "@/modules/updater";
 import { GithubIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { getName, getVersion } from "@tauri-apps/api/app";
+import { getName } from "@tauri-apps/api/app";
+import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { arch, platform } from "@tauri-apps/plugin-os";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { SectionHeader } from "../components/SectionHeader";
@@ -12,20 +12,10 @@ import { SectionHeader } from "../components/SectionHeader";
 const REPO_URL = "https://github.com/cLLeB/gear";
 const WEBSITE_URL = "https://gear.kyere.me";
 
-const PLATFORM_LABEL: Record<string, string> = {
-  macos: "macOS",
-  windows: "Windows",
-  linux: "Linux",
-  ios: "iOS",
-  android: "Android",
-  freebsd: "FreeBSD",
-};
-
 export function AboutSection() {
   const { t } = useTranslation();
-  const [version, setVersion] = useState("");
   const [name, setName] = useState("Gear");
-  const [build, setBuild] = useState("");
+  const [isStore, setIsStore] = useState(false);
   const { status, check, install } = useUpdater({ autoCheck: false });
   const checking = status.kind === "checking";
   const downloading = status.kind === "downloading";
@@ -54,16 +44,8 @@ export function AboutSection() {
   };
 
   useEffect(() => {
-    void getVersion().then(setVersion);
     void getName().then(setName);
-    try {
-      const p = platform();
-      const a = arch();
-      const platformLabel = PLATFORM_LABEL[p] ?? p;
-      setBuild(`${platformLabel} · ${a}`);
-    } catch {
-      setBuild("");
-    }
+    void invoke<boolean>("is_store_build").then(setIsStore);
   }, []);
 
   return (
@@ -79,21 +61,10 @@ export function AboutSection() {
           <span className="text-[11px] text-muted-foreground">
             {t("settings.about.tagline")}
           </span>
-          <span className="mt-1 font-mono text-[11px] text-muted-foreground">
-            v{version || "—"}
-          </span>
         </div>
       </div>
 
       <dl className="grid grid-cols-[110px_1fr] gap-y-2.5 text-[12px]">
-        <dt className="text-muted-foreground">{t("settings.about.build")}</dt>
-        <dd className="font-mono text-[11.5px]">
-          {build ? `${build} · v${version}` : `v${version}`}
-        </dd>
-
-        <dt className="text-muted-foreground">{t("settings.about.bundleId")}</dt>
-        <dd className="font-mono text-[11.5px]">app.clleb.gear</dd>
-
         <dt className="text-muted-foreground">{t("settings.about.sourceCode")}</dt>
         <dd>
           <button
@@ -120,13 +91,15 @@ export function AboutSection() {
 
       <div className="flex flex-col gap-1.5">
         <div className="flex gap-2">
-          <Button
-            size="sm"
-            onClick={onUpdateClick}
-            disabled={checking || downloading || ready}
-          >
-            {checkLabel}
-          </Button>
+          {!isStore && (
+            <Button
+              size="sm"
+              onClick={onUpdateClick}
+              disabled={checking || downloading || ready}
+            >
+              {checkLabel}
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"
@@ -144,12 +117,12 @@ export function AboutSection() {
             {t("settings.about.reportIssue")}
           </Button>
         </div>
-        {status.kind === "error" && (
+        {!isStore && status.kind === "error" && (
           <p className="font-mono text-[10.5px] break-all text-destructive/80">
             {status.message}
           </p>
         )}
-        {downloading && status.contentLength ? (
+        {!isStore && downloading && status.contentLength ? (
           <p className="text-[11px] text-muted-foreground">
             {Math.min(
               100,

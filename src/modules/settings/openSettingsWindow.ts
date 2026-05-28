@@ -1,5 +1,3 @@
-import { invoke } from "@tauri-apps/api/core";
-
 export type SettingsTab =
   | "general"
   | "shortcuts"
@@ -8,6 +6,9 @@ export type SettingsTab =
   | "themes"
   | "about";
 
-export async function openSettingsWindow(tab?: SettingsTab): Promise<void> {
-  await invoke("open_settings_window", { tab: tab ?? null });
+/** Open the in-app settings tab, optionally navigating to a section. */
+export function openSettingsWindow(tab?: SettingsTab): void {
+  window.dispatchEvent(
+    new CustomEvent("Gear:open-settings", { detail: tab ?? null }),
+  );
 }

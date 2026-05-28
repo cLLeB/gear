@@ -2,7 +2,7 @@
   "name": "Gear",
   "description": "A fast, AI-powered developer terminal",
   "private": true,
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "tauri": "node ./scripts/tauri.mjs",
     "tauri:build": "node ./scripts/tauri.mjs build",
-    "tauri:build:store": "node ./scripts/tauri.mjs build --bundles msi --config src-tauri/tauri.store.conf.json",
+    "tauri:build:store": "node ./scripts/tauri.mjs build --bundles msi --config src-tauri/tauri.store.conf.json -- --features store-build",
     "test": "vitest run",
     "test:watch": "vitest"
   },

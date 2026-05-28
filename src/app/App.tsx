@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import { AgentNotificationsBridge } from "@/modules/agents";
+import { firePendingReviewForSession } from "@/modules/agents/lib/review";
 import { Toaster } from "@/components/ui/sonner";
 import {
   AgentRunBridge,
@@ -44,9 +45,11 @@ import {
   GitHistoryStack,
   type GitHistorySearchHandle,
 } from "@/modules/git-history";
+import { quoteShellArg } from "@/lib/shellQuote";
 import { getLaunchDir } from "@/lib/launchDir";
 import { useZoom } from "@/lib/useZoom";
 import { FileExplorer, type FileExplorerHandle } from "@/modules/explorer";
+import { listenFsChanged, watchAdd, watchRemove } from "@/modules/explorer/lib/watch";
 import {
   Header,
   type SearchInlineHandle,
@@ -54,7 +57,8 @@ import {
 } from "@/modules/header";
 import { MarkdownStack } from "@/modules/markdown";
 import { PreviewStack, type PreviewPaneHandle } from "@/modules/preview";
-import { openSettingsWindow } from "@/modules/settings/openSettingsWindow";
+import { SettingsPane } from "@/settings/SettingsPane";
+import type { SettingsViewTab } from "@/modules/tabs";
 import { usePreferencesStore } from "@/modules/settings/preferences";
 import {
   getEffectiveDefaultModelId,
@@ -86,6 +90,8 @@ import {
   leafIds,
   respawnSession,
   TerminalStack,
+  whenSessionReady,
+  writeToSession,
   type TerminalPaneHandle,
 } from "@/modules/terminal";
 import {
@@ -168,6 +174,7 @@ export default function App() {
     activeId,
     setActiveId,
     newTab,
+    newAgentTab,
     newPrivateTab,
     openFileTab,
     pinTab,
@@ -191,6 +198,7 @@ export default function App() {
     closeOtherTabs,
     closePaneByLeaf,
     resetWorkspace,
+    openSettingsTab,
   } = useTabs(
     getLaunchDir()
       ? { cwd: getLaunchDir() }
@@ -429,6 +437,16 @@ export default function App() {
       .finally(() => setLaunchCwdResolved(true));
   }, []);
 
+  // Listen for openSettingsWindow() calls from any module.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const section = (e as CustomEvent<string | null>).detail ?? undefined;
+      openSettingsTab(section);
+    };
+    window.addEventListener("Gear:open-settings", handler);
+    return () => window.removeEventListener("Gear:open-settings", handler);
+  }, [openSettingsTab]);
+
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [zenMode, setZenMode] = useState(false);
   const [newEditorOpen, setNewEditorOpen] = useState(false);
@@ -454,12 +472,14 @@ export default function App() {
   const openaiCompatibleBaseURL = usePreferencesStore(
     (s) => s.openaiCompatibleBaseURL,
   );
+  const openrouterModelId = usePreferencesStore((s) => s.openrouterModelId);
   const hasLocalModel =
     (lmstudioBaseURL.trim().length > 0 && lmstudioModelId.trim().length > 0) ||
     (mlxBaseURL.trim().length > 0 && mlxModelId.trim().length > 0) ||
     (ollamaBaseURL.trim().length > 0 && ollamaModelId.trim().length > 0) ||
     (openaiCompatibleBaseURL.trim().length > 0 &&
-      openaiCompatibleModelId.trim().length > 0);
+      openaiCompatibleModelId.trim().length > 0) ||
+    openrouterModelId.trim().length > 0;
   const hasComposer = hasAnyKey(apiKeys) || hasLocalModel;
 
   const [keysLoaded, setKeysLoaded] = useState(false);
@@ -497,11 +517,16 @@ export default function App() {
   }, [prefsHydrated, prefDefaultModel, wsConfig, setSelectedModelId]);
 
   const hydrateSessions = useChatStore((s) => s.hydrateSessions);
+  const activeSessionId = useChatStore((s) => s.activeSessionId);
   useEffect(() => {
     void hydrateSessions();
     void useAgentsStore.getState().hydrate();
     void useSnippetsStore.getState().hydrate();
   }, [hydrateSessions]);
+
+  useEffect(() => {
+    if (activeSessionId) firePendingReviewForSession(activeSessionId);
+  }, [activeSessionId]);
 
   const activeTab = tabs.find((t) => t.id === activeId);
   const isTerminalTab = activeTab?.kind === "terminal";
@@ -512,6 +537,8 @@ export default function App() {
   const isGitDiffTab =
     activeTab?.kind === "git-diff" || activeTab?.kind === "git-commit-file";
   const isGitHistoryTab = activeTab?.kind === "git-history";
+  const isSettingsTab = activeTab?.kind === "settings";
+  const settingsTab = tabs.find((t) => t.kind === "settings") as SettingsViewTab | undefined;
 
   // When an AI diff is approved (write_file applied to disk), reload any
   // open editor tabs for that path so the user sees the new content. We
@@ -551,6 +578,44 @@ export default function App() {
     return () => {
       void unlistenPromise.then((un) => un());
     };
+  }, []);
+
+  // Watch parent dirs of open editor files so external changes trigger reload.
+  const editorWatchRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    const newDirs = new Set<string>();
+    for (const t of tabs) {
+      if (t.kind === "editor") {
+        const d = dirname(t.path);
+        if (d) newDirs.add(d);
+      }
+    }
+    const added = [...newDirs].filter((d) => !editorWatchRef.current.has(d));
+    const removed = [...editorWatchRef.current].filter((d) => !newDirs.has(d));
+    if (added.length > 0) watchAdd(added);
+    if (removed.length > 0) watchRemove(removed);
+    editorWatchRef.current = newDirs;
+  }, [tabs]);
+
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    listenFsChanged((paths) => {
+      const currentTabs = tabsRef.current;
+      for (const changed of paths) {
+        const norm = changed.replace(/\\/g, "/");
+        for (const t of currentTabs) {
+          if (t.kind !== "editor") continue;
+          if (t.path.replace(/\\/g, "/") === norm) {
+            editorRefs.current.get(t.id)?.reload();
+          }
+        }
+      }
+    })
+      .then((u) => {
+        unlisten = u;
+      })
+      .catch(() => {});
+    return () => unlisten?.();
   }, []);
 
   const { explorerRoot, inheritedCwdForNewTab } = useWorkspaceCwd(
@@ -658,7 +723,7 @@ export default function App() {
 
   const togglePanelAndFocus = useCallback(() => {
     if (!hasComposer) {
-      void openSettingsWindow("models");
+      openSettingsTab("models");
       return;
     }
     if (panelOpen) {
@@ -667,16 +732,12 @@ export default function App() {
       openPanel();
       focusInput(null);
     }
-  }, [hasComposer, panelOpen, openPanel, focusInput]);
+  }, [panelOpen, openPanel, focusInput, hasComposer, openSettingsTab]);
 
   const attachSelection = useChatStore((s) => s.attachSelection);
 
   const handleAttachFileToAgent = useCallback(
     (path: string) => {
-      if (!hasComposer) {
-        void openSettingsWindow("models");
-        return;
-      }
       // Dispatch a window event the composer listens for. Same pattern as
       // selections — keeps file-explorer decoupled from the AI module.
       window.dispatchEvent(
@@ -685,14 +746,10 @@ export default function App() {
       openPanel();
       focusInput(null);
     },
-    [hasComposer, openPanel, focusInput],
+    [openPanel, focusInput],
   );
 
   const askFromSelection = useCallback((prefix = "") => {
-    if (!hasComposer) {
-      void openSettingsWindow("models");
-      return;
-    }
     const selection = captureActiveSelection();
     if (!selection || !selection.trim()) {
       focusInput(null);
@@ -703,7 +760,6 @@ export default function App() {
     const text = prefix ? `${prefix}${selection}` : selection;
     attachSelection(text, source);
   }, [
-    hasComposer,
     captureActiveSelection,
     focusInput,
     attachSelection,
@@ -768,10 +824,7 @@ export default function App() {
       if (activeLeafId === null) return;
       const term = terminalRefs.current.get(activeLeafId);
       if (!term) return;
-      const quoted = path.includes(" ")
-        ? `'${path.replace(/'/g, `'\\''`)}'`
-        : path;
-      term.write(`cd ${quoted}\r`);
+      term.write(`cd ${quoteShellArg(path)}\r`);
       term.focus();
     },
     [activeLeafId],
@@ -785,10 +838,7 @@ export default function App() {
         if (!tab || tab.kind !== "terminal") return;
         const t = terminalRefs.current.get(tab.activeLeafId);
         if (!t) return;
-        const quoted = path.includes(" ")
-          ? `'${path.replace(/'/g, `'\\''`)}'`
-          : path;
-        t.write(`cd ${quoted}\r`);
+        t.write(`cd ${quoteShellArg(path)}\r`);
         t.focus();
       }, 80);
     },
@@ -1004,7 +1054,7 @@ export default function App() {
       "ai.toggle": togglePanelAndFocus,
       "ai.askSelection": () => askFromSelection(),
       "shortcuts.open": () => setShortcutsOpen((v) => !v),
-      "settings.open": () => void openSettingsWindow(),
+      "settings.open": () => openSettingsTab(),
       "sidebar.toggle": toggleSidebar,
       "explorer.focus": toggleExplorerFocus,
       "view.zoomIn": zoomIn,
@@ -1222,8 +1272,24 @@ export default function App() {
         openPreviewTab(url);
         return true;
       },
+      spawnManagedAgent: (prompt, sessionId) => {
+        const cwd = findCwd() ?? home ?? "";
+        const { tabId, leafId } = newAgentTab(cwd, "Claude Code");
+        void (async () => {
+          await whenSessionReady(leafId);
+          writeToSession(leafId, `claude\r`);
+          // Brief delay so the shell registers the command before we send the prompt.
+          await new Promise((r) => setTimeout(r, 90));
+          writeToSession(leafId, prompt + "\r");
+        })();
+        void sessionId;
+        return { tabId, leafId };
+      },
+      readLeafBuffer: (leafId) => {
+        return terminalRefs.current.get(leafId)?.getBuffer(500) ?? null;
+      },
     });
-  }, [setLive, activeId, tabs, explorerRoot, launchCwd, home, openPreviewTab]);
+  }, [setLive, activeId, tabs, explorerRoot, launchCwd, home, openPreviewTab, newAgentTab]);
 
   const workspaceSurface = (
     <div className="relative h-full min-h-0">
@@ -1324,6 +1390,20 @@ export default function App() {
           onSearchHandle={setGitHistoryHandle}
         />
       </div>
+      <div
+        className={cn(
+          "absolute inset-0",
+          !isSettingsTab && "invisible pointer-events-none",
+        )}
+        aria-hidden={!isSettingsTab}
+      >
+        {settingsTab && (
+          <SettingsPane
+            section={settingsTab.section}
+            onSectionChange={(s) => updateTab(settingsTab.id, { section: s })}
+          />
+        )}
+      </div>
     </div>
   );
 
@@ -1358,7 +1438,7 @@ export default function App() {
             onCloseOthers={closeOtherTabs}
             onActivateAgent={onActivateAgent}
             onActivateLocalAgent={onActivateLocalAgent}
-            onOpenSettings={() => void openSettingsWindow()}
+            onOpenSettings={() => openSettingsTab()}
             searchTarget={searchTarget}
             searchRef={searchInlineRef}
           />}
@@ -1439,7 +1519,7 @@ export default function App() {
                         <AiInputBar />
                       ) : (
                         <AiInputBarConnect
-                          onAdd={() => void openSettingsWindow("models")}
+                          onAdd={() => openSettingsTab("models")}
                         />
                       )}
                     </motion.div>
@@ -1508,6 +1588,7 @@ export default function App() {
               onWorkspaceChange={switchWorkspace}
               onOpenMini={openMini}
               hasComposer={hasComposer}
+              onConnectProvider={() => openSettingsTab("models")}
               privateActive={
                 activeTab?.kind === "terminal" && activeTab.private === true
               }
@@ -1532,7 +1613,7 @@ export default function App() {
           ) : null}
 
           <AnimatePresence>
-            {miniOpen && hasComposer ? <AiMiniWindow key="ai-mini" /> : null}
+            {miniOpen ? <AiMiniWindow key="ai-mini" /> : null}
             {askPopup ? (
               <SelectionAskAi
                 key="ask-ai-popup"

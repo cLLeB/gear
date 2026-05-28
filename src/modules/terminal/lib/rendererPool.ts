@@ -8,7 +8,8 @@ import { SerializeAddon } from "@xterm/addon-serialize";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { WebglAddon } from "@xterm/addon-webgl";
 import { Terminal } from "@xterm/xterm";
-import { terminalWordNavigationSequence } from "./keymap";
+import { IS_MAC } from "@/lib/platform";
+import { terminalDeleteSequence, terminalLineNavigationSequence, terminalWordNavigationSequence } from "./keymap";
 
 export const POOL_MAX_SIZE = 5;
 const FIT_DEBOUNCE_MS = 8;
@@ -147,15 +148,22 @@ function createSlot(): Slot {
     if (leafId === null) return false;
     const bridge = adapter?.resolveLeaf(leafId);
     if (!bridge) return true;
+    const lineNavigation = terminalLineNavigationSequence(event, { isMac: IS_MAC });
+    if (lineNavigation) {
+      event.preventDefault();
+      if (event.type === "keydown") bridge.writeToPty(lineNavigation);
+      return false;
+    }
     const wordNavigation = terminalWordNavigationSequence(event);
     if (wordNavigation) {
       event.preventDefault();
       if (event.type === "keydown") bridge.writeToPty(wordNavigation);
       return false;
     }
-    if (isCtrlBackspace(event)) {
+    const deleteSeq = terminalDeleteSequence(event, { isMac: IS_MAC });
+    if (deleteSeq) {
       event.preventDefault();
-      if (event.type === "keydown") bridge.writeToPty("\x17");
+      if (event.type === "keydown") bridge.writeToPty(deleteSeq);
       return false;
     }
     if (isShiftEnter(event)) {
@@ -669,13 +677,6 @@ function applyCursorBlinkOnSlot(slot: Slot, focused: boolean): void {
 
 export function getSlotForLeaf(leafId: number): Slot | null {
   return slots.find((s) => s.currentLeafId === leafId) ?? null;
-}
-
-function isCtrlBackspace(e: KeyboardEvent): boolean {
-  const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
-  const isMac = /Mac|iPhone|iPad/.test(ua);
-  const mod = isMac ? e.metaKey : e.ctrlKey;
-  return mod && (e.key === "Backspace" || e.code === "Backspace");
 }
 
 function isShiftEnter(e: KeyboardEvent): boolean {
