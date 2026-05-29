@@ -144,6 +144,8 @@ function createSlot(): Slot {
   attachWebgl(slot);
 
   term.attachCustomKeyEventHandler((event) => {
+    if (event.isComposing || event.keyCode === 229) return false;
+
     const leafId = slot.currentLeafId;
     if (leafId === null) return false;
     const bridge = adapter?.resolveLeaf(leafId);

@@ -102,6 +102,8 @@ export type Preferences = {
   wordWrap: boolean;
   sidebarPosition: "left" | "right";
   shortcuts: Record<ShortcutId, KeyBinding[]>;
+  editorAutoSave: boolean;
+  editorAutoSaveDelay: number;
 };
 
 const STORE_PATH = "Gear-settings.json";
@@ -149,6 +151,8 @@ const KEY_AGENT_NOTIFICATIONS = "agentNotifications";
 const KEY_WORD_WRAP = "wordWrap";
 const KEY_SIDEBAR_POSITION = "sidebarPosition";
 const KEY_SHORTCUTS = "shortcuts";
+const KEY_EDITOR_AUTO_SAVE = "editorAutoSave";
+const KEY_EDITOR_AUTO_SAVE_DELAY = "editorAutoSaveDelay";
 
 export const TERMINAL_FONT_SIZE_DEFAULT = 14;
 export const TERMINAL_FONT_SIZE_MIN = 8;
@@ -209,6 +213,8 @@ export const DEFAULT_PREFERENCES: Preferences = {
   wordWrap: false,
   sidebarPosition: "left",
   shortcuts: {} as Record<ShortcutId, KeyBinding[]>,
+  editorAutoSave: false,
+  editorAutoSaveDelay: 1000,
 };
 
 const store = new LazyStore(STORE_PATH, { defaults: {}, autoSave: 200 });
@@ -326,6 +332,13 @@ export async function loadPreferences(): Promise<Preferences> {
     shortcuts:
       get<Record<ShortcutId, KeyBinding[]>>(KEY_SHORTCUTS) ??
       DEFAULT_PREFERENCES.shortcuts,
+    editorAutoSave:
+      get<boolean>(KEY_EDITOR_AUTO_SAVE) ??
+      DEFAULT_PREFERENCES.editorAutoSave,
+    editorAutoSaveDelay: clampAutoSaveDelay(
+      get<number>(KEY_EDITOR_AUTO_SAVE_DELAY) ??
+        DEFAULT_PREFERENCES.editorAutoSaveDelay,
+    ),
   };
 }
 
@@ -519,6 +532,19 @@ export async function setAgentNotifications(value: boolean): Promise<void> {
   await writePref(KEY_AGENT_NOTIFICATIONS, value);
 }
 
+function clampAutoSaveDelay(v: number): number {
+  if (!Number.isFinite(v)) return 1000;
+  return Math.min(60000, Math.max(100, Math.round(v)));
+}
+
+export async function setEditorAutoSave(value: boolean): Promise<void> {
+  await writePref(KEY_EDITOR_AUTO_SAVE, value);
+}
+
+export async function setEditorAutoSaveDelay(value: number): Promise<void> {
+  await writePref(KEY_EDITOR_AUTO_SAVE_DELAY, clampAutoSaveDelay(value));
+}
+
 export async function exportSettings(): Promise<Record<string, unknown>> {
   const entries = await store.entries();
   return Object.fromEntries(entries);
@@ -604,6 +630,8 @@ export async function onPreferencesChange(
     [KEY_WORD_WRAP]: "wordWrap",
     [KEY_SIDEBAR_POSITION]: "sidebarPosition",
     [KEY_SHORTCUTS]: "shortcuts",
+    [KEY_EDITOR_AUTO_SAVE]: "editorAutoSave",
+    [KEY_EDITOR_AUTO_SAVE_DELAY]: "editorAutoSaveDelay",
   };
   // Same-process writes still fire onChange immediately; cross-window writes
   // arrive via the Tauri event emitted by writePref().

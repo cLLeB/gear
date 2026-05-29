@@ -97,6 +97,17 @@ export function writeToSession(leafId: number, data: string): boolean {
   return true;
 }
 
+export function clearFocusedTerminal(): boolean {
+  for (const [leafId, s] of sessions) {
+    if (!s.visibleNow || !s.focusedNow) continue;
+    const slot = getSlotForLeaf(leafId);
+    if (!slot) continue;
+    slot.term.clear();
+    return true;
+  }
+  return false;
+}
+
 export function leafIdForPty(ptyId: number): number | null {
   for (const [leafId, s] of sessions) {
     if (s.pty?.id === ptyId) return leafId;

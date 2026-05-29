@@ -5,6 +5,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import {
   Tooltip,
@@ -22,6 +23,8 @@ import {
   TERMINAL_FONT_SIZES,
   TERMINAL_SCROLLBACK_PRESETS,
   setAgentNotifications,
+  setEditorAutoSave,
+  setEditorAutoSaveDelay,
   exportSettings,
   importSettings,
   setAutostart,
@@ -57,6 +60,10 @@ const APPEARANCE_DEFS: { id: ThemePref; labelKey: string; icon: typeof ComputerI
   { id: "dark", labelKey: "settings.general.themes.dark", icon: Moon02Icon },
 ];
 
+const AUTO_SAVE_STEP = 100;
+const AUTO_SAVE_MIN = 100;
+const AUTO_SAVE_MAX = 60000;
+
 export function GeneralSection() {
   const { t } = useTranslation();
   const { mode, setMode } = useTheme();
@@ -65,6 +72,8 @@ export function GeneralSection() {
   const autostart = usePreferencesStore((s) => s.autostart);
   const restoreWindowState = usePreferencesStore((s) => s.restoreWindowState);
   const vimMode = usePreferencesStore((s) => s.vimMode);
+  const editorAutoSave = usePreferencesStore((s) => s.editorAutoSave);
+  const editorAutoSaveDelay = usePreferencesStore((s) => s.editorAutoSaveDelay);
   const showHidden = usePreferencesStore((s) => s.showHidden);
   const terminalWebglEnabled = usePreferencesStore((s) => s.terminalWebglEnabled);
   const terminalFontFamily = usePreferencesStore((s) => s.terminalFontFamily);
@@ -237,6 +246,21 @@ export function GeneralSection() {
         >
           <Switch checked={vimMode} onCheckedChange={(v) => void setVimMode(v)} />
         </SettingRow>
+        <SettingRow
+          title="Auto save"
+          description="Automatically save files after a delay when changes are detected."
+        >
+          <Switch
+            checked={editorAutoSave}
+            onCheckedChange={(v) => void setEditorAutoSave(v)}
+          />
+        </SettingRow>
+        {editorAutoSave && (
+          <AutoSaveDelayInput
+            value={editorAutoSaveDelay}
+            onChange={(v) => void setEditorAutoSaveDelay(v)}
+          />
+        )}
       </div>
 
       <div className="flex flex-col gap-2">
@@ -437,5 +461,59 @@ function Label({ children }: { children: React.ReactNode }) {
     <span className="text-[11px] font-medium tracking-tight text-muted-foreground">
       {children}
     </span>
+  );
+}
+
+function AutoSaveDelayInput({
+  value,
+  onChange,
+}: {
+  value: number;
+  onChange: (v: number) => void;
+}) {
+  const [draft, setDraft] = useState(String(value));
+
+  useEffect(() => {
+    setDraft(String(value));
+  }, [value]);
+
+  const commit = () => {
+    const n = Number(draft);
+    if (!Number.isFinite(n)) {
+      setDraft(String(value));
+      return;
+    }
+    const clamped = Math.min(
+      AUTO_SAVE_MAX,
+      Math.max(AUTO_SAVE_MIN, Math.round(n)),
+    );
+    setDraft(String(clamped));
+    if (clamped !== value) onChange(clamped);
+  };
+
+  return (
+    <SettingRow
+      title="Auto save delay"
+      description="Delay before unsaved changes are saved automatically."
+    >
+      <div className="flex items-center gap-2">
+        <Input
+          type="number"
+          min={AUTO_SAVE_MIN}
+          max={AUTO_SAVE_MAX}
+          step={AUTO_SAVE_STEP}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.currentTarget.blur();
+            }
+          }}
+          className="h-8 w-20 rounded-md border border-border bg-background px-2.5 text-right text-[12px] md:text-[12px] tabular-nums outline-none focus:border-foreground/40 focus-visible:ring-0 focus-visible:border-foreground/40 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+        />
+        <span className="text-[11px] text-muted-foreground">ms</span>
+      </div>
+    </SettingRow>
   );
 }
