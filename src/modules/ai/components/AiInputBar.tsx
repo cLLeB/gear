@@ -27,6 +27,7 @@ type SnippetTrigger = {
   start: number;
   end: number;
   query: string;
+  char: "#" | "/";
 };
 
 type FileTrigger = {
@@ -41,12 +42,12 @@ function detectSnippetTrigger(
 ): SnippetTrigger | null {
   for (let i = caret - 1; i >= 0; i--) {
     const ch = value[i];
-    if (ch === "#") {
+    if (ch === "#" || ch === "/") {
       const prev = i === 0 ? " " : value[i - 1];
       if (!/\s/.test(prev)) return null;
       const slice = value.slice(i + 1, caret);
       if (!/^[a-z0-9-]*$/i.test(slice)) return null;
-      return { start: i, end: caret, query: slice.toLowerCase() };
+      return { start: i, end: caret, query: slice.toLowerCase(), char: ch };
     }
     if (/\s/.test(ch)) return null;
     if (!/[a-z0-9-]/i.test(ch)) return null;
@@ -129,6 +130,7 @@ export function AiInputBar() {
         (c) => !q || c.name.includes(q) || c.label.toLowerCase().includes(q),
       )
       .map((command) => ({ kind: "command", command }));
+    if (trigger.char === "/") return cmdItems;
     const snipItems: PickerItem[] = snippets
       .filter(
         (s) =>

@@ -110,6 +110,16 @@ export function TabBar({
                       data-tab-id={t.id}
                       draggable={!!onReorder}
                       onDoubleClick={() => isPreview && onPin(t.id)}
+                      onAuxClick={(e) => {
+                        if (e.button === 1 && tabs.length > 1) {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          onClose(t.id);
+                        }
+                      }}
+                      onMouseDown={(e) => {
+                        if (e.button === 1) e.preventDefault();
+                      }}
                       onDragStart={(e) => {
                         dragIdRef.current = t.id;
                         e.dataTransfer.effectAllowed = "move";

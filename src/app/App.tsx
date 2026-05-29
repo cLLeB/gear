@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import { AgentNotificationsBridge } from "@/modules/agents";
+import { useManagedAgentsStore } from "@/modules/agents/store/managedAgentsStore";
 import { firePendingReviewForSession } from "@/modules/agents/lib/review";
 import { Toaster } from "@/components/ui/sonner";
 import {
@@ -84,6 +85,7 @@ import {
   type TerminalTab,
 } from "@/modules/tabs";
 import {
+  clearFocusedTerminal,
   disposeSession,
   findLeafCwd,
   hasLeaf,
@@ -109,12 +111,29 @@ import {
   useWorkspaceEnvStore,
   type WorkspaceEnv,
 } from "@/modules/workspace";
+import { invoke } from "@tauri-apps/api/core";
 import { homeDir } from "@tauri-apps/api/path";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import type { SearchAddon } from "@xterm/addon-search";
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PanelImperativeHandle } from "react-resizable-panels";
+
+type TuiWaitResult = "ready" | "gone" | "timeout";
+
+async function waitForClaudeTuiReady(
+  readBuf: () => string | null,
+  timeoutMs = 8000,
+): Promise<TuiWaitResult> {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    const buf = readBuf();
+    if (buf === null) return "gone";
+    if (buf.includes("shortcuts") || buf.includes("? for")) return "ready";
+    await new Promise((r) => setTimeout(r, 120));
+  }
+  return "timeout";
+}
 
 function dirname(path: string | null): string | null {
   if (!path) return null;
@@ -787,6 +806,9 @@ export default function App() {
     };
     const onUp = (e: MouseEvent) => {
       if (isInsideAi(e.target)) return;
+      const el = e.target as HTMLElement | null;
+      const inContentArea = el?.closest?.(".xterm, .cm-editor");
+      if (!inContentArea) return;
       // Defer one tick so xterm/CodeMirror finalize the selection.
       setTimeout(() => {
         const text = captureActiveSelection();
@@ -1065,8 +1087,7 @@ export default function App() {
       "editor.findReplace": () => editorRefs.current.get(activeId)?.openFindReplace(),
       "editor.toggleWordWrap": () => void setWordWrap(!wordWrap),
       "terminal.clear": () => {
-        if (activeLeafId === null) return;
-        terminalRefs.current.get(activeLeafId)?.write("clear\r");
+        clearFocusedTerminal();
       },
       "view.zenMode": () => setZenMode((v) => !v),
     }),
@@ -1272,17 +1293,44 @@ export default function App() {
         openPreviewTab(url);
         return true;
       },
-      spawnManagedAgent: (prompt, sessionId) => {
-        const cwd = findCwd() ?? home ?? "";
-        const { tabId, leafId } = newAgentTab(cwd, "Claude Code");
+      spawnManagedAgent: (prompt: string, sessionId: string) => {
+        const trimmed = prompt.trim();
+        if (!trimmed) return null;
+        const oneLine = trimmed.replace(/\s*\r?\n\s*/g, " ");
+        const cwd = findCwd();
+        const short = oneLine.length > 32 ? `${oneLine.slice(0, 32)}…` : oneLine;
+        const { tabId, leafId } = newAgentTab(cwd ?? undefined, `claude · ${short}`);
+        useManagedAgentsStore
+          .getState()
+          .register({ leafId, tabId, sessionId, task: oneLine, cwd });
+        const hooksReady = invoke("agent_enable_claude_hooks").catch(() => {});
         void (async () => {
-          await whenSessionReady(leafId);
-          writeToSession(leafId, `claude\r`);
-          // Brief delay so the shell registers the command before we send the prompt.
-          await new Promise((r) => setTimeout(r, 90));
-          writeToSession(leafId, prompt + "\r");
+          await Promise.all([whenSessionReady(leafId), hooksReady]);
+          if (!writeToSession(leafId, "claude\r")) {
+            useManagedAgentsStore.getState().remove(leafId);
+            return;
+          }
+          const readBuf = () => {
+            const term = terminalRefs.current.get(leafId);
+            return term ? term.getBuffer(120) : null;
+          };
+          const result = await waitForClaudeTuiReady(readBuf);
+          if (result !== "ready") {
+            if (result === "timeout") {
+              console.warn(
+                "[gear] Claude TUI did not appear in time; aborting prompt send",
+              );
+            }
+            useManagedAgentsStore.getState().remove(leafId);
+            return;
+          }
+          if (!writeToSession(leafId, `\x1b[200~${trimmed}\x1b[201~`)) {
+            useManagedAgentsStore.getState().remove(leafId);
+            return;
+          }
+          setTimeout(() => writeToSession(leafId, "\r"), 120);
+          useManagedAgentsStore.getState().setPhase(leafId, "working");
         })();
-        void sessionId;
         return { tabId, leafId };
       },
       readLeafBuffer: (leafId) => {
