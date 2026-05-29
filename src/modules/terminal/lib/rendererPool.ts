@@ -11,7 +11,7 @@ import { Terminal } from "@xterm/xterm";
 import { IS_MAC } from "@/lib/platform";
 import { terminalDeleteSequence, terminalLineNavigationSequence, terminalWordNavigationSequence } from "./keymap";
 
-export const POOL_MAX_SIZE = 5;
+export const POOL_MAX_SIZE = 12;
 const FIT_DEBOUNCE_MS = 8;
 const PTY_RESIZE_DEBOUNCE_MS = 256;
 const SNAPSHOT_SCROLLBACK_CAP = 5_000;
@@ -679,6 +679,19 @@ function applyCursorBlinkOnSlot(slot: Slot, focused: boolean): void {
 
 export function getSlotForLeaf(leafId: number): Slot | null {
   return slots.find((s) => s.currentLeafId === leafId) ?? null;
+}
+
+export function refitSlot(leafId: number): void {
+  const slot = slots.find((s) => s.currentLeafId === leafId);
+  if (!slot) return;
+  slot.fitAddon.fit();
+  const newCols = slot.term.cols;
+  const newRows = slot.term.rows;
+  if (newCols !== slot.lastCols || newRows !== slot.lastRows) {
+    slot.lastCols = newCols;
+    slot.lastRows = newRows;
+    adapter?.resolveLeaf(leafId)?.resizePty(newCols, newRows);
+  }
 }
 
 function isShiftEnter(e: KeyboardEvent): boolean {

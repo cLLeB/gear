@@ -20,6 +20,7 @@ import {
   configureRendererPool,
   focusSlot,
   getSlotForLeaf,
+  refitSlot,
   releaseSlot,
   setSlotFocused,
 } from "./rendererPool";
@@ -145,6 +146,16 @@ configureRendererPool({
     const s = sessions.get(leafId);
     if (!s) return;
     unbindLeafFromSlot(leafId, s);
+    // If the evicted leaf is still visible, schedule a rebind next microtask.
+    // Without this, the pane stays blank forever because React's visibility
+    // effect won't re-fire (its deps haven't changed).
+    if (s.visibleNow && s.container) {
+      Promise.resolve().then(() => {
+        if (s.visibleNow && s.container && !s.hasSlot && !s.disposed) {
+          bindLeafToSlot(leafId, s);
+        }
+      });
+    }
   },
   isLeafFocused(leafId) {
     const s = sessions.get(leafId);
@@ -402,17 +413,39 @@ export function useTerminalSession({
   useEffect(() => {
     let cancelled = false;
     const s = ensureSession(leafId, initialCwd);
+    const callbacks = {
+      onSearchReady: (a: SearchAddon) => cbRef.current.onSearchReady?.(a),
+      onExit: (c: number) => cbRef.current.onExit?.(c),
+      onCwd: (c: string) => cbRef.current.onCwd?.(c),
+    };
+
+    // React guarantees that refs are populated before passive effects run, so
+    // container.current is always the real DOM node here. Calling attachSession
+    // synchronously ensures s.container is set before Effect 2 runs (which sets
+    // visibleNow and calls bindLeafToSlot). The old async-gated path caused a
+    // race: Effect 2 fired with visibleNow=true but s.container=null and bailed,
+    // leaving the terminal blank until some later state change retriggered it.
+    const node = container.current;
+    if (node) {
+      attachSession(leafId, node, callbacks);
+      if (s.visibleNow && s.focusedNow) focusSlot(leafId);
+    }
+
+    // After custom fonts fully resolve, re-fit the slot so character cell
+    // dimensions are exact. The terminal is already functional above; this is
+    // a rendering-quality pass only.
     s.ready.then(() => {
       if (cancelled || s.disposed) return;
-      const node = container.current;
-      if (!node) return;
-      attachSession(leafId, node, {
-        onSearchReady: (a) => cbRef.current.onSearchReady?.(a),
-        onExit: (c) => cbRef.current.onExit?.(c),
-        onCwd: (c) => cbRef.current.onCwd?.(c),
-      });
-      if (s.visibleNow && s.focusedNow) focusSlot(leafId);
+      const n = container.current;
+      if (!n) return;
+      // Fallback: handle the rare case where the ref wasn't set at effect time.
+      if (!s.container) {
+        attachSession(leafId, n, callbacks);
+        if (s.visibleNow && s.focusedNow) focusSlot(leafId);
+      }
+      refitSlot(leafId);
     });
+
     return () => {
       cancelled = true;
       detachSession(leafId);
