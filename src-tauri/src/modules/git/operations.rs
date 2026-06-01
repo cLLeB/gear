@@ -313,12 +313,7 @@ pub fn unstage(
     if !looks_like_no_head(&output) {
         return ensure_success(&output, "git reset failed");
     }
-    let mut rm_args: Vec<OsString> = vec![
-        "rm".into(),
-        "--cached".into(),
-        "-r".into(),
-        "--".into(),
-    ];
+    let mut rm_args: Vec<OsString> = vec!["rm".into(), "--cached".into(), "-r".into(), "--".into()];
     for p in &resolved {
         rm_args.push(p.clone().into());
     }
@@ -1025,11 +1020,7 @@ pub fn create_branch(
     if !branch_name_is_safe(branch) {
         return Err(GitError::command("git checkout -b", "invalid branch name"));
     }
-    let mut args: Vec<&OsStr> = vec![
-        OsStr::new("checkout"),
-        OsStr::new("-b"),
-        OsStr::new(branch),
-    ];
+    let mut args: Vec<&OsStr> = vec![OsStr::new("checkout"), OsStr::new("-b"), OsStr::new(branch)];
     let sp_owned;
     if let Some(sp) = start_point.filter(|s| !s.is_empty()) {
         if !branch_name_is_safe(sp) {
@@ -1056,7 +1047,8 @@ fn branch_name_is_safe(name: &str) -> bool {
         return false;
     }
     // Only allow alphanumeric, -, _, ., /, @
-    name.chars().all(|c| c.is_alphanumeric() || matches!(c, '-' | '_' | '.' | '/' | '@'))
+    name.chars()
+        .all(|c| c.is_alphanumeric() || matches!(c, '-' | '_' | '.' | '/' | '@'))
 }
 
 // ── Stash operations ───────────────────────────────────────────────────────

@@ -1,7 +1,7 @@
 pub mod modules;
 
-use modules::{agent, fs, git, net, pty, secrets, shell, workspace};
 use fs::to_canon;
+use modules::{agent, fs, git, net, pty, secrets, shell, workspace};
 use std::sync::Mutex;
 use tauri::State;
 use tauri_plugin_window_state::StateFlags;
@@ -20,7 +20,9 @@ fn parse_launch_dir() -> Option<String> {
         if arg.starts_with('-') {
             continue;
         }
-        let Ok(canon) = std::fs::canonicalize(&arg) else { continue };
+        let Ok(canon) = std::fs::canonicalize(&arg) else {
+            continue;
+        };
         if !canon.is_dir() {
             continue;
         }
@@ -50,8 +52,7 @@ pub fn run() {
     // For Microsoft Store builds this binary is compiled with --no-default-features
     // which drops the `updater` feature. The Store manages updates itself.
     #[allow(unused_mut)]
-    let mut builder = tauri::Builder::default()
-        .plugin(tauri_plugin_process::init());
+    let mut builder = tauri::Builder::default().plugin(tauri_plugin_process::init());
 
     #[cfg(not(feature = "store-build"))]
     {

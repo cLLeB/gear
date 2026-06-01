@@ -4,10 +4,10 @@ pub mod session;
 
 use std::collections::HashMap;
 use std::io::Read;
-use std::path::PathBuf;
-use std::process::{Command, Stdio};
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
+use std::path::PathBuf;
+use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{mpsc, Arc, RwLock};
 use std::thread;
@@ -16,9 +16,9 @@ use std::time::Duration;
 use serde::Serialize;
 use shared_child::SharedChild;
 
-use crate::modules::workspace::{authorize_spawn_cwd, WorkspaceEnv, WorkspaceRegistry};
 #[cfg(windows)]
 use crate::modules::workspace::validate_wsl_distro_name;
+use crate::modules::workspace::{authorize_spawn_cwd, WorkspaceEnv, WorkspaceRegistry};
 
 use background::{BackgroundLogResponse, BackgroundProc, BackgroundProcInfo};
 use session::{SessionRunOutput, ShellSession};
@@ -212,7 +212,9 @@ pub async fn shell_session_run(
         .get(&id)
         .cloned()
         .ok_or_else(|| "no shell session".to_string())?;
-    let effective_workspace = workspace.clone().unwrap_or_else(|| session.workspace.clone());
+    let effective_workspace = workspace
+        .clone()
+        .unwrap_or_else(|| session.workspace.clone());
     authorize_spawn_cwd(&registry, cwd.as_deref(), &effective_workspace)?;
     let dur = Duration::from_secs(
         timeout_secs

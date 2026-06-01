@@ -320,14 +320,8 @@ pub async fn git_create_branch(
 ) -> Result<(), String> {
     let workspace = WorkspaceEnv::from_option(workspace);
     blocking(app, move |r| {
-        operations::create_branch(
-            r,
-            &repo_root,
-            &branch,
-            start_point.as_deref(),
-            &workspace,
-        )
-        .map_err(Into::into)
+        operations::create_branch(r, &repo_root, &branch, start_point.as_deref(), &workspace)
+            .map_err(Into::into)
     })
     .await
 }
@@ -354,8 +348,7 @@ pub async fn git_push_stash(
 ) -> Result<(), String> {
     let workspace = WorkspaceEnv::from_option(workspace);
     blocking(app, move |r| {
-        operations::push_stash(r, &repo_root, message.as_deref(), &workspace)
-            .map_err(Into::into)
+        operations::push_stash(r, &repo_root, message.as_deref(), &workspace).map_err(Into::into)
     })
     .await
 }
