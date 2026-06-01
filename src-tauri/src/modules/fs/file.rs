@@ -6,8 +6,8 @@ use serde::Serialize;
 use tauri::Emitter;
 use tempfile::NamedTempFile;
 
-use crate::modules::workspace::{resolve_path, WorkspaceEnv};
 use super::to_canon;
+use crate::modules::workspace::{resolve_path, WorkspaceEnv};
 
 const MAX_READ_BYTES: u64 = 10 * 1024 * 1024; // 10 MB
 const BINARY_SNIFF_BYTES: usize = 8 * 1024;

@@ -1,12 +1,12 @@
 mod common;
 
 use common::{git_available, GitRepoFixture};
-use tempfile::TempDir;
 use gear_lib::modules::fs::to_canon;
 use gear_lib::modules::git::errors::GitError;
 use gear_lib::modules::git::operations;
 use gear_lib::modules::git::types::DiscardEntry;
 use gear_lib::modules::workspace::{WorkspaceEnv, WorkspaceRegistry};
+use tempfile::TempDir;
 
 fn skip_if_no_git() -> bool {
     if !git_available() {
@@ -117,13 +117,13 @@ fn stage_then_commit_produces_log_entry() {
     assert!(entry.staged);
     assert!(!entry.untracked);
 
-    let commit = operations::commit(&fx.registry, &fx.repo_str(), "add a", &fx.workspace)
-        .expect("commit");
+    let commit =
+        operations::commit(&fx.registry, &fx.repo_str(), "add a", &fx.workspace).expect("commit");
     assert_eq!(commit.summary, "add a");
     assert_eq!(commit.commit_sha.len(), 40);
 
-    let entries = operations::log(&fx.registry, &fx.repo_str(), 10, None, &fx.workspace)
-        .expect("log");
+    let entries =
+        operations::log(&fx.registry, &fx.repo_str(), 10, None, &fx.workspace).expect("log");
     assert_eq!(entries.len(), 1);
     assert_eq!(entries[0].sha, commit.commit_sha);
     assert_eq!(entries[0].subject, "add a");
@@ -203,8 +203,8 @@ fn diff_shows_worktree_change() {
     fx.run_git(&["commit", "-q", "-m", "init"]);
     fx.write_file("a.txt", "alpha\nbeta\n");
 
-    let diff = operations::diff(&fx.registry, &fx.repo_str(), None, false, &fx.workspace)
-        .expect("diff");
+    let diff =
+        operations::diff(&fx.registry, &fx.repo_str(), None, false, &fx.workspace).expect("diff");
     assert!(diff.diff_text.contains("+beta"));
 }
 
@@ -304,9 +304,8 @@ fn panel_snapshot_outside_repo_is_empty() {
     let registry = WorkspaceRegistry::default();
     registry.authorize(&canonical).unwrap();
 
-    let snap =
-        operations::panel_snapshot(&registry, &to_canon(&canonical), &WorkspaceEnv::Local)
-            .expect("panel_snapshot");
+    let snap = operations::panel_snapshot(&registry, &to_canon(&canonical), &WorkspaceEnv::Local)
+        .expect("panel_snapshot");
     assert!(snap.repo.is_none());
     assert!(snap.status.is_none());
 }

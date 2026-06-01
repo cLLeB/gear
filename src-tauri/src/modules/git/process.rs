@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 use std::ffi::{OsStr, OsString};
 use std::io::Read;
-use std::path::Path;
-use std::process::{Command, Stdio};
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
+use std::path::Path;
+use std::process::{Command, Stdio};
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex, OnceLock};
 use std::thread;
@@ -17,9 +17,9 @@ use crate::modules::git::types::{
     GitOutput, TextSource, DEFAULT_TIMEOUT_SECS, MAX_FILE_BYTES, MAX_OUTPUT_BYTES,
     MAX_TIMEOUT_SECS, MIN_GIT_VERSION,
 };
-use crate::modules::workspace::WorkspaceEnv;
 #[cfg(windows)]
 use crate::modules::workspace::validate_wsl_distro_name;
+use crate::modules::workspace::WorkspaceEnv;
 
 #[derive(Clone)]
 enum Availability {

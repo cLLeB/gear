@@ -97,7 +97,9 @@ fn apply_common(cmd: &mut CommandBuilder, cwd: Option<String>) {
         #[cfg(windows)]
         let cwd = {
             let s = cwd.to_string_lossy();
-            let s = s.strip_prefix("//?/").unwrap_or(s.strip_prefix(r"\\?\").unwrap_or(&s));
+            let s = s
+                .strip_prefix("//?/")
+                .unwrap_or(s.strip_prefix(r"\\?\").unwrap_or(&s));
             PathBuf::from(s.replace('/', "\\"))
         };
         log::info!("pty cwd: {}", cwd.display());
@@ -304,7 +306,9 @@ mod windows {
             zdotdir: String,
             user_zdotdir: Option<String>,
         },
-        Bash { rcfile: String },
+        Bash {
+            rcfile: String,
+        },
         Fish,
         None,
     }

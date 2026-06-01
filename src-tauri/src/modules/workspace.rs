@@ -1,12 +1,12 @@
 use std::collections::{HashMap, HashSet};
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
-#[cfg(windows)]
-use std::os::windows::process::CommandExt;
 
-use serde::{Deserialize, Serialize};
 use crate::modules::fs::to_canon;
+use serde::{Deserialize, Serialize};
 
 // Short TTL keeps the auth-check TOCTOU window tight while still coalescing the
 // burst of canonicalize calls within a single panel refresh (~100ms).
@@ -40,7 +40,10 @@ impl WorkspaceRegistry {
     pub fn canonicalize_cached<P: AsRef<Path>>(&self, path: P) -> std::io::Result<PathBuf> {
         let key = path.as_ref().to_path_buf();
         {
-            let cache = self.canonical_cache.lock().expect("canonical cache poisoned");
+            let cache = self
+                .canonical_cache
+                .lock()
+                .expect("canonical cache poisoned");
             if let Some(entry) = cache.get(&key) {
                 if entry.inserted_at.elapsed() < CANONICAL_TTL {
                     return Ok(entry.canonical.clone());
@@ -48,7 +51,10 @@ impl WorkspaceRegistry {
             }
         }
         let canonical = std::fs::canonicalize(&key)?;
-        let mut cache = self.canonical_cache.lock().expect("canonical cache poisoned");
+        let mut cache = self
+            .canonical_cache
+            .lock()
+            .expect("canonical cache poisoned");
         if cache.len() >= CANONICAL_CACHE_CAP {
             cache.retain(|_, entry| entry.inserted_at.elapsed() < CANONICAL_TTL);
             if cache.len() >= CANONICAL_CACHE_CAP {
@@ -64,7 +70,6 @@ impl WorkspaceRegistry {
         );
         Ok(canonical)
     }
-
 }
 
 /// Like [`authorize_spawn_cwd`] but auto-expands the authorized workspace to
@@ -81,8 +86,8 @@ pub fn authorize_user_spawn_cwd(
         return Err("cwd is empty".into());
     }
     let resolved = resolve_path(cwd, workspace);
-    let canonical = std::fs::canonicalize(&resolved)
-        .map_err(|e| format!("cwd not accessible: {e}"))?;
+    let canonical =
+        std::fs::canonicalize(&resolved).map_err(|e| format!("cwd not accessible: {e}"))?;
     if !canonical.is_dir() {
         return Err(format!("cwd is not a directory: {}", canonical.display()));
     }
@@ -101,8 +106,8 @@ pub fn authorize_spawn_cwd(
         return Ok(None);
     };
     let resolved = resolve_path(cwd, workspace);
-    let canonical = std::fs::canonicalize(&resolved)
-        .map_err(|e| format!("cwd not accessible: {e}"))?;
+    let canonical =
+        std::fs::canonicalize(&resolved).map_err(|e| format!("cwd not accessible: {e}"))?;
     if !canonical.is_dir() {
         return Err(format!("cwd is not a directory: {}", canonical.display()));
     }
@@ -170,7 +175,10 @@ fn resolve_launch_dir() -> PathBuf {
     if let Some(cwd) = launch_cwd_snapshot() {
         return cwd;
     }
-    if let Some(cwd) = std::env::current_dir().ok().filter(|p| is_usable_launch_dir(p)) {
+    if let Some(cwd) = std::env::current_dir()
+        .ok()
+        .filter(|p| is_usable_launch_dir(p))
+    {
         return cwd;
     }
     dirs::home_dir().unwrap_or_else(|| PathBuf::from("/"))
@@ -194,7 +202,12 @@ fn is_usable_launch_dir(path: &Path) -> bool {
     // Tauri's install/data directories, not user workspace directories.
     #[cfg(windows)]
     {
-        let install_roots: &[&str] = &["APPDATA", "LOCALAPPDATA", "ProgramFiles", "ProgramFiles(x86)"];
+        let install_roots: &[&str] = &[
+            "APPDATA",
+            "LOCALAPPDATA",
+            "ProgramFiles",
+            "ProgramFiles(x86)",
+        ];
         for var in install_roots {
             if let Some(root) = std::env::var_os(var).map(PathBuf::from) {
                 if path.starts_with(&root) {
