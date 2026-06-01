@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { shortcutDisplay } from "@/modules/shortcuts/shortcuts";
 import type { SearchAddon } from "@xterm/addon-search";
 import { TerminalPane, type TerminalPaneHandle } from "./TerminalPane";
+import { useTerminalDropStore } from "./lib/dropStore";
 import type { PaneNode } from "./lib/panes";
 
 type LeafBundle = {
@@ -135,7 +136,8 @@ function PaneLeaf({
 
   return (
     <div
-      className="flex h-full flex-col"
+      className="relative flex h-full flex-col"
+      data-pane-leaf={leafId}
       onContextMenu={(e) => {
         e.preventDefault();
         setCtxMenu({ x: e.clientX, y: e.clientY });
@@ -159,6 +161,7 @@ function PaneLeaf({
         onCwd={(_id, cwd) => bundle.onCwd(cwd)}
         onExit={(_id, code) => bundle.onExit(code)}
       />
+      <DropOverlay leafId={leafId} />
       {ctxMenu && (
         <div
           ref={menuRef}
@@ -221,6 +224,16 @@ function PaneLeaf({
           </button>
         </div>
       )}
+    </div>
+  );
+}
+
+function DropOverlay({ leafId }: { leafId: number }) {
+  const active = useTerminalDropStore((s) => s.targetLeafId === leafId);
+  if (!active) return null;
+  return (
+    <div className="pointer-events-none absolute inset-2 grid place-items-center rounded-lg border border-primary/45 bg-background/70 text-xs font-medium text-foreground shadow-lg backdrop-blur-sm">
+      Drop file path here
     </div>
   );
 }

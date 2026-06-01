@@ -3,6 +3,7 @@ import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
+  ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import {
@@ -28,6 +29,7 @@ import {
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useEffect, useRef, useState } from "react";
+import { labelFor } from "./lib/tabLabel";
 import type { EditorTab, Tab } from "./lib/useTabs";
 
 type Props = {
@@ -42,6 +44,8 @@ type Props = {
   onClose: (id: number) => void;
   /** Pin (promote) a preview tab to persistent on double-click. */
   onPin: (id: number) => void;
+  /** Set a terminal tab's custom label; empty string resets to default. */
+  onRename: (id: number, title: string) => void;
   onReorder?: (fromId: number, toId: number) => void;
   onCloseOthers?: (id: number) => void;
   compact?: boolean;
@@ -58,6 +62,7 @@ export function TabBar({
   onNewGitGraph,
   onClose,
   onPin,
+  onRename,
   onReorder,
   onCloseOthers,
   compact,
@@ -65,6 +70,7 @@ export function TabBar({
   const scrollRef = useRef<HTMLDivElement>(null);
   const dragIdRef = useRef<number | null>(null);
   const [dragOverId, setDragOverId] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
 
   // Horizontal wheel scroll without holding shift.
   useEffect(() => {
@@ -102,6 +108,33 @@ export function TabBar({
             {tabs.map((t) => {
               const isPreview = t.kind === "editor" && (t as EditorTab).preview;
               const isDragTarget = dragOverId === t.id && dragIdRef.current !== t.id;
+
+              // While renaming, render a non-button cell so the <input> is not
+              // nested inside the trigger <button> (invalid HTML, and WebKit
+              // blocks focus/selection on inputs inside buttons).
+              if (editingId === t.id && t.kind === "terminal") {
+                return (
+                  <div
+                    key={t.id}
+                    data-tab-id={t.id}
+                    className={cn(
+                      "flex h-7 shrink-0 items-center gap-1.5 rounded-md bg-accent text-xs text-foreground",
+                      compact ? "px-1.5" : "px-2",
+                    )}
+                  >
+                    <TabIcon tab={t} />
+                    <TabRenameInput
+                      initial={labelFor(t)}
+                      onCommit={(value) => {
+                        onRename(t.id, value);
+                        setEditingId(null);
+                      }}
+                      onCancel={() => setEditingId(null)}
+                    />
+                  </div>
+                );
+              }
+
               return (
                 <ContextMenu key={t.id}>
                   <ContextMenuTrigger asChild>
@@ -193,6 +226,14 @@ export function TabBar({
                     </TabsTrigger>
                   </ContextMenuTrigger>
                   <ContextMenuContent className="min-w-44">
+                    {t.kind === "terminal" && (
+                      <>
+                        <ContextMenuItem onSelect={() => setEditingId(t.id)}>
+                          Rename
+                        </ContextMenuItem>
+                        <ContextMenuSeparator />
+                      </>
+                    )}
                     <ContextMenuItem onSelect={() => onClose(t.id)} disabled={tabs.length <= 1}>
                       Close tab
                     </ContextMenuItem>
@@ -333,16 +374,64 @@ function TabIcon({ tab }: { tab: Tab }) {
   );
 }
 
-function labelFor(t: Tab): string {
-  if (t.kind === "editor") return t.title;
-  if (t.kind === "preview") return t.title;
-  if (t.kind === "markdown") return t.title;
-  if (t.kind === "ai-diff") return t.title;
-  if (t.kind === "git-diff") return t.title;
-  if (t.kind === "git-history") return t.title;
-  if (t.kind === "git-commit-file") return t.title;
-  if (t.kind === "settings") return t.title;
-  if (!t.cwd) return t.title;
-  const parts = t.cwd.split(/[\\/]/).filter(Boolean);
-  return parts.length ? parts[parts.length - 1] : "/";
+function TabRenameInput({
+  initial,
+  onCommit,
+  onCancel,
+}: {
+  initial: string;
+  onCommit: (value: string) => void;
+  onCancel: () => void;
+}) {
+  const ref = useRef<HTMLInputElement>(null);
+  // Guards against a trailing blur re-resolving an edit that Enter/Escape
+  // already finished (Escape must never commit).
+  const done = useRef(false);
+
+  useEffect(() => {
+    // Focus on the next frame so it runs after the context menu restores focus
+    // to its trigger when closing; a synchronous focus would be stolen.
+    const raf = requestAnimationFrame(() => {
+      ref.current?.focus();
+      ref.current?.select();
+    });
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  const finish = (fn: () => void) => {
+    if (done.current) return;
+    done.current = true;
+    fn();
+  };
+
+  // explicit = the user pressed Enter, which pins even the unchanged label. A
+  // plain blur with no change must not freeze the cwd-derived default into a
+  // custom title.
+  const commit = (value: string, explicit: boolean) => {
+    if (!explicit && value.trim() === initial.trim()) finish(onCancel);
+    else finish(() => onCommit(value));
+  };
+
+  return (
+    <input
+      ref={ref}
+      defaultValue={initial}
+      aria-label="Rename tab"
+      className={cn(
+        "w-28 min-w-0 rounded-sm bg-background px-1 text-xs text-foreground",
+        "outline-none ring-1 ring-border focus:ring-ring",
+      )}
+      onKeyDown={(e) => {
+        e.stopPropagation();
+        if (e.key === "Enter") commit(e.currentTarget.value, true);
+        else if (e.key === "Escape") finish(onCancel);
+      }}
+      onBlur={(e) => {
+        // Switching windows/apps blurs the input; keep the edit open instead
+        // of resolving it on the way out.
+        if (!document.hasFocus()) return;
+        commit(e.currentTarget.value, false);
+      }}
+    />
+  );
 }
