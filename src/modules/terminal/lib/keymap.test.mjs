@@ -1,6 +1,5 @@
-import assert from "node:assert/strict";
 import fs from "node:fs";
-import test from "node:test";
+import { expect, test } from "vitest";
 
 function loadKeymapFunction(name) {
   const source = fs.readFileSync(
@@ -23,7 +22,7 @@ test("maps Option+Left to readline word-left", () => {
     "terminalWordNavigationSequence",
   );
 
-  assert.equal(
+  expect(
     terminalWordNavigationSequence({
       altKey: true,
       ctrlKey: false,
@@ -31,8 +30,7 @@ test("maps Option+Left to readline word-left", () => {
       key: "ArrowLeft",
       code: "ArrowLeft",
     }),
-    "\x1bb",
-  );
+  ).toBe("\x1bb");
 });
 
 test("maps Option+Right to readline word-right", () => {
@@ -40,7 +38,7 @@ test("maps Option+Right to readline word-right", () => {
     "terminalWordNavigationSequence",
   );
 
-  assert.equal(
+  expect(
     terminalWordNavigationSequence({
       altKey: true,
       ctrlKey: false,
@@ -48,8 +46,7 @@ test("maps Option+Right to readline word-right", () => {
       key: "ArrowRight",
       code: "ArrowRight",
     }),
-    "\x1bf",
-  );
+  ).toBe("\x1bf");
 });
 
 test("does not remap plain arrows", () => {
@@ -57,7 +54,7 @@ test("does not remap plain arrows", () => {
     "terminalWordNavigationSequence",
   );
 
-  assert.equal(
+  expect(
     terminalWordNavigationSequence({
       altKey: false,
       ctrlKey: false,
@@ -65,6 +62,5 @@ test("does not remap plain arrows", () => {
       key: "ArrowLeft",
       code: "ArrowLeft",
     }),
-    null,
-  );
+  ).toBe(null);
 });
