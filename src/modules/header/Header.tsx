@@ -45,6 +45,8 @@ type Props = {
   onClose: (id: number) => void;
   /** Promote a preview (transient) tab to persistent. */
   onPin: (id: number) => void;
+  /** Set a terminal tab's custom label; empty string resets to default. */
+  onRename: (id: number, title: string) => void;
   onReorder: (fromId: number, toId: number) => void;
   onToggleSidebar: () => void;
   onSplit: (dir: "row" | "col") => void;
@@ -74,6 +76,7 @@ export function Header({
   onNewGitGraph,
   onClose,
   onPin,
+  onRename,
   onReorder,
   onToggleSidebar,
   onSplit,
@@ -230,6 +233,7 @@ export function Header({
           onNewGitGraph={onNewGitGraph}
           onClose={onClose}
           onPin={onPin}
+          onRename={onRename}
           onReorder={onReorder}
           onCloseOthers={onCloseOthers}
           compact={compact}
