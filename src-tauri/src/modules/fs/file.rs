@@ -105,15 +105,23 @@ pub fn fs_write_file(
     content: String,
     workspace: Option<WorkspaceEnv>,
     source: Option<String>,
+    workspace_root: Option<String>,
+    chronicle: tauri::State<'_, crate::modules::chronicle::ChronicleState>,
     app: tauri::AppHandle,
 ) -> Result<(), String> {
     let workspace = WorkspaceEnv::from_option(workspace);
     let target = resolve_path(&path, &workspace);
 
+    // Capture the pre-write content for the timeline BEFORE we overwrite it, so
+    // the "before" state of every edit is recoverable.
+    let before = std::fs::read(&target).ok();
+
     write_atomic(&target, content.as_bytes()).map_err(|e| {
         log::warn!("fs_write_file({}) failed: {e}", target.display());
         e.to_string()
     })?;
+
+    record_file_edit(&chronicle, workspace_root.as_deref(), &path, before, content.as_bytes(), source.as_deref());
 
     let _ = app.emit(
         "fs:file-written",
@@ -124,6 +132,47 @@ pub fn fs_write_file(
     );
 
     Ok(())
+}
+
+/// Record a file edit into Chronicle: store before/after blobs and emit a
+/// `file` event. Best-effort — capture must never fail a write.
+fn record_file_edit(
+    chronicle: &crate::modules::chronicle::ChronicleState,
+    workspace_root: Option<&str>,
+    path: &str,
+    before: Option<Vec<u8>>,
+    after: &[u8],
+    source: Option<&str>,
+) {
+    use crate::modules::chronicle::event::{ChronicleEvent, EventPayload};
+
+    let Some(root) = workspace_root else {
+        return;
+    };
+    let after_blob = chronicle.put_blob(root, after).ok();
+    let before_blob = before.and_then(|b| chronicle.put_blob(root, &b).ok());
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as i64)
+        .unwrap_or(0);
+    chronicle.emit(ChronicleEvent {
+        ts: now,
+        session_id: "session".into(),
+        actor: source.unwrap_or("user").to_string(),
+        cwd: None,
+        workspace_root: root.to_string(),
+        file_path: Some(path.to_string()),
+        summary: format!("edit {path}"),
+        payload: EventPayload::File {
+            path: path.to_string(),
+            op: "modified".into(),
+            before_blob,
+            after_blob,
+            added: 0,
+            removed: 0,
+        },
+        parent_id: None,
+    });
 }
 
 #[tauri::command]

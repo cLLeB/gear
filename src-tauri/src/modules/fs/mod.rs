@@ -32,7 +32,7 @@ pub fn to_canon(p: impl AsRef<Path>) -> String {
 
 #[cfg(all(test, windows))]
 mod tests {
-    use super::strip_verbatim;
+    use super::{strip_verbatim, to_canon};
     use proptest::prelude::*;
 
     #[test]

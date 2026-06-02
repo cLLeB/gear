@@ -1,7 +1,7 @@
 pub mod modules;
 
 use fs::to_canon;
-use modules::{agent, fs, git, net, pty, secrets, shell, workspace};
+use modules::{agent, chronicle, fs, git, net, pty, secrets, shell, workspace};
 use std::sync::Mutex;
 use tauri::State;
 use tauri_plugin_window_state::StateFlags;
@@ -79,6 +79,7 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_opener::init())
         .manage(pty::PtyState::default())
+        .manage(chronicle::ChronicleState::default())
         .manage(shell::ShellState::default())
         .manage(secrets::SecretsState::default())
         .manage(fs::watch::FsWatchState::default())
@@ -164,6 +165,9 @@ pub fn run() {
             net::ai_http_stream,
             agent::agent_enable_claude_hooks,
             agent::agent_claude_hooks_status,
+            chronicle::chronicle_range,
+            chronicle::chronicle_restore_file,
+            chronicle::chronicle_record_command,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
