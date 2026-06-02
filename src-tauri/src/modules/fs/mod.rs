@@ -37,7 +37,9 @@ mod tests {
 
     #[test]
     fn strips_drive_verbatim_prefix() {
-        assert_eq!(strip_verbatim(r"\\?\C:\foo"), "C:/foo");
+        // `strip_verbatim` only removes the `\\?\` prefix; slash normalization
+        // is `to_canon`'s job (covered separately below).
+        assert_eq!(strip_verbatim(r"\\?\C:\foo"), r"C:\foo");
     }
 
     #[test]
@@ -52,7 +54,7 @@ mod tests {
 
     #[test]
     fn handles_drive_root() {
-        assert_eq!(strip_verbatim(r"\\?\C:\"), "C:/");
+        assert_eq!(strip_verbatim(r"\\?\C:\"), r"C:\");
     }
 
     proptest! {
@@ -70,9 +72,11 @@ mod tests {
         }
 
         #[test]
-        fn strip_verbatim_on_plain_input_equals_slash_swap(s in r"[A-Za-z0-9\\/: .]{0,40}") {
+        fn strip_verbatim_on_plain_input_is_unchanged(s in r"[A-Za-z0-9\\/: .]{0,40}") {
             prop_assume!(!s.starts_with(r"\\?\"));
-            prop_assert_eq!(strip_verbatim(&s), s.replace('\\', "/"));
+            // Without a verbatim prefix there is nothing to strip; backslash →
+            // forward-slash conversion is `to_canon`'s responsibility, not this.
+            prop_assert_eq!(strip_verbatim(&s), s);
         }
 
         #[test]
@@ -82,7 +86,7 @@ mod tests {
         ) {
             let input = format!(r"\\?\{drive}:\{tail}");
             let out = strip_verbatim(&input);
-            let expected = format!("{drive}:/");
+            let expected = format!(r"{drive}:\");
             prop_assert!(out.starts_with(&expected));
         }
 
