@@ -177,8 +177,10 @@ pub fn chronicle_prune(
     max_age_ms: Option<i64>,
 ) -> Result<retention::RetentionReport, String> {
     let ws = state.workspace(&workspace_root);
+    let sandboxes = paths::sandboxes_root(std::path::Path::new(&workspace_root));
     retention::run(
         &ws,
+        Some(&sandboxes),
         now_ms(),
         max_age_ms.unwrap_or(retention::DEFAULT_MAX_AGE_MS),
     )

@@ -7,6 +7,7 @@ import {
   type TimelineEvent,
 } from "../lib/api";
 import { formatTime } from "../lib/format";
+import { DiffStat } from "./DiffStat";
 
 interface FileTimelineProps {
   workspaceRoot: string;
@@ -95,6 +96,7 @@ export function FileTimeline({
               <span className="min-w-0 flex-1 truncate">
                 {e.actor === "user" ? "you" : e.actor}
               </span>
+              <DiffStat event={e} />
               <button
                 type="button"
                 disabled={restoredId === e.id}

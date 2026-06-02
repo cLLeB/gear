@@ -76,8 +76,12 @@ export function RewindPanel() {
     setPruning(true);
     setSandboxMsg(null);
     try {
-      await prune();
-      setSandboxMsg("Pruned old events and reclaimed orphaned blobs.");
+      const report = await prune();
+      setSandboxMsg(
+        report === null
+          ? "Pruned old events and reclaimed orphaned blobs."
+          : `Pruned ${report.events_removed} events, ${report.blobs_removed} blobs, ${report.sandboxes_removed} sandboxes.`,
+      );
     } finally {
       setPruning(false);
     }
