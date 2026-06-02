@@ -50,7 +50,15 @@ import { quoteShellArg } from "@/lib/shellQuote";
 import { getLaunchDir } from "@/lib/launchDir";
 import { useZoom } from "@/lib/useZoom";
 import { FileExplorer, type FileExplorerHandle } from "@/modules/explorer";
-import { listenFsChanged, watchAdd, watchRemove } from "@/modules/explorer/lib/watch";
+import {
+  CommandPalette,
+  createCommandPaletteActions,
+} from "@/modules/command-palette";
+import {
+  listenFsChanged,
+  watchAdd,
+  watchRemove,
+} from "@/modules/explorer/lib/watch";
 import {
   Header,
   type SearchInlineHandle,
@@ -65,7 +73,11 @@ import {
   getEffectiveDefaultModelId,
   useWorkspaceConfigStore,
 } from "@/modules/settings/workspaceConfig";
-import { onKeysChanged, setWordWrap, setSidebarPosition } from "@/modules/settings/store";
+import {
+  onKeysChanged,
+  setWordWrap,
+  setSidebarPosition,
+} from "@/modules/settings/store";
 import {
   ShortcutsDialog,
   useGlobalShortcuts,
@@ -73,15 +85,13 @@ import {
   type ShortcutId,
 } from "@/modules/shortcuts";
 import { SidebarRail, type SidebarViewId } from "@/modules/sidebar";
-import {
-  SourceControlPanel,
-  useSourceControl,
-} from "@/modules/source-control";
+import { SourceControlPanel, useSourceControl } from "@/modules/source-control";
 import { StatusBar } from "@/modules/statusbar";
 import { RewindPanel, useRewindStore } from "@/modules/rewind";
 import {
   MAX_PANES_PER_TAB,
   useTabs,
+  useWindowTitle,
   useWorkspaceCwd,
   type TerminalTab,
 } from "@/modules/tabs";
@@ -246,8 +256,8 @@ export default function App() {
         openFileTab(path, true);
       }
     }
-  // intentionally empty deps — runs once after mount
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // intentionally empty deps — runs once after mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Mirror `tabs` into a ref so callbacks scheduled with `setTimeout`
@@ -295,7 +305,8 @@ export default function App() {
   const sidebarRef = useRef<PanelImperativeHandle | null>(null);
   const sidebarWidthRef = useRef(readSidebarWidth());
   const sidebarWidthWriteTimerRef = useRef(0);
-  const [sidebarView, setSidebarViewState] = useState<SidebarViewId>(readSidebarView);
+  const [sidebarView, setSidebarViewState] =
+    useState<SidebarViewId>(readSidebarView);
   const persistSidebarView = useCallback((view: SidebarViewId) => {
     setSidebarViewState(view);
     try {
@@ -418,7 +429,9 @@ export default function App() {
       }
       const dirty = tabsRef.current.some((t) => t.kind === "editor" && t.dirty);
       if (dirty) {
-        window.alert("Save or close unsaved editor tabs before switching workspace.");
+        window.alert(
+          "Save or close unsaved editor tabs before switching workspace.",
+        );
         return;
       }
 
@@ -476,6 +489,7 @@ export default function App() {
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [zenMode, setZenMode] = useState(false);
   const [newEditorOpen, setNewEditorOpen] = useState(false);
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const miniOpen = useChatStore((s) => s.mini.open);
   const openMini = useChatStore((s) => s.openMini);
   const focusInput = useChatStore((s) => s.focusInput);
@@ -564,7 +578,9 @@ export default function App() {
     activeTab?.kind === "git-diff" || activeTab?.kind === "git-commit-file";
   const isGitHistoryTab = activeTab?.kind === "git-history";
   const isSettingsTab = activeTab?.kind === "settings";
-  const settingsTab = tabs.find((t) => t.kind === "settings") as SettingsViewTab | undefined;
+  const settingsTab = tabs.find((t) => t.kind === "settings") as
+    | SettingsViewTab
+    | undefined;
 
   // When an AI diff is approved (write_file applied to disk), reload any
   // open editor tabs for that path so the user sees the new content. We
@@ -587,20 +603,21 @@ export default function App() {
 
   useEffect(() => {
     type FileWrittenPayload = { path: string; source?: string };
-    const unlistenPromise = getCurrentWebviewWindow().listen<FileWrittenPayload>(
-      "fs:file-written",
-      (event) => {
-        if (event.payload.source === "editor") return;
-        const normalizedPath = event.payload.path.replace(/\\/g, "/");
-        const currentTabs = tabsRef.current;
-        for (const t of currentTabs) {
-          if (t.kind !== "editor") continue;
-          if (t.path.replace(/\\/g, "/") === normalizedPath) {
-            editorRefs.current.get(t.id)?.reload();
+    const unlistenPromise =
+      getCurrentWebviewWindow().listen<FileWrittenPayload>(
+        "fs:file-written",
+        (event) => {
+          if (event.payload.source === "editor") return;
+          const normalizedPath = event.payload.path.replace(/\\/g, "/");
+          const currentTabs = tabsRef.current;
+          for (const t of currentTabs) {
+            if (t.kind !== "editor") continue;
+            if (t.path.replace(/\\/g, "/") === normalizedPath) {
+              editorRefs.current.get(t.id)?.reload();
+            }
           }
-        }
-      },
-    );
+        },
+      );
     return () => {
       void unlistenPromise.then((un) => un());
     };
@@ -650,13 +667,17 @@ export default function App() {
     launchCwd ?? home,
   );
 
+  useWindowTitle(activeTab, explorerRoot);
+
   useEffect(() => {
     void useWorkspaceConfigStore.getState().load(explorerRoot);
   }, [explorerRoot]);
 
   useEffect(() => {
     setActiveSearchAddon(
-      activeLeafId !== null ? (searchAddons.current.get(activeLeafId) ?? null) : null,
+      activeLeafId !== null
+        ? (searchAddons.current.get(activeLeafId) ?? null)
+        : null,
     );
     setActiveEditorHandle(editorRefs.current.get(activeId) ?? null);
   }, [activeId, activeLeafId]);
@@ -783,22 +804,20 @@ export default function App() {
     [openPanel, focusInput],
   );
 
-  const askFromSelection = useCallback((prefix = "") => {
-    const selection = captureActiveSelection();
-    if (!selection || !selection.trim()) {
-      focusInput(null);
-      return;
-    }
-    const source: "terminal" | "editor" =
-      activeTab?.kind === "editor" ? "editor" : "terminal";
-    const text = prefix ? `${prefix}${selection}` : selection;
-    attachSelection(text, source);
-  }, [
-    captureActiveSelection,
-    focusInput,
-    attachSelection,
-    activeTab,
-  ]);
+  const askFromSelection = useCallback(
+    (prefix = "") => {
+      const selection = captureActiveSelection();
+      if (!selection || !selection.trim()) {
+        focusInput(null);
+        return;
+      }
+      const source: "terminal" | "editor" =
+        activeTab?.kind === "editor" ? "editor" : "terminal";
+      const text = prefix ? `${prefix}${selection}` : selection;
+      attachSelection(text, source);
+    },
+    [captureActiveSelection, focusInput, attachSelection, activeTab],
+  );
 
   const [askPopup, setAskPopup] = useState<{ x: number; y: number } | null>(
     null,
@@ -843,10 +862,13 @@ export default function App() {
     };
   }, [captureActiveSelection]);
 
-  const onAskFromSelection = useCallback((prefix = "") => {
-    askFromSelection(prefix);
-    setAskPopup(null);
-  }, [askFromSelection]);
+  const onAskFromSelection = useCallback(
+    (prefix = "") => {
+      askFromSelection(prefix);
+      setAskPopup(null);
+    },
+    [askFromSelection],
+  );
 
   const openNewTab = useCallback(() => {
     newTab(inheritedCwdForNewTab());
@@ -962,6 +984,10 @@ export default function App() {
     }
     return null;
   })();
+  const explorerActiveFilePath =
+    activeTab?.kind === "editor" || activeTab?.kind === "markdown"
+      ? activeTab.path
+      : null;
   const workspaceFallbackPath = launchCwdResolved
     ? (launchCwd ?? home ?? null)
     : null;
@@ -985,8 +1011,7 @@ export default function App() {
       ),
     [tabs],
   );
-  const sourceControlActive =
-    hasOpenGitTab || sidebarView === "source-control";
+  const sourceControlActive = hasOpenGitTab || sidebarView === "source-control";
   // Stable per-session path so switching tabs / cd-ing in a shell does NOT
   // re-fire git IPC for the badge. The active panel resolves the current
   // context path on its own when the user actually opens git.
@@ -1068,6 +1093,7 @@ export default function App() {
 
   const shortcutHandlers = useMemo<ShortcutHandlers>(
     () => ({
+      "commandPalette.open": () => setCommandPaletteOpen(true),
       "tab.new": openNewTab,
       "tab.newPrivate": openNewPrivateTab,
       "tab.newPreview": () => openPreviewTab(""),
@@ -1099,7 +1125,8 @@ export default function App() {
       "view.zoomReset": zoomReset,
       "editor.undo": () => editorRefs.current.get(activeId)?.undo(),
       "editor.redo": () => editorRefs.current.get(activeId)?.redo(),
-      "editor.findReplace": () => editorRefs.current.get(activeId)?.openFindReplace(),
+      "editor.findReplace": () =>
+        editorRefs.current.get(activeId)?.openFindReplace(),
       "editor.toggleWordWrap": () => void setWordWrap(!wordWrap),
       "terminal.clear": () => {
         clearFocusedTerminal();
@@ -1131,7 +1158,11 @@ export default function App() {
 
   const shortcutsDisabled = useCallback(
     (id: ShortcutId, e: KeyboardEvent) => {
-      if (id === "editor.undo" || id === "editor.redo" || id === "editor.findReplace") {
+      if (
+        id === "editor.undo" ||
+        id === "editor.redo" ||
+        id === "editor.findReplace"
+      ) {
         return activeTab?.kind !== "editor";
       }
       if (id === "ai.askSelection") {
@@ -1266,13 +1297,64 @@ export default function App() {
     gitHistoryHandle,
   ]);
 
+  const commandPaletteActions = useMemo(
+    () =>
+      createCommandPaletteActions({
+        tabs,
+        activeId,
+        searchTarget,
+        explorerRoot,
+        home,
+        openNewTab,
+        openNewPrivate: openNewPrivateTab,
+        openNewEditor: () => setNewEditorOpen(true),
+        openNewPreview: () => openPreviewTab(""),
+        closeActiveTabOrPane: handleCloseTabOrPane,
+        nextTab: () => cycleTab(1),
+        previousTab: () => cycleTab(-1),
+        splitPaneRight: () => splitActivePaneInActiveTab("row"),
+        splitPaneDown: () => splitActivePaneInActiveTab("col"),
+        focusNextPane: () => focusNextPaneInTab(activeId, 1),
+        focusPreviousPane: () => focusNextPaneInTab(activeId, -1),
+        focusSearch: () => searchInlineRef.current?.focus(),
+        focusExplorerSearch: () => explorerRef.current?.focusSearch(),
+        toggleSidebar,
+        toggleAi: togglePanelAndFocus,
+        askAiSelection: askFromSelection,
+        openSettings: () => openSettingsTab(),
+        openShortcuts: () => setShortcutsOpen(true),
+      }),
+    [
+      tabs,
+      activeId,
+      searchTarget,
+      explorerRoot,
+      home,
+      openNewTab,
+      openNewPrivateTab,
+      openPreviewTab,
+      handleCloseTabOrPane,
+      cycleTab,
+      splitActivePaneInActiveTab,
+      focusNextPaneInTab,
+      toggleSidebar,
+      togglePanelAndFocus,
+      askFromSelection,
+      openSettingsTab,
+    ],
+  );
+
   const activeCwd = activeTerminalLeafCwd;
 
   useEffect(() => {
     const findCwd = () => {
       const active = tabs.find((x) => x.id === activeId);
       if (active?.kind === "terminal") {
-        return findLeafCwd(active.paneTree, active.activeLeafId) ?? active.cwd ?? null;
+        return (
+          findLeafCwd(active.paneTree, active.activeLeafId) ??
+          active.cwd ??
+          null
+        );
       }
       for (let i = tabs.length - 1; i >= 0; i--) {
         const t = tabs[i];
@@ -1319,8 +1401,12 @@ export default function App() {
         if (!trimmed) return null;
         const oneLine = trimmed.replace(/\s*\r?\n\s*/g, " ");
         const cwd = findCwd();
-        const short = oneLine.length > 32 ? `${oneLine.slice(0, 32)}…` : oneLine;
-        const { tabId, leafId } = newAgentTab(cwd ?? undefined, `claude · ${short}`);
+        const short =
+          oneLine.length > 32 ? `${oneLine.slice(0, 32)}…` : oneLine;
+        const { tabId, leafId } = newAgentTab(
+          cwd ?? undefined,
+          `claude · ${short}`,
+        );
         useManagedAgentsStore
           .getState()
           .register({ leafId, tabId, sessionId, task: oneLine, cwd });
@@ -1358,7 +1444,16 @@ export default function App() {
         return terminalRefs.current.get(leafId)?.getBuffer(500) ?? null;
       },
     });
-  }, [setLive, activeId, tabs, explorerRoot, launchCwd, home, openPreviewTab, newAgentTab]);
+  }, [
+    setLive,
+    activeId,
+    tabs,
+    explorerRoot,
+    launchCwd,
+    home,
+    openPreviewTab,
+    newAgentTab,
+  ]);
 
   const workspaceSurface = (
     <div className="relative h-full min-h-0">
@@ -1480,38 +1575,42 @@ export default function App() {
     <ThemeProvider>
       <TooltipProvider>
         <div className="relative flex h-screen flex-col overflow-hidden bg-background text-foreground">
-          {!zenMode && <div className="h-[2px] w-full shrink-0 bg-gradient-to-r from-primary/30 via-primary to-primary/30" />}
-          {!zenMode && <Header
-            tabs={tabs}
-            activeId={activeId}
-            onSelect={setActiveId}
-            onNew={openNewTab}
-            onNewPrivate={openNewPrivateTab}
-            onNewPreview={() => openPreviewTab("")}
-            onNewEditor={() => setNewEditorOpen(true)}
-            onNewGitGraph={openGitGraphFromContext}
-            onClose={handleClose}
-            onPin={pinTab}
-            onRename={handleRenameTab}
-            onReorder={reorderTabs}
-            onToggleSidebar={toggleSidebar}
-            onSplit={splitActivePaneInActiveTab}
-            canSplit={
-              activeTerminalTab !== null &&
-              leafIds(activeTerminalTab.paneTree).length < MAX_PANES_PER_TAB
-            }
-            onClosePane={() => closeActivePane(activeId)}
-            canClosePane={
-              activeTerminalTab !== null &&
-              leafIds(activeTerminalTab.paneTree).length > 1
-            }
-            onCloseOthers={closeOtherTabs}
-            onActivateAgent={onActivateAgent}
-            onActivateLocalAgent={onActivateLocalAgent}
-            onOpenSettings={() => openSettingsTab()}
-            searchTarget={searchTarget}
-            searchRef={searchInlineRef}
-          />}
+          {!zenMode && (
+            <div className="h-[2px] w-full shrink-0 bg-gradient-to-r from-primary/30 via-primary to-primary/30" />
+          )}
+          {!zenMode && (
+            <Header
+              tabs={tabs}
+              activeId={activeId}
+              onSelect={setActiveId}
+              onNew={openNewTab}
+              onNewPrivate={openNewPrivateTab}
+              onNewPreview={() => openPreviewTab("")}
+              onNewEditor={() => setNewEditorOpen(true)}
+              onNewGitGraph={openGitGraphFromContext}
+              onClose={handleClose}
+              onPin={pinTab}
+              onRename={handleRenameTab}
+              onReorder={reorderTabs}
+              onToggleSidebar={toggleSidebar}
+              onSplit={splitActivePaneInActiveTab}
+              canSplit={
+                activeTerminalTab !== null &&
+                leafIds(activeTerminalTab.paneTree).length < MAX_PANES_PER_TAB
+              }
+              onClosePane={() => closeActivePane(activeId)}
+              canClosePane={
+                activeTerminalTab !== null &&
+                leafIds(activeTerminalTab.paneTree).length > 1
+              }
+              onCloseOthers={closeOtherTabs}
+              onActivateAgent={onActivateAgent}
+              onActivateLocalAgent={onActivateLocalAgent}
+              onOpenSettings={() => openSettingsTab()}
+              searchTarget={searchTarget}
+              searchRef={searchInlineRef}
+            />
+          )}
 
           <main className="zoom-content flex min-h-0 flex-1 flex-col">
             <ResizablePanelGroup
@@ -1546,6 +1645,7 @@ export default function App() {
                             <FileExplorer
                               ref={explorerRef}
                               rootPath={explorerRoot}
+                              activeFilePath={explorerActiveFilePath}
                               onOpenFile={handleOpenFile}
                               onPathRenamed={handlePathRenamed}
                               onPathDeleted={handlePathDeleted}
@@ -1559,6 +1659,7 @@ export default function App() {
                               sourceControl={sourceControl}
                               onOpenDiff={openGitDiffTab}
                               onOpenGitGraph={openGitGraphFromContext}
+                              onOpenFile={handleOpenFile}
                             />
                           )}
                         </ErrorBoundary>
@@ -1625,6 +1726,7 @@ export default function App() {
                             <FileExplorer
                               ref={explorerRef}
                               rootPath={explorerRoot}
+                              activeFilePath={explorerActiveFilePath}
                               onOpenFile={handleOpenFile}
                               onPathRenamed={handlePathRenamed}
                               onPathDeleted={handlePathDeleted}
@@ -1638,6 +1740,7 @@ export default function App() {
                               sourceControl={sourceControl}
                               onOpenDiff={openGitDiffTab}
                               onOpenGitGraph={openGitGraphFromContext}
+                              onOpenFile={handleOpenFile}
                             />
                           )}
                         </ErrorBoundary>
@@ -1666,6 +1769,14 @@ export default function App() {
           )}
 
           <RewindPanel />
+
+          <CommandPalette
+            open={commandPaletteOpen}
+            onOpenChange={setCommandPaletteOpen}
+            actions={commandPaletteActions}
+            workspaceRoot={explorerRoot}
+            onOpenFile={handleOpenFile}
+          />
 
           <AgentNotificationsBridge
             tabs={tabs}

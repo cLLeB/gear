@@ -36,10 +36,13 @@ import { useGlobalShortcuts } from "@/modules/shortcuts";
 export type FileExplorerHandle = {
   focus: () => void;
   isFocused: () => boolean;
+  focusSearch: () => void;
 };
 
 type Props = {
   rootPath: string | null;
+  /** Path of the active editor/markdown tab, highlighted in the tree. */
+  activeFilePath?: string | null;
   onOpenFile: (path: string, pin?: boolean) => void;
   onPathRenamed?: (from: string, to: string) => void;
   onPathDeleted?: (path: string) => void;
@@ -60,9 +63,22 @@ type Row =
       size: number;
       mtime: number;
     }
-  | { kind: "rename"; key: string; path: string; name: string; isDir: boolean; depth: number }
+  | {
+      kind: "rename";
+      key: string;
+      path: string;
+      name: string;
+      isDir: boolean;
+      depth: number;
+    }
   | { kind: "pending"; key: string; depth: number; pendingKind: "file" | "dir" }
-  | { kind: "status"; key: string; depth: number; tone: "muted" | "error"; message: string };
+  | {
+      kind: "status";
+      key: string;
+      depth: number;
+      tone: "muted" | "error";
+      message: string;
+    };
 
 const ROW_HEIGHT = 24;
 const OVERSCAN = 8;
@@ -151,6 +167,7 @@ export const FileExplorer = forwardRef<FileExplorerHandle, Props>(
   function FileExplorer(
     {
       rootPath,
+      activeFilePath,
       onOpenFile,
       onPathRenamed,
       onPathDeleted,
@@ -161,7 +178,9 @@ export const FileExplorer = forwardRef<FileExplorerHandle, Props>(
     ref,
   ) {
     const tree = useFileTree(rootPath, { onPathRenamed, onPathDeleted });
-    const [selectedPaths, setSelectedPaths] = useState<ReadonlySet<string>>(new Set());
+    const [selectedPaths, setSelectedPaths] = useState<ReadonlySet<string>>(
+      new Set(),
+    );
     const [anchorPath, setAnchorPath] = useState<string | null>(null);
     const selectedPathsRef = useRef<ReadonlySet<string>>(new Set());
     selectedPathsRef.current = selectedPaths;
@@ -172,9 +191,20 @@ export const FileExplorer = forwardRef<FileExplorerHandle, Props>(
     const scrollRef = useRef<HTMLDivElement>(null);
 
     const { rows, entryIndexByPath } = useMemo(() => {
-      if (!rootPath) return { rows: [] as Row[], entryIndexByPath: new Map<string, number>() };
+      if (!rootPath)
+        return {
+          rows: [] as Row[],
+          entryIndexByPath: new Map<string, number>(),
+        };
       return buildRows(rootPath, tree);
-    }, [rootPath, tree.nodes, tree.expanded, tree.renaming, tree.pendingCreate, tree]);
+    }, [
+      rootPath,
+      tree.nodes,
+      tree.expanded,
+      tree.renaming,
+      tree.pendingCreate,
+      tree,
+    ]);
 
     const entryPaths = useMemo<string[]>(() => {
       const out: string[] = [];
@@ -248,6 +278,24 @@ export const FileExplorer = forwardRef<FileExplorerHandle, Props>(
       [entryIndexByPath, virtualizer],
     );
 
+    // Mirror the active editor/markdown tab into the tree: select and scroll
+    // its row into view when it's present, so the explorer orients to whatever
+    // file you're editing without needing a manual click.
+    const lastSyncedActivePathRef = useRef<string | null>(null);
+    useEffect(() => {
+      if (
+        !activeFilePath ||
+        activeFilePath === lastSyncedActivePathRef.current
+      ) {
+        return;
+      }
+      if (!entryIndexByPath.has(activeFilePath)) return;
+      lastSyncedActivePathRef.current = activeFilePath;
+      setSelectedPaths(new Set([activeFilePath]));
+      setAnchorPath(activeFilePath);
+      requestAnimationFrame(() => scrollEntryIntoView(activeFilePath));
+    }, [activeFilePath, entryIndexByPath, scrollEntryIntoView]);
+
     useImperativeHandle(
       ref,
       () => ({
@@ -265,6 +313,10 @@ export const FileExplorer = forwardRef<FileExplorerHandle, Props>(
           if (!c) return false;
           const active = document.activeElement;
           return active instanceof Node && c.contains(active);
+        },
+        focusSearch: () => {
+          setIsSearchOpen(true);
+          searchRef.current?.focus();
         },
       }),
       [anchorPath, entryPaths, scrollEntryIntoView],
@@ -434,7 +486,11 @@ export const FileExplorer = forwardRef<FileExplorerHandle, Props>(
           );
         case "status":
           return (
-            <StatusRow depth={row.depth} message={row.message} tone={row.tone} />
+            <StatusRow
+              depth={row.depth}
+              message={row.message}
+              tone={row.tone}
+            />
           );
       }
     };
