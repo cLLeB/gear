@@ -6,6 +6,7 @@ import {
   Delete02Icon,
   FolderOpenIcon,
 } from "@hugeicons/core-free-icons";
+import { openPath } from "@tauri-apps/plugin-opener";
 import { getLaunchDir } from "@/lib/launchDir";
 import { chronicleCheckoutSandbox } from "../lib/api";
 import { restoreCandidates, useRewindStore } from "../store/rewindStore";
@@ -47,6 +48,7 @@ export function RewindPanel() {
 
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [sandboxMsg, setSandboxMsg] = useState<string | null>(null);
+  const [sandboxPath, setSandboxPath] = useState<string | null>(null);
   const [sandboxing, setSandboxing] = useState(false);
   const [pruning, setPruning] = useState(false);
 
@@ -60,8 +62,10 @@ export function RewindPanel() {
     if (!workspaceRoot) return;
     setSandboxing(true);
     setSandboxMsg(null);
+    setSandboxPath(null);
     try {
       const path = await chronicleCheckoutSandbox(workspaceRoot, atTs);
+      setSandboxPath(path);
       setSandboxMsg(`Sandbox created: ${path}`);
     } catch (e) {
       setSandboxMsg(
@@ -69,6 +73,17 @@ export function RewindPanel() {
       );
     } finally {
       setSandboxing(false);
+    }
+  };
+
+  const openSandbox = async () => {
+    if (sandboxPath === null) return;
+    try {
+      await openPath(sandboxPath);
+    } catch (e) {
+      setSandboxMsg(
+        `Couldn't open sandbox: ${e instanceof Error ? e.message : String(e)}`,
+      );
     }
   };
 
@@ -142,9 +157,20 @@ export function RewindPanel() {
       </div>
 
       {sandboxMsg ? (
-        <p className="break-all rounded bg-muted/40 px-2 py-1 text-[10.5px] text-muted-foreground">
-          {sandboxMsg}
-        </p>
+        <div className="flex items-center gap-2 rounded bg-muted/40 px-2 py-1">
+          <p className="min-w-0 flex-1 break-all text-[10.5px] text-muted-foreground">
+            {sandboxMsg}
+          </p>
+          {sandboxPath ? (
+            <button
+              type="button"
+              onClick={() => void openSandbox()}
+              className="shrink-0 rounded border border-border/60 px-1.5 py-0.5 text-[10.5px] hover:bg-accent"
+            >
+              Open
+            </button>
+          ) : null}
+        </div>
       ) : null}
 
       {loading ? (
