@@ -1,10 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Cancel01Icon, ClockIcon, FolderOpenIcon } from "@hugeicons/core-free-icons";
+import {
+  Cancel01Icon,
+  ClockIcon,
+  Delete02Icon,
+  FolderOpenIcon,
+} from "@hugeicons/core-free-icons";
 import { getLaunchDir } from "@/lib/launchDir";
 import { chronicleCheckoutSandbox } from "../lib/api";
 import { restoreCandidates, useRewindStore } from "../store/rewindStore";
 import { TimelineScrubber } from "./TimelineScrubber";
+import { TimelineSearch } from "./TimelineSearch";
 import { RestoreQueue } from "./RestoreQueue";
 import { FileTimeline } from "./FileTimeline";
 
@@ -24,17 +30,25 @@ export function RewindPanel() {
   const scrubTs = useRewindStore((s) => s.scrubTs);
   const setScrub = useRewindStore((s) => s.setScrub);
   const workspaceRoot = useRewindStore((s) => s.workspaceRoot);
+  const query = useRewindStore((s) => s.query);
+  const searching = useRewindStore((s) => s.searching);
+  const searchResults = useRewindStore((s) => s.searchResults);
+  const search = useRewindStore((s) => s.search);
+  const clearSearch = useRewindStore((s) => s.clearSearch);
+  const prune = useRewindStore((s) => s.prune);
 
-  // (Re)load the timeline whenever the panel opens.
+  // (Re)load the timeline whenever the panel opens, and reset any prior search.
   useEffect(() => {
     if (!open) return;
+    clearSearch();
     const root = getLaunchDir();
     if (root) void load(root);
-  }, [open, load]);
+  }, [open, load, clearSearch]);
 
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [sandboxMsg, setSandboxMsg] = useState<string | null>(null);
   const [sandboxing, setSandboxing] = useState(false);
+  const [pruning, setPruning] = useState(false);
 
   const atTs = scrubTs ?? rangeTo;
   const candidates = useMemo(
@@ -58,6 +72,30 @@ export function RewindPanel() {
     }
   };
 
+  const runPrune = async () => {
+    setPruning(true);
+    setSandboxMsg(null);
+    try {
+      await prune();
+      setSandboxMsg("Pruned old events and reclaimed orphaned blobs.");
+    } finally {
+      setPruning(false);
+    }
+  };
+
+  // When a search result is picked, jump the scrubber there and drop back to
+  // the live timeline so the chosen point is in view.
+  const jumpTo = (ts: number) => {
+    clearSearch();
+    setSelectedFile(null);
+    setScrub(ts);
+  };
+
+  const openFileFromSearch = (filePath: string) => {
+    clearSearch();
+    setSelectedFile(filePath);
+  };
+
   if (!open) return null;
 
   return (
@@ -77,6 +115,16 @@ export function RewindPanel() {
           >
             <HugeiconsIcon icon={FolderOpenIcon} size={12} strokeWidth={2} />
             {sandboxing ? "Checking out…" : "Checkout to sandbox"}
+          </button>
+          <button
+            type="button"
+            disabled={pruning || !workspaceRoot}
+            onClick={() => void runPrune()}
+            title="Prune events older than 7 days and reclaim orphaned blobs"
+            className="flex items-center gap-1 rounded border border-border/60 px-1.5 py-0.5 text-[10.5px] hover:bg-accent disabled:opacity-50"
+          >
+            <HugeiconsIcon icon={Delete02Icon} size={12} strokeWidth={2} />
+            {pruning ? "Pruning…" : "Prune"}
           </button>
           <button
             type="button"
@@ -106,35 +154,48 @@ export function RewindPanel() {
         </p>
       ) : (
         <>
-          <TimelineScrubber
-            events={events}
-            rangeFrom={rangeFrom}
-            rangeTo={rangeTo}
-            scrubTs={scrubTs}
-            onScrub={setScrub}
+          <TimelineSearch
+            query={query}
+            searching={searching}
+            results={searchResults}
+            onQueryChange={search}
+            onClear={clearSearch}
+            onPick={jumpTo}
+            onSelectFile={openFileFromSearch}
           />
-          <div className="max-h-56 overflow-y-auto border-t border-border/50 pt-2">
-            {selectedFile && workspaceRoot ? (
-              <FileTimeline
-                workspaceRoot={workspaceRoot}
-                filePath={selectedFile}
-                onBack={() => setSelectedFile(null)}
+          {searchResults === null ? (
+            <>
+              <TimelineScrubber
+                events={events}
+                rangeFrom={rangeFrom}
+                rangeTo={rangeTo}
+                scrubTs={scrubTs}
+                onScrub={setScrub}
               />
-            ) : (
-              <>
-                <p className="px-1 pb-1 text-[10.5px] uppercase tracking-wide text-muted-foreground">
-                  Recoverable at {scrubTs === null ? "now" : "this point"} · click
-                  a file for its history
-                </p>
-                <RestoreQueue
-                  workspaceRoot={workspaceRoot}
-                  candidates={candidates}
-                  atTs={atTs}
-                  onSelectFile={setSelectedFile}
-                />
-              </>
-            )}
-          </div>
+              <div className="max-h-56 overflow-y-auto border-t border-border/50 pt-2">
+                {selectedFile && workspaceRoot ? (
+                  <FileTimeline
+                    workspaceRoot={workspaceRoot}
+                    filePath={selectedFile}
+                    onBack={() => setSelectedFile(null)}
+                  />
+                ) : (
+                  <>
+                    <p className="px-1 pb-1 text-[10.5px] uppercase tracking-wide text-muted-foreground">
+                      Recoverable at {scrubTs === null ? "now" : "this point"} ·
+                      click a file for its history
+                    </p>
+                    <RestoreQueue
+                      workspaceRoot={workspaceRoot}
+                      candidates={candidates}
+                      atTs={atTs}
+                      onSelectFile={setSelectedFile}
+                    />
+                  </>
+                )}
+              </div>
+            </>
+          ) : null}
         </>
       )}
     </div>

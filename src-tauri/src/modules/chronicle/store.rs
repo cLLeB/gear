@@ -47,7 +47,13 @@ impl Store {
             );
             CREATE INDEX IF NOT EXISTS idx_events_ts ON events(ts);
             CREATE INDEX IF NOT EXISTS idx_events_kind_ts ON events(kind, ts);
-            CREATE INDEX IF NOT EXISTS idx_events_file ON events(file_path);",
+            CREATE INDEX IF NOT EXISTS idx_events_file ON events(file_path);
+            -- FTS index keyed by events.id (rowid). Populated on insert so
+            -- full-text search over summaries/commands/paths is fast. A plain
+            -- (non-contentless) table so retention can DELETE rows by rowid.
+            CREATE VIRTUAL TABLE IF NOT EXISTS events_fts USING fts5(
+                body, tokenize='unicode61'
+            );",
         )?;
         Ok(Self {
             conn: Mutex::new(conn),
@@ -72,7 +78,86 @@ impl Store {
                 e.parent_id
             ],
         )?;
-        Ok(conn.last_insert_rowid())
+        let id = conn.last_insert_rowid();
+        // Index searchable text: summary + the command (for cmd events) + path.
+        let mut body = e.summary.clone();
+        if let EventPayload::Cmd { command, .. } = &e.payload {
+            body.push(' ');
+            body.push_str(command);
+        }
+        if let Some(fp) = &e.file_path {
+            body.push(' ');
+            body.push_str(fp);
+        }
+        conn.execute(
+            "INSERT INTO events_fts (rowid, body) VALUES (?1, ?2)",
+            params![id, body],
+        )?;
+        Ok(id)
+    }
+
+    /// Delete events strictly older than `cutoff_ts`, keeping the FTS index in
+    /// sync. Returns the number of events removed.
+    pub fn delete_before(&self, cutoff_ts: i64) -> rusqlite::Result<usize> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "DELETE FROM events_fts WHERE rowid IN (SELECT id FROM events WHERE ts < ?1)",
+            params![cutoff_ts],
+        )?;
+        let n = conn.execute("DELETE FROM events WHERE ts < ?1", params![cutoff_ts])?;
+        Ok(n)
+    }
+
+    /// Every blob hash still referenced by a surviving `file` event — the GC
+    /// keep-set for the blob store.
+    pub fn referenced_blobs(&self) -> rusqlite::Result<std::collections::HashSet<String>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare("SELECT payload FROM events WHERE kind='file'")?;
+        let mut set = std::collections::HashSet::new();
+        let rows = stmt.query_map([], |r| r.get::<_, String>(0))?;
+        for payload in rows {
+            if let Ok(EventPayload::File {
+                before_blob,
+                after_blob,
+                ..
+            }) = serde_json::from_str(&payload?)
+            {
+                if let Some(b) = before_blob {
+                    set.insert(b);
+                }
+                if let Some(a) = after_blob {
+                    set.insert(a);
+                }
+            }
+        }
+        Ok(set)
+    }
+
+    /// Full-text search over event summaries/commands/paths. Returns matching
+    /// rows newest-first. The query is an FTS5 MATCH expression.
+    pub fn search(&self, query: &str, limit: i64) -> rusqlite::Result<Vec<EventRow>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT e.id,e.ts,e.kind,e.actor,e.file_path,e.summary,e.payload,e.parent_id
+             FROM events e JOIN events_fts f ON e.id = f.rowid
+             WHERE events_fts MATCH ?1 ORDER BY e.id DESC LIMIT ?2",
+        )?;
+        let rows = stmt
+            .query_map(params![query, limit], |r| {
+                let payload: String = r.get(6)?;
+                Ok(EventRow {
+                    id: r.get(0)?,
+                    ts: r.get(1)?,
+                    kind: r.get(2)?,
+                    actor: r.get(3)?,
+                    file_path: r.get(4)?,
+                    summary: r.get(5)?,
+                    payload: serde_json::from_str(&payload).unwrap_or(serde_json::Value::Null),
+                    parent_id: r.get(7)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(rows)
     }
 
     pub fn range(&self, from_ts: i64, to_ts: i64, limit: i64) -> rusqlite::Result<Vec<EventRow>> {
@@ -230,5 +315,34 @@ mod tests {
             Some("hashB".into())
         );
         assert_eq!(store.latest_file_blob("a.txt", 50).unwrap(), None);
+    }
+
+    #[test]
+    fn fts_search_matches_commands() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::open(&dir.path().join("t.db")).unwrap();
+        store
+            .insert(&ChronicleEvent {
+                ts: 100,
+                session_id: "s".into(),
+                actor: "user".into(),
+                cwd: None,
+                workspace_root: "/w".into(),
+                file_path: None,
+                summary: "cargo build".into(),
+                payload: EventPayload::Cmd {
+                    command: "cargo build --release".into(),
+                    exit_code: Some(101),
+                    duration_ms: Some(10),
+                },
+                parent_id: None,
+            })
+            .unwrap();
+        store.insert(&cmd_ev(200, "git status")).unwrap();
+
+        let hits = store.search("cargo", 10).unwrap();
+        assert_eq!(hits.len(), 1);
+        assert!(hits[0].summary.contains("cargo"));
+        assert_eq!(store.search("nonexistent", 10).unwrap().len(), 0);
     }
 }

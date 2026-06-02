@@ -77,6 +77,40 @@ export function chronicleCheckoutSandbox(
   });
 }
 
+/** Full-text search across the timeline (summaries, commands, file paths).
+ * `query` is an FTS5 MATCH expression; results come back newest-first. */
+export function chronicleSearch(
+  workspaceRoot: string,
+  query: string,
+  limit = 200,
+): Promise<TimelineEvent[]> {
+  return invoke<TimelineEvent[]>("chronicle_search", {
+    workspaceRoot,
+    query,
+    limit,
+  });
+}
+
+/** Outcome of a retention pass: how many events and blobs were reclaimed. */
+export interface RetentionReport {
+  events_removed: number;
+  blobs_removed: number;
+}
+
+/**
+ * Prune timeline events older than `maxAgeMs` (backend default 7 days when
+ * omitted) and garbage-collect orphaned blobs. Best-effort housekeeping.
+ */
+export function chroniclePrune(
+  workspaceRoot: string,
+  maxAgeMs?: number,
+): Promise<RetentionReport> {
+  return invoke<RetentionReport>("chronicle_prune", {
+    workspaceRoot,
+    maxAgeMs: maxAgeMs ?? null,
+  });
+}
+
 /** Record an AI-agent step so manual and agent actions share one timeline. */
 export function chronicleRecordAgent(
   workspaceRoot: string,
