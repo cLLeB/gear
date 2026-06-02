@@ -39,11 +39,30 @@ export type PromptTracker = {
   dispose: () => void;
 };
 
+/** A completed command, surfaced on the OSC 133 D marker. */
+export interface CommandRecord {
+  /** Command text, when the shell reports it (OSC 133 C;<cmd>). May be empty. */
+  command: string;
+  /** Exit status from OSC 133 D;<code>, when present. */
+  exitCode: number | null;
+  /** Wall-clock duration between the C and D markers, in ms. */
+  durationMs: number | null;
+}
+
+/** Strip the leading marker letter and optional `;` from OSC 133 payloads. */
+export function parseOsc133Field(data: string): string {
+  const semi = data.indexOf(";");
+  return semi === -1 ? "" : data.slice(semi + 1);
+}
+
 export function registerPromptTracker(
   term: Terminal,
   state?: ShellIntegrationState,
+  onCommand?: (cmd: CommandRecord) => void,
 ): PromptTracker {
   let marker: IMarker | null = null;
+  let pendingCommand = "";
+  let commandStart: number | null = null;
   const d = term.parser.registerOscHandler(133, (data) => {
     // OSC 133 A — start of new prompt (between commands).
     if (data.startsWith("A")) {
@@ -55,11 +74,26 @@ export function registerPromptTracker(
       // untrusted until we see D (command exit) or the next A (new prompt).
       if (state) state.inCommand = true;
     } else if (data.startsWith("C")) {
-      // OSC 133 C — command pre-execution marker; still inside command.
+      // OSC 133 C — command pre-execution marker; still inside command. Some
+      // shells (fish) include the command text as C;<cmd>.
       if (state) state.inCommand = true;
+      const cmd = parseOsc133Field(data);
+      if (cmd) pendingCommand = cmd;
+      commandStart = Date.now();
     } else if (data.startsWith("D")) {
-      // OSC 133 D — command ends.
+      // OSC 133 D — command ends; D;<code> carries the exit status.
       if (state) state.inCommand = false;
+      if (onCommand) {
+        const codeStr = parseOsc133Field(data);
+        const exitCode = codeStr === "" ? null : Number.parseInt(codeStr, 10);
+        onCommand({
+          command: pendingCommand,
+          exitCode: Number.isNaN(exitCode as number) ? null : exitCode,
+          durationMs: commandStart === null ? null : Date.now() - commandStart,
+        });
+      }
+      pendingCommand = "";
+      commandStart = null;
     }
     return true;
   });

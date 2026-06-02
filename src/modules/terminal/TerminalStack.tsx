@@ -97,6 +97,7 @@ export function TerminalStack({
               node={t.paneTree}
               tabVisible={tabVisible}
               activeLeafId={t.activeLeafId}
+              isPrivate={t.private === true}
               onFocusLeaf={(leafId) => onFocusLeaf(t.id, leafId)}
               onRenameLeaf={
                 onRenameLeaf

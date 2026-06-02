@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { Terminal } from "@xterm/xterm";
 import {
   createShellIntegrationState,
+  parseOsc133Field,
   registerCwdHandler,
   registerPromptTracker,
 } from "./osc-handlers";
@@ -94,5 +95,58 @@ describe("OSC 7 cwd handler — gated by OSC 133 in-command state", () => {
 
     handlers.get(7)?.("file:///C:/Users/me/project");
     expect(onCwd).toHaveBeenCalledWith("C:/Users/me/project");
+  });
+});
+
+describe("parseOsc133Field", () => {
+  it("returns the text after the first semicolon", () => {
+    expect(parseOsc133Field("C;git status")).toBe("git status");
+    expect(parseOsc133Field("D;0")).toBe("0");
+  });
+
+  it("returns empty string when there is no field", () => {
+    expect(parseOsc133Field("C")).toBe("");
+    expect(parseOsc133Field("D")).toBe("");
+  });
+});
+
+describe("registerPromptTracker — command capture", () => {
+  it("fires onCommand at D with command text and exit code", () => {
+    const { term, handlers } = makeFakeTerm();
+    const onCommand = vi.fn();
+    registerPromptTracker(term, createShellIntegrationState(), onCommand);
+
+    handlers.get(133)?.("A");
+    handlers.get(133)?.("C;npm test");
+    handlers.get(133)?.("D;1");
+
+    expect(onCommand).toHaveBeenCalledTimes(1);
+    const rec = onCommand.mock.calls[0][0];
+    expect(rec.command).toBe("npm test");
+    expect(rec.exitCode).toBe(1);
+    expect(typeof rec.durationMs === "number" || rec.durationMs === null).toBe(
+      true,
+    );
+  });
+
+  it("reports null exit code when D carries no status", () => {
+    const { term, handlers } = makeFakeTerm();
+    const onCommand = vi.fn();
+    registerPromptTracker(term, createShellIntegrationState(), onCommand);
+
+    handlers.get(133)?.("C;ls");
+    handlers.get(133)?.("D");
+
+    expect(onCommand.mock.calls[0][0].exitCode).toBeNull();
+  });
+
+  it("does not fire onCommand for prompt/begin markers", () => {
+    const { term, handlers } = makeFakeTerm();
+    const onCommand = vi.fn();
+    registerPromptTracker(term, createShellIntegrationState(), onCommand);
+
+    handlers.get(133)?.("A");
+    handlers.get(133)?.("B");
+    expect(onCommand).not.toHaveBeenCalled();
   });
 });
