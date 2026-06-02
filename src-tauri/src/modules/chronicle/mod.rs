@@ -6,6 +6,7 @@ pub mod blobs;
 pub mod bus;
 pub mod event;
 pub mod paths;
+pub mod retention;
 pub mod snapshot;
 pub mod store;
 
@@ -148,6 +149,39 @@ pub fn chronicle_range(
         .store
         .range(from_ts, to_ts, limit)
         .map_err(|e| e.to_string())
+}
+
+/// Full-text search across the timeline (summaries, commands, file paths).
+/// `query` is an FTS5 MATCH expression. Powers the in-panel search box and the
+/// grounded NL `timeline` tool's retrieval step.
+#[tauri::command]
+pub fn chronicle_search(
+    state: State<'_, ChronicleState>,
+    workspace_root: String,
+    query: String,
+    limit: i64,
+) -> Result<Vec<EventRow>, String> {
+    state
+        .workspace(&workspace_root)
+        .store
+        .search(&query, limit)
+        .map_err(|e| e.to_string())
+}
+
+/// Prune timeline events older than `max_age_ms` (default 7 days) and GC
+/// orphaned blobs. Safe to call on idle or at startup.
+#[tauri::command]
+pub fn chronicle_prune(
+    state: State<'_, ChronicleState>,
+    workspace_root: String,
+    max_age_ms: Option<i64>,
+) -> Result<retention::RetentionReport, String> {
+    let ws = state.workspace(&workspace_root);
+    retention::run(
+        &ws,
+        now_ms(),
+        max_age_ms.unwrap_or(retention::DEFAULT_MAX_AGE_MS),
+    )
 }
 
 /// Full history of `file_path` (every recorded edit), most-recent-first —

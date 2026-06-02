@@ -41,6 +41,35 @@ impl BlobStore {
         let compressed = std::fs::read(&file)?;
         zstd::decode_all(&compressed[..]).map_err(std::io::Error::other)
     }
+
+    /// Delete every stored blob whose hash is not in `keep`. Returns the count
+    /// removed. Used by retention after old events are pruned.
+    pub fn gc(&self, keep: &std::collections::HashSet<String>) -> std::io::Result<usize> {
+        let mut removed = 0usize;
+        let shards = match std::fs::read_dir(&self.root) {
+            Ok(d) => d,
+            Err(_) => return Ok(0), // nothing stored yet
+        };
+        for shard in shards.flatten() {
+            if !shard.file_type().map(|t| t.is_dir()).unwrap_or(false) {
+                continue;
+            }
+            let prefix = shard.file_name().to_string_lossy().to_string();
+            for entry in std::fs::read_dir(shard.path())?.flatten() {
+                let name = entry.file_name().to_string_lossy().to_string();
+                if name.ends_with(".tmp") {
+                    continue;
+                }
+                let hash = format!("{prefix}{name}");
+                if !keep.contains(&hash) {
+                    if std::fs::remove_file(entry.path()).is_ok() {
+                        removed += 1;
+                    }
+                }
+            }
+        }
+        Ok(removed)
+    }
 }
 
 #[cfg(test)]

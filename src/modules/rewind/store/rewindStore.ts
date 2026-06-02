@@ -1,5 +1,10 @@
 import { create } from "zustand";
-import { chronicleRange, type TimelineEvent } from "../lib/api";
+import {
+  chroniclePrune,
+  chronicleRange,
+  chronicleSearch,
+  type TimelineEvent,
+} from "../lib/api";
 
 /** Default lookback window when opening the timeline: last 24 hours. */
 const DEFAULT_WINDOW_MS = 24 * 60 * 60 * 1000;
@@ -14,14 +19,22 @@ interface RewindState {
   scrubTs: number | null;
   loading: boolean;
   error: string | null;
+  /** Active search query. Empty string means "not searching". */
+  query: string;
+  /** Search hits for `query`; null when no search is active. */
+  searchResults: TimelineEvent[] | null;
+  searching: boolean;
 
   setOpen: (open: boolean) => void;
   toggle: () => void;
   setScrub: (ts: number | null) => void;
   load: (workspaceRoot: string) => Promise<void>;
+  search: (query: string) => Promise<void>;
+  clearSearch: () => void;
+  prune: () => Promise<void>;
 }
 
-export const useRewindStore = create<RewindState>((set) => ({
+export const useRewindStore = create<RewindState>((set, get) => ({
   open: false,
   workspaceRoot: null,
   events: [],
@@ -30,6 +43,9 @@ export const useRewindStore = create<RewindState>((set) => ({
   scrubTs: null,
   loading: false,
   error: null,
+  query: "",
+  searchResults: null,
+  searching: false,
 
   setOpen: (open) => set({ open }),
 
@@ -50,6 +66,37 @@ export const useRewindStore = create<RewindState>((set) => ({
         loading: false,
         error: e instanceof Error ? e.message : String(e),
       });
+    }
+  },
+
+  search: async (query) => {
+    const trimmed = query.trim();
+    set({ query });
+    const { workspaceRoot } = get();
+    if (trimmed.length === 0 || workspaceRoot === null) {
+      set({ searchResults: null, searching: false });
+      return;
+    }
+    set({ searching: true });
+    try {
+      const results = await chronicleSearch(workspaceRoot, trimmed, 200);
+      // Ignore stale responses if the query changed while we awaited.
+      if (get().query === query) set({ searchResults: results, searching: false });
+    } catch {
+      if (get().query === query) set({ searchResults: [], searching: false });
+    }
+  },
+
+  clearSearch: () => set({ query: "", searchResults: null, searching: false }),
+
+  prune: async () => {
+    const { workspaceRoot } = get();
+    if (workspaceRoot === null) return;
+    try {
+      await chroniclePrune(workspaceRoot);
+      await get().load(workspaceRoot);
+    } catch {
+      /* best-effort housekeeping; surfaced via the unchanged timeline */
     }
   },
 }));
