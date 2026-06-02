@@ -21,6 +21,8 @@ import {
   type ModelId,
   type ProviderId,
 } from "../config";
+import { invoke } from "@tauri-apps/api/core";
+import { getLaunchDir } from "@/lib/launchDir";
 import { buildTools, type ToolContext } from "../tools/tools";
 import { compactModelMessagesDetailed } from "./compact";
 import type { ProviderKeys } from "./keyring";
@@ -420,8 +422,19 @@ export async function runAgentStream(opts: RunAgentOptions) {
     abortSignal: opts.abortSignal,
     onStepFinish: (step) => {
       stepsSeen++;
+      const last = step.toolCalls?.[step.toolCalls.length - 1];
+      // Record agent steps into the session timeline (Rewind). Best-effort.
+      const root = getLaunchDir();
+      if (root && last) {
+        void invoke("chronicle_record_agent", {
+          workspaceRoot: root,
+          agentId: "agent",
+          step: `Calling ${last.toolName}`,
+          tool: last.toolName,
+          outcome: null,
+        }).catch(() => {});
+      }
       if (opts.onStep) {
-        const last = step.toolCalls?.[step.toolCalls.length - 1];
         if (last) {
           const label = TOOL_LABELS[last.toolName];
           opts.onStep(

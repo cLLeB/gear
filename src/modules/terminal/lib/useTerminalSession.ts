@@ -1,6 +1,7 @@
 import { detectMonoFontFamily, ensureMonoFontsLoaded } from "@/lib/fonts";
 import { IS_MAC } from "@/lib/platform";
 import { invoke } from "@tauri-apps/api/core";
+import { getLaunchDir } from "@/lib/launchDir";
 import { usePreferencesStore } from "@/modules/settings/preferences";
 import { buildTerminalTheme } from "@/styles/terminalTheme";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -35,6 +36,8 @@ type Session = {
   ptyOpening: boolean;
   initialCwd: string | undefined;
   lastCwd: string | null;
+  /** Private terminals are excluded from Chronicle capture. */
+  isPrivate: boolean;
   pendingExit: number | null;
   shellExited: boolean;
   callbacks: Callbacks;
@@ -316,7 +319,20 @@ function createTerminal(leafId: number, s: Session, container: HTMLDivElement): 
     },
     shellState,
   );
-  const prompt = registerPromptTracker(term, shellState);
+  const prompt = registerPromptTracker(term, shellState, (cmd) => {
+    // Capture completed commands into the session timeline. Private terminals
+    // are excluded; capture is best-effort and must never disrupt the shell.
+    if (s.isPrivate) return;
+    const root = getLaunchDir();
+    if (!root) return;
+    void invoke("chronicle_record_command", {
+      workspaceRoot: root,
+      command: cmd.command,
+      exitCode: cmd.exitCode,
+      durationMs: cmd.durationMs,
+      cwd: s.lastCwd,
+    }).catch(() => {});
+  });
   s.oscDisposers = [cwdDispose, prompt.dispose];
 
   setupResizeObserver(s, container);
@@ -335,6 +351,7 @@ function ensureSession(leafId: number, initialCwd?: string): Session {
     ptyOpening: false,
     initialCwd,
     lastCwd: null,
+    isPrivate: false,
     pendingExit: null,
     shellExited: false,
     callbacks: {},
@@ -510,6 +527,8 @@ type Options = {
   visible: boolean;
   focused?: boolean;
   initialCwd?: string;
+  /** When true, this terminal's commands are excluded from Chronicle capture. */
+  isPrivate?: boolean;
   onSearchReady?: (addon: SearchAddon) => void;
   onExit?: (code: number) => void;
   onCwd?: (cwd: string) => void;
@@ -521,6 +540,7 @@ export function useTerminalSession({
   visible,
   focused = true,
   initialCwd,
+  isPrivate = false,
   onSearchReady,
   onExit,
   onCwd,
@@ -532,6 +552,7 @@ export function useTerminalSession({
   useEffect(() => {
     let cancelled = false;
     const s = ensureSession(leafId, initialCwd);
+    s.isPrivate = isPrivate;
     const callbacks: Callbacks = {
       onSearchReady: (a) => cbRef.current.onSearchReady?.(a),
       onExit: (c) => cbRef.current.onExit?.(c),

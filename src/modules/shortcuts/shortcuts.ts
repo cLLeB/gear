@@ -27,6 +27,7 @@ export type ShortcutId =
   | "view.zoomOut"
   | "view.zoomReset"
   | "view.zenMode"
+  | "view.rewind"
   | "ai.toggle"
   | "ai.askSelection"
   | "shortcuts.open"
@@ -281,6 +282,14 @@ export const SHORTCUTS: Shortcut[] = [
     defaultBindings: IS_MAC
       ? [{ meta: true, shift: true, key: "z" }]
       : [{ ctrl: true, shift: true, key: "z" }],
+  },
+  {
+    id: "view.rewind",
+    label: "Toggle session timeline (Rewind)",
+    group: "View",
+    defaultBindings: IS_MAC
+      ? [{ meta: true, shift: true, key: "t" }]
+      : [{ ctrl: true, shift: true, key: "t" }],
   },
   // --- Terminal ---
   {
