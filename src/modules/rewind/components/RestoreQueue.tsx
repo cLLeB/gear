@@ -8,6 +8,8 @@ interface RestoreQueueProps {
   workspaceRoot: string | null;
   candidates: readonly TimelineEvent[];
   atTs: number;
+  /** Open the blame-across-time view for a file. */
+  onSelectFile?: (filePath: string) => void;
 }
 
 type RowStatus = "idle" | "restoring" | "done" | "error";
@@ -22,6 +24,7 @@ export function RestoreQueue({
   workspaceRoot,
   candidates,
   atTs,
+  onSelectFile,
 }: RestoreQueueProps) {
   const [status, setStatus] = useState<Record<number, RowStatus>>({});
 
@@ -64,9 +67,14 @@ export function RestoreQueue({
             key={e.id}
             className="flex items-center justify-between gap-2 rounded px-1.5 py-1 text-[11px] hover:bg-accent/40"
           >
-            <span className="min-w-0 flex-1 truncate" title={e.file_path ?? ""}>
+            <button
+              type="button"
+              onClick={() => e.file_path && onSelectFile?.(e.file_path)}
+              className="min-w-0 flex-1 truncate text-left hover:underline"
+              title={`${e.file_path} — view history`}
+            >
               {e.file_path}
-            </span>
+            </button>
             <span className="shrink-0 text-muted-foreground">
               {formatTime(e.ts)}
             </span>

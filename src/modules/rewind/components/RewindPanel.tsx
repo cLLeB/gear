@@ -1,10 +1,12 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Cancel01Icon, ClockIcon } from "@hugeicons/core-free-icons";
+import { Cancel01Icon, ClockIcon, FolderOpenIcon } from "@hugeicons/core-free-icons";
 import { getLaunchDir } from "@/lib/launchDir";
+import { chronicleCheckoutSandbox } from "../lib/api";
 import { restoreCandidates, useRewindStore } from "../store/rewindStore";
 import { TimelineScrubber } from "./TimelineScrubber";
 import { RestoreQueue } from "./RestoreQueue";
+import { FileTimeline } from "./FileTimeline";
 
 /**
  * Floating Rewind panel: the session-time-travel surface. Hosts the timeline
@@ -30,11 +32,31 @@ export function RewindPanel() {
     if (root) void load(root);
   }, [open, load]);
 
+  const [selectedFile, setSelectedFile] = useState<string | null>(null);
+  const [sandboxMsg, setSandboxMsg] = useState<string | null>(null);
+  const [sandboxing, setSandboxing] = useState(false);
+
   const atTs = scrubTs ?? rangeTo;
   const candidates = useMemo(
     () => restoreCandidates(events, atTs),
     [events, atTs],
   );
+
+  const checkoutSandbox = async () => {
+    if (!workspaceRoot) return;
+    setSandboxing(true);
+    setSandboxMsg(null);
+    try {
+      const path = await chronicleCheckoutSandbox(workspaceRoot, atTs);
+      setSandboxMsg(`Sandbox created: ${path}`);
+    } catch (e) {
+      setSandboxMsg(
+        `Sandbox failed: ${e instanceof Error ? e.message : String(e)}`,
+      );
+    } finally {
+      setSandboxing(false);
+    }
+  };
 
   if (!open) return null;
 
@@ -45,15 +67,33 @@ export function RewindPanel() {
           <HugeiconsIcon icon={ClockIcon} size={14} strokeWidth={2} />
           <span>Rewind — session timeline</span>
         </div>
-        <button
-          type="button"
-          aria-label="Close timeline"
-          onClick={() => setOpen(false)}
-          className="rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
-        >
-          <HugeiconsIcon icon={Cancel01Icon} size={14} strokeWidth={2} />
-        </button>
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            disabled={sandboxing || !workspaceRoot || events.length === 0}
+            onClick={() => void checkoutSandbox()}
+            title="Reconstruct the whole tree at this point into an isolated sandbox"
+            className="flex items-center gap-1 rounded border border-border/60 px-1.5 py-0.5 text-[10.5px] hover:bg-accent disabled:opacity-50"
+          >
+            <HugeiconsIcon icon={FolderOpenIcon} size={12} strokeWidth={2} />
+            {sandboxing ? "Checking out…" : "Checkout to sandbox"}
+          </button>
+          <button
+            type="button"
+            aria-label="Close timeline"
+            onClick={() => setOpen(false)}
+            className="rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+          >
+            <HugeiconsIcon icon={Cancel01Icon} size={14} strokeWidth={2} />
+          </button>
+        </div>
       </div>
+
+      {sandboxMsg ? (
+        <p className="break-all rounded bg-muted/40 px-2 py-1 text-[10.5px] text-muted-foreground">
+          {sandboxMsg}
+        </p>
+      ) : null}
 
       {loading ? (
         <p className="px-1 py-3 text-[11px] text-muted-foreground">Loading…</p>
@@ -74,14 +114,26 @@ export function RewindPanel() {
             onScrub={setScrub}
           />
           <div className="max-h-56 overflow-y-auto border-t border-border/50 pt-2">
-            <p className="px-1 pb-1 text-[10.5px] uppercase tracking-wide text-muted-foreground">
-              Recoverable at {scrubTs === null ? "now" : "this point"}
-            </p>
-            <RestoreQueue
-              workspaceRoot={workspaceRoot}
-              candidates={candidates}
-              atTs={atTs}
-            />
+            {selectedFile && workspaceRoot ? (
+              <FileTimeline
+                workspaceRoot={workspaceRoot}
+                filePath={selectedFile}
+                onBack={() => setSelectedFile(null)}
+              />
+            ) : (
+              <>
+                <p className="px-1 pb-1 text-[10.5px] uppercase tracking-wide text-muted-foreground">
+                  Recoverable at {scrubTs === null ? "now" : "this point"} · click
+                  a file for its history
+                </p>
+                <RestoreQueue
+                  workspaceRoot={workspaceRoot}
+                  candidates={candidates}
+                  atTs={atTs}
+                  onSelectFile={setSelectedFile}
+                />
+              </>
+            )}
           </div>
         </>
       )}

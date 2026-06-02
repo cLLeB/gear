@@ -49,3 +49,47 @@ export function chronicleRestoreFile(
     atTs,
   });
 }
+
+/** Full edit history of a file, most-recent-first — for blame-across-time. */
+export function chronicleFileHistory(
+  workspaceRoot: string,
+  filePath: string,
+  limit = 200,
+): Promise<TimelineEvent[]> {
+  return invoke<TimelineEvent[]>("chronicle_file_history", {
+    workspaceRoot,
+    filePath,
+    limit,
+  });
+}
+
+/**
+ * Reconstruct the whole tracked tree at-or-before `atTs` into an isolated
+ * sandbox directory. Returns the sandbox path; the live workspace is untouched.
+ */
+export function chronicleCheckoutSandbox(
+  workspaceRoot: string,
+  atTs: number,
+): Promise<string> {
+  return invoke<string>("chronicle_checkout_sandbox", {
+    workspaceRoot,
+    atTs,
+  });
+}
+
+/** Record an AI-agent step so manual and agent actions share one timeline. */
+export function chronicleRecordAgent(
+  workspaceRoot: string,
+  agentId: string,
+  step: string,
+  tool?: string,
+  outcome?: string,
+): Promise<void> {
+  return invoke<void>("chronicle_record_agent", {
+    workspaceRoot,
+    agentId,
+    step,
+    tool: tool ?? null,
+    outcome: outcome ?? null,
+  });
+}
