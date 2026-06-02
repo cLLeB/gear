@@ -168,6 +168,9 @@ pub fn run() {
             chronicle::chronicle_range,
             chronicle::chronicle_restore_file,
             chronicle::chronicle_record_command,
+            chronicle::chronicle_record_agent,
+            chronicle::chronicle_file_history,
+            chronicle::chronicle_checkout_sandbox,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
