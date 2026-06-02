@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { currentWorkspaceEnv } from "@/modules/workspace";
 import { chronicleRestoreFile, type TimelineEvent } from "../lib/api";
 import { formatTime } from "../lib/format";
+import { DiffStat } from "./DiffStat";
 
 interface RestoreQueueProps {
   workspaceRoot: string | null;
@@ -75,6 +76,7 @@ export function RestoreQueue({
             >
               {e.file_path}
             </button>
+            <DiffStat event={e} />
             <span className="shrink-0 text-muted-foreground">
               {formatTime(e.ts)}
             </span>

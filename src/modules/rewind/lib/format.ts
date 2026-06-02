@@ -34,6 +34,28 @@ export function formatTime(ts: number): string {
   });
 }
 
+/** The shape of a `file` event's payload (mirrors the Rust `EventPayload::File`). */
+export interface FileDiffStat {
+  op: string;
+  added: number;
+  removed: number;
+}
+
+/**
+ * Extract the diff stat from a `file` event's payload, if present. Returns null
+ * for non-file events or malformed payloads — the caller renders nothing then.
+ */
+export function fileDiffStat(e: TimelineEvent): FileDiffStat | null {
+  if (e.kind !== "file" || e.payload === null || typeof e.payload !== "object") {
+    return null;
+  }
+  const p = e.payload as Record<string, unknown>;
+  const added = typeof p.added === "number" ? p.added : 0;
+  const removed = typeof p.removed === "number" ? p.removed : 0;
+  const op = typeof p.op === "string" ? p.op : "modified";
+  return { op, added, removed };
+}
+
 /** Fractional position [0,1] of `ts` within [from,to]; clamped, safe when from==to. */
 export function positionInRange(ts: number, from: number, to: number): number {
   if (to <= from) return 0;

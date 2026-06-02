@@ -95,6 +95,7 @@ export function chronicleSearch(
 export interface RetentionReport {
   events_removed: number;
   blobs_removed: number;
+  sandboxes_removed: number;
 }
 
 /**

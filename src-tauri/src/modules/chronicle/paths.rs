@@ -14,6 +14,10 @@ pub fn db_path(workspace_root: &Path) -> PathBuf {
     chronicle_dir(workspace_root).join("timeline.db")
 }
 
+pub fn sandboxes_root(workspace_root: &Path) -> PathBuf {
+    chronicle_dir(workspace_root).join("sandboxes")
+}
+
 pub fn sandbox_dir(workspace_root: &Path, id: &str) -> PathBuf {
-    chronicle_dir(workspace_root).join("sandboxes").join(id)
+    sandboxes_root(workspace_root).join(id)
 }

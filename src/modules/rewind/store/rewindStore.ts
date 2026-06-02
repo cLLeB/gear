@@ -3,6 +3,7 @@ import {
   chroniclePrune,
   chronicleRange,
   chronicleSearch,
+  type RetentionReport,
   type TimelineEvent,
 } from "../lib/api";
 
@@ -31,7 +32,7 @@ interface RewindState {
   load: (workspaceRoot: string) => Promise<void>;
   search: (query: string) => Promise<void>;
   clearSearch: () => void;
-  prune: () => Promise<void>;
+  prune: () => Promise<RetentionReport | null>;
 }
 
 export const useRewindStore = create<RewindState>((set, get) => ({
@@ -91,12 +92,14 @@ export const useRewindStore = create<RewindState>((set, get) => ({
 
   prune: async () => {
     const { workspaceRoot } = get();
-    if (workspaceRoot === null) return;
+    if (workspaceRoot === null) return null;
     try {
-      await chroniclePrune(workspaceRoot);
+      const report = await chroniclePrune(workspaceRoot);
       await get().load(workspaceRoot);
+      return report;
     } catch {
       /* best-effort housekeeping; surfaced via the unchanged timeline */
+      return null;
     }
   },
 }));
