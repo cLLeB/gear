@@ -99,6 +99,45 @@ impl Store {
         Ok(rows)
     }
 
+    /// All `file` events for a path, most-recent-first — powers blame-across-time.
+    pub fn file_history(&self, file_path: &str, limit: i64) -> rusqlite::Result<Vec<EventRow>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT id,ts,kind,actor,file_path,summary,payload,parent_id FROM events
+             WHERE kind='file' AND file_path=?1 ORDER BY id DESC LIMIT ?2",
+        )?;
+        let rows = stmt
+            .query_map(params![file_path, limit], |r| {
+                let payload: String = r.get(6)?;
+                Ok(EventRow {
+                    id: r.get(0)?,
+                    ts: r.get(1)?,
+                    kind: r.get(2)?,
+                    actor: r.get(3)?,
+                    file_path: r.get(4)?,
+                    summary: r.get(5)?,
+                    payload: serde_json::from_str(&payload).unwrap_or(serde_json::Value::Null),
+                    parent_id: r.get(7)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(rows)
+    }
+
+    /// Distinct file paths that have at least one `file` event at-or-before
+    /// `at_ts` — the set of files to reconstruct for a sandbox checkout.
+    pub fn file_paths_until(&self, at_ts: i64) -> rusqlite::Result<Vec<String>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT DISTINCT file_path FROM events
+             WHERE kind='file' AND file_path IS NOT NULL AND ts<=?1",
+        )?;
+        let rows = stmt
+            .query_map(params![at_ts], |r| r.get::<_, String>(0))?
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(rows)
+    }
+
     /// Latest stored blob hash for a path at-or-before `at_ts`. The backbone of
     /// file reconstruction.
     pub fn latest_file_blob(

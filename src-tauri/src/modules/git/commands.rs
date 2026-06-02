@@ -149,10 +149,16 @@ pub async fn git_commit(
     app: AppHandle,
 ) -> Result<GitCommitResult, String> {
     let workspace = WorkspaceEnv::from_option(workspace);
-    blocking(app, move |r| {
+    let app2 = app.clone();
+    let root = repo_root.clone();
+    let res = blocking(app, move |r| {
         operations::commit(r, &repo_root, &message, &workspace).map_err(Into::into)
     })
-    .await
+    .await;
+    if res.is_ok() {
+        crate::modules::chronicle::record_git(&app2, &root, "commit", None);
+    }
+    res
 }
 
 #[tauri::command]
@@ -304,10 +310,17 @@ pub async fn git_checkout_branch(
     app: AppHandle,
 ) -> Result<(), String> {
     let workspace = WorkspaceEnv::from_option(workspace);
-    blocking(app, move |r| {
+    let app2 = app.clone();
+    let root = repo_root.clone();
+    let reference = branch.clone();
+    let res = blocking(app, move |r| {
         operations::checkout_branch(r, &repo_root, &branch, &workspace).map_err(Into::into)
     })
-    .await
+    .await;
+    if res.is_ok() {
+        crate::modules::chronicle::record_git(&app2, &root, "checkout", Some(reference));
+    }
+    res
 }
 
 #[tauri::command]
@@ -319,11 +332,18 @@ pub async fn git_create_branch(
     app: AppHandle,
 ) -> Result<(), String> {
     let workspace = WorkspaceEnv::from_option(workspace);
-    blocking(app, move |r| {
+    let app2 = app.clone();
+    let root = repo_root.clone();
+    let reference = branch.clone();
+    let res = blocking(app, move |r| {
         operations::create_branch(r, &repo_root, &branch, start_point.as_deref(), &workspace)
             .map_err(Into::into)
     })
-    .await
+    .await;
+    if res.is_ok() {
+        crate::modules::chronicle::record_git(&app2, &root, "create-branch", Some(reference));
+    }
+    res
 }
 
 #[tauri::command]

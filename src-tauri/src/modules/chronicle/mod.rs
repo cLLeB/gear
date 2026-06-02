@@ -22,6 +22,83 @@ fn now_ms() -> i64 {
         .unwrap_or(0)
 }
 
+/// Emit a git transition into the timeline. Best-effort: looks up
+/// [`ChronicleState`] from the app handle and never fails the caller.
+pub fn record_git(
+    app: &tauri::AppHandle,
+    repo_root: &str,
+    op: &str,
+    reference: Option<String>,
+) {
+    use tauri::Manager;
+    let state = app.state::<ChronicleState>();
+    let summary = match &reference {
+        Some(r) => format!("git {op} {r}"),
+        None => format!("git {op}"),
+    };
+    state.emit(ChronicleEvent {
+        ts: now_ms(),
+        session_id: "session".into(),
+        actor: "user".into(),
+        cwd: Some(repo_root.to_string()),
+        workspace_root: repo_root.to_string(),
+        file_path: None,
+        summary,
+        payload: EventPayload::Git {
+            op: op.to_string(),
+            reference,
+            sha: None,
+        },
+        parent_id: None,
+    });
+}
+
+/// Emit an agent step into the timeline. Called by `chronicle_record_agent`.
+fn record_agent_event(
+    state: &ChronicleState,
+    workspace_root: String,
+    agent_id: String,
+    step: String,
+    tool: Option<String>,
+    outcome: Option<String>,
+) {
+    let summary = match &tool {
+        Some(t) => format!("{agent_id}: {step} ({t})"),
+        None => format!("{agent_id}: {step}"),
+    };
+    state.emit(ChronicleEvent {
+        ts: now_ms(),
+        session_id: "session".into(),
+        actor: agent_id.clone(),
+        cwd: None,
+        workspace_root,
+        file_path: None,
+        summary,
+        payload: EventPayload::Agent {
+            agent_id,
+            step,
+            tool,
+            outcome,
+        },
+        parent_id: None,
+    });
+}
+
+/// Record an AI-agent step (tool call / decision) into the timeline. Called by
+/// the frontend agent runner so manual and agent actions share one timeline.
+#[tauri::command]
+pub fn chronicle_record_agent(
+    state: State<'_, ChronicleState>,
+    workspace_root: String,
+    agent_id: String,
+    step: String,
+    tool: Option<String>,
+    outcome: Option<String>,
+) -> Result<(), String> {
+    record_agent_event(&state, workspace_root, agent_id, step, tool, outcome);
+    Ok(())
+}
+
 /// Record a completed terminal command into the timeline. Called by the
 /// frontend OSC-133 handler when a command finishes (it owns the parsed
 /// command text, exit code, and cwd).
@@ -71,6 +148,39 @@ pub fn chronicle_range(
         .store
         .range(from_ts, to_ts, limit)
         .map_err(|e| e.to_string())
+}
+
+/// Full history of `file_path` (every recorded edit), most-recent-first —
+/// powers the blame-across-time gutter.
+#[tauri::command]
+pub fn chronicle_file_history(
+    state: State<'_, ChronicleState>,
+    workspace_root: String,
+    file_path: String,
+    limit: i64,
+) -> Result<Vec<EventRow>, String> {
+    state
+        .workspace(&workspace_root)
+        .store
+        .file_history(&file_path, limit)
+        .map_err(|e| e.to_string())
+}
+
+/// Reconstruct the entire tracked file tree as it existed at-or-before `at_ts`
+/// into an isolated sandbox directory. Returns the sandbox path. The live
+/// workspace is never touched.
+#[tauri::command]
+pub fn chronicle_checkout_sandbox(
+    state: State<'_, ChronicleState>,
+    workspace_root: String,
+    at_ts: i64,
+) -> Result<String, String> {
+    let w = state.workspace(&workspace_root);
+    let dest = paths::sandbox_dir(std::path::Path::new(&workspace_root), &at_ts.to_string());
+    std::fs::create_dir_all(&dest).map_err(|e| e.to_string())?;
+    let count = snapshot::reconstruct_tree_into(&w.store, &w.blobs, at_ts, &dest)?;
+    log::info!("chronicle sandbox: reconstructed {count} files into {dest:?}");
+    Ok(dest.to_string_lossy().to_string())
 }
 
 /// Reconstruct the text content of a file as it existed at-or-before `at_ts`.
