@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { currentWorkspaceEnv } from "@/modules/workspace";
+import { getLaunchDir } from "@/lib/launchDir";
 
 export type ReadResult =
   | { kind: "text"; content: string; size: number }
@@ -140,6 +141,8 @@ export const native = {
       path,
       content,
       workspace: currentWorkspaceEnv(),
+      source: "agent",
+      workspaceRoot: getLaunchDir() ?? null,
     }),
   canonicalize: (path: string) =>
     invoke<string>("fs_canonicalize", {

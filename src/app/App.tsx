@@ -78,6 +78,7 @@ import {
   useSourceControl,
 } from "@/modules/source-control";
 import { StatusBar } from "@/modules/statusbar";
+import { RewindPanel, useRewindStore } from "@/modules/rewind";
 import {
   MAX_PANES_PER_TAB,
   useTabs,
@@ -1104,6 +1105,7 @@ export default function App() {
         clearFocusedTerminal();
       },
       "view.zenMode": () => setZenMode((v) => !v),
+      "view.rewind": () => useRewindStore.getState().toggle(),
     }),
     [
       activeId,
@@ -1662,6 +1664,8 @@ export default function App() {
               }
             />
           )}
+
+          <RewindPanel />
 
           <AgentNotificationsBridge
             tabs={tabs}

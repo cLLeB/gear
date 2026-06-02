@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { currentWorkspaceEnv } from "@/modules/workspace";
 import { usePreferencesStore } from "@/modules/settings/preferences";
+import { getLaunchDir } from "@/lib/launchDir";
 
 type ReadResult =
   | { kind: "text"; content: string; size: number }
@@ -55,6 +56,7 @@ export function useDocument({ path, onDirtyChange }: Options) {
       content,
       workspace: currentWorkspaceEnv(),
       source: "editor",
+      workspaceRoot: getLaunchDir() ?? null,
     });
     savedRef.current = content;
     setDirty(false);
