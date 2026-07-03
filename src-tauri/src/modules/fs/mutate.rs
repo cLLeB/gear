@@ -1,5 +1,49 @@
 use crate::modules::workspace::{resolve_path, WorkspaceEnv};
 
+/// Copies files/dirs (from an OS drag-drop) into `dest_dir`. Sources are
+/// absolute OS paths; only the destination is workspace-resolved.
+#[tauri::command]
+pub fn fs_copy(
+    sources: Vec<String>,
+    dest_dir: String,
+    workspace: Option<WorkspaceEnv>,
+) -> Result<(), String> {
+    let workspace = WorkspaceEnv::from_option(workspace);
+    let dest = resolve_path(&dest_dir, &workspace);
+    for source in &sources {
+        let src = std::path::PathBuf::from(source);
+        let name = src
+            .file_name()
+            .ok_or_else(|| format!("invalid source: {source}"))?;
+        let target = dest.join(name);
+        if target.exists() {
+            return Err(format!("already exists: {}", target.display()));
+        }
+        copy_recursive(&src, &target).map_err(|e| {
+            log::warn!(
+                "fs_copy({} -> {}) failed: {e}",
+                src.display(),
+                target.display()
+            );
+            e.to_string()
+        })?;
+    }
+    Ok(())
+}
+
+fn copy_recursive(src: &std::path::Path, dst: &std::path::Path) -> std::io::Result<()> {
+    if src.is_dir() {
+        std::fs::create_dir(dst)?;
+        for entry in std::fs::read_dir(src)? {
+            let entry = entry?;
+            copy_recursive(&entry.path(), &dst.join(entry.file_name()))?;
+        }
+        Ok(())
+    } else {
+        std::fs::copy(src, dst).map(|_| ())
+    }
+}
+
 /// Creates a new empty file. Fails if the file already exists.
 #[tauri::command]
 pub fn fs_create_file(path: String, workspace: Option<WorkspaceEnv>) -> Result<(), String> {
