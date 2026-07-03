@@ -221,7 +221,6 @@ export default function App() {
     updateTab,
     selectByIndex,
     setLeafCwd,
-    setLeafName,
     reorderTabs,
     focusPane,
     focusNextPaneInTab,
@@ -1471,7 +1470,6 @@ export default function App() {
             onCwd={handleTerminalCwd}
             onExit={handleLeafExit}
             onFocusLeaf={handleFocusLeaf}
-            onRenameLeaf={(_tabId, leafId, name) => setLeafName(leafId, name)}
           />
         </ErrorBoundary>
       </div>

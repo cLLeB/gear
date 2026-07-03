@@ -29,6 +29,12 @@ export type TerminalTab = {
   private?: boolean;
   /** User-set label that overrides the cwd-derived name. Survives cd. */
   customTitle?: string;
+  /** Warp-style command-block mode for this terminal. */
+  blocks?: boolean;
+  /** Restored but not yet activated — excluded from mounting so no PTY spawns. */
+  cold?: boolean;
+  /** Space this tab belongs to (spaces feature; optional until adopted). */
+  spaceId?: string;
 };
 
 export type EditorTab = {
@@ -37,6 +43,8 @@ export type EditorTab = {
   title: string;
   path: string;
   dirty: boolean;
+  /** Space this tab belongs to (spaces feature; optional until adopted). */
+  spaceId?: string;
   /**
    * True while the tab is in the transient "preview" state — opened by a
    * single-click in the explorer and not yet pinned by the user. A preview tab
