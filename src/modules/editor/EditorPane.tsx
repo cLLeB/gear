@@ -26,9 +26,11 @@ import { vim } from "@replit/codemirror-vim";
 import {
   buildSharedExtensions,
   languageCompartment,
+  lspCompartment,
   vimCompartment,
   wrapCompartment,
 } from "./lib/extensions";
+import { useLspExtension } from "@/modules/lsp";
 import { initVimGlobals, vimHandlersExtension } from "./lib/vim";
 
 initVimGlobals();
@@ -131,6 +133,13 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
     const pathRef = useRef(path);
     pathRef.current = path;
 
+    // LSP: presets key languages by file extension; enable once the doc is ready.
+    const langId = useMemo(
+      () => path.split(".").pop()?.toLowerCase() ?? null,
+      [path],
+    );
+    const lspExt = useLspExtension(path, langId, doc.status === "ready");
+
     const extensions = useMemo(
       () => [
         // basicSetup is added before user extensions by @uiw/react-codemirror,
@@ -149,6 +158,7 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
         })),
         ...buildSharedExtensions(),
         languageCompartment.of([]),
+        lspCompartment.of([]),
         inlineCompletion({
           getPrefs: () => {
             const s = usePreferencesStore.getState();
@@ -232,6 +242,15 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
         cancelled = true;
       };
     }, [path, doc.status]);
+
+    // Swap the LSP extension in/out as activation and readiness change.
+    useEffect(() => {
+      const view = cmRef.current?.view;
+      if (!view) return;
+      view.dispatch({
+        effects: lspCompartment.reconfigure(lspExt ?? []),
+      });
+    }, [lspExt]);
 
     const applySearchQuery = useCallback((search: string, replace: string) => {
       const view = cmRef.current?.view;
