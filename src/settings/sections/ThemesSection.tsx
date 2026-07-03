@@ -49,12 +49,14 @@ function ThemeCard({
   onSelect,
   onDelete,
   isCustom,
+  onHover,
 }: {
   theme: { id: string; name: string; variants: { light?: { colors?: Record<string, string> }; dark?: { colors?: Record<string, string> } } };
   selected: boolean;
   onSelect: () => void;
   onDelete?: () => void;
   isCustom?: boolean;
+  onHover?: (hovering: boolean) => void;
 }) {
   const darkBg = theme.variants.dark?.colors?.background ?? "#1a1b26";
   const darkFg = theme.variants.dark?.colors?.primary ?? "#7aa2f7";
@@ -65,6 +67,10 @@ function ThemeCard({
     <button
       type="button"
       onClick={onSelect}
+      onMouseEnter={() => onHover?.(true)}
+      onMouseLeave={() => onHover?.(false)}
+      onFocus={() => onHover?.(true)}
+      onBlur={() => onHover?.(false)}
       className={cn(
         "group relative flex flex-col gap-2 rounded-lg border p-3 text-left transition-all",
         selected
@@ -274,7 +280,7 @@ function SliderRow({
 }
 
 export function ThemesSection() {
-  const { themeId, setThemeId, customThemes } = useTheme();
+  const { themeId, setThemeId, previewThemeId, customThemes } = useTheme();
   const backgroundKind = usePreferencesStore((s) => s.backgroundKind);
   const backgroundImageId = usePreferencesStore((s) => s.backgroundImageId);
   const backgroundOpacity = usePreferencesStore((s) => s.backgroundOpacity);
@@ -399,6 +405,7 @@ export function ThemesSection() {
                 theme={theme as Parameters<typeof ThemeCard>[0]["theme"]}
                 selected={themeId === theme.id}
                 onSelect={() => setThemeId(theme.id)}
+                onHover={(h) => previewThemeId(h ? theme.id : null)}
                 isCustom={isCustom}
                 onDelete={isCustom ? () => void handleDeleteCustomTheme(theme.id) : undefined}
               />
