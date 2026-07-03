@@ -214,6 +214,7 @@ export default function App() {
     setActiveSpaceForNewTabs,
     moveTabToSpace,
     reassignSpaceTabs,
+    setTabLanguage,
     newAgentTab,
     newPrivateTab,
     openFileTab,
@@ -1037,12 +1038,19 @@ export default function App() {
 
   const handleOpenFile = useCallback(
     (path: string, pin?: boolean) => {
+      // Markdown opens rendered by default; the preview has an "Edit raw"
+      // button that reopens it in the code editor.
+      const ext = path.split(".").pop()?.toLowerCase();
+      if (ext === "md" || ext === "markdown") {
+        newMarkdownTab(path);
+        return;
+      }
       // Explorer defaults to preview (pin=false); explicit actions like
       // context-menu "Open" pass pin=true for a persistent tab.
       // We default to pin=true so files open in new persistent tabs instead of replacing.
       openFileTab(path, pin ?? true);
     },
-    [openFileTab],
+    [openFileTab, newMarkdownTab],
   );
 
   const handlePathRenamed = useCallback(
@@ -1651,7 +1659,11 @@ export default function App() {
         )}
         aria-hidden={!isMarkdownTab}
       >
-        <MarkdownStack tabs={tabs} activeId={activeId} />
+        <MarkdownStack
+          tabs={tabs}
+          activeId={activeId}
+          onEditRaw={(path) => openFileTab(path, true)}
+        />
       </div>
       <div
         className={cn(
@@ -1904,6 +1916,17 @@ export default function App() {
               privateActive={
                 activeTab?.kind === "terminal" && activeTab.private === true
               }
+              editorLanguage={
+                activeTab?.kind === "editor"
+                  ? (activeTab.languageOverride ??
+                    activeTab.path.split(".").pop()?.toLowerCase() ??
+                    "txt")
+                  : null
+              }
+              editorLanguageIsOverride={
+                activeTab?.kind === "editor" && !!activeTab.languageOverride
+              }
+              onSetEditorLanguage={(ext) => setTabLanguage(activeId, ext)}
             />
           )}
 
