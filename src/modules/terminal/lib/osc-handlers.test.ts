@@ -96,6 +96,17 @@ describe("OSC 7 cwd handler — gated by OSC 133 in-command state", () => {
     handlers.get(7)?.("file:///C:/Users/me/project");
     expect(onCwd).toHaveBeenCalledWith("C:/Users/me/project");
   });
+
+  it("normalizes Git Bash / MSYS2 POSIX-style OSC 7 paths", () => {
+    // Git Bash emits /c/Users/me/project (lowercase drive, no colon).
+    // The file explorer must receive C:/Users/me/project.
+    const { term, handlers } = makeFakeTerm();
+    const onCwd = vi.fn();
+    registerCwdHandler(term, onCwd);
+
+    handlers.get(7)?.("file://HOSTNAME/c/Users/me/project");
+    expect(onCwd).toHaveBeenCalledWith("C:/Users/me/project");
+  });
 });
 
 describe("parseOsc133Field", () => {

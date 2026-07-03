@@ -18,8 +18,6 @@ import { cn } from "@/lib/utils";
 import { usePreferencesStore } from "@/modules/settings/preferences";
 import type { ThemePref } from "@/modules/settings/store";
 import {
-  EDITOR_THEME_LABELS,
-  EDITOR_THEMES,
   TERMINAL_FONT_SIZES,
   TERMINAL_SCROLLBACK_PRESETS,
   setAgentNotifications,
@@ -28,7 +26,6 @@ import {
   exportSettings,
   importSettings,
   setAutostart,
-  setEditorTheme,
   setLanguage,
   setRestoreWindowState,
   setShowHidden,
@@ -38,7 +35,6 @@ import {
   setTerminalScrollback,
   setTerminalWebglEnabled,
   setVimMode,
-  type EditorThemeId,
 } from "@/modules/settings/store";
 import { useTheme } from "@/modules/theme";
 import {
@@ -68,7 +64,6 @@ export function GeneralSection() {
   const { t } = useTranslation();
   const { mode, setMode } = useTheme();
   const language = usePreferencesStore((s) => s.language) as LanguageCode;
-  const editorTheme = usePreferencesStore((s) => s.editorTheme);
   const autostart = usePreferencesStore((s) => s.autostart);
   const restoreWindowState = usePreferencesStore((s) => s.restoreWindowState);
   const vimMode = usePreferencesStore((s) => s.vimMode);
@@ -105,7 +100,6 @@ export function GeneralSection() {
     }
   };
 
-  const onPickEditor = (id: EditorThemeId) => void setEditorTheme(id);
   const onToggleTerminalWebgl = (next: boolean) => {
     void setTerminalWebglEnabled(next).catch((e) =>
       console.error("terminal WebGL preference update failed", e),
@@ -217,29 +211,7 @@ export function GeneralSection() {
       </div>
 
       <div className="flex flex-col gap-2">
-        <Label>{t("settings.general.editorTheme")}</Label>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="outline"
-              className="h-9 justify-between gap-2 px-2.5 text-[12px]"
-            >
-              <span>{EDITOR_THEME_LABELS[editorTheme]}</span>
-              <HugeiconsIcon icon={ArrowDown01Icon} size={12} strokeWidth={2} className="opacity-70" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="min-w-[220px]">
-            {EDITOR_THEMES.map((theme) => (
-              <DropdownMenuItem
-                key={theme}
-                onSelect={() => onPickEditor(theme)}
-                className={cn("text-[12px]", theme === editorTheme && "bg-accent/50")}
-              >
-                {EDITOR_THEME_LABELS[theme]}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <Label>Editor</Label>
         <SettingRow
           title={t("settings.general.vimMode")}
           description={t("settings.general.vimModeDesc")}

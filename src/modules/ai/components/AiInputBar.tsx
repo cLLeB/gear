@@ -230,8 +230,8 @@ export function AiInputBar() {
   return (
     <div
       className={cn(
-        "shrink-0 border-t border-border/60 bg-card/40 px-3 py-2 transition-colors",
-        isDragOver && "bg-primary/5",
+        "shrink-0 border border-border/40 bg-background/60 backdrop-blur-xl px-4 py-3 mx-4 my-3 rounded-2xl shadow-2xl transition-all",
+        isDragOver && "bg-primary/10 border-primary/50",
       )}
       onDragOver={(e) => {
         e.preventDefault();
@@ -549,13 +549,13 @@ export type AiInputBarProps = { tabId: number };
 
 export function AiInputBarConnect({ onAdd }: { onAdd: () => void }) {
   return (
-    <div className="shrink-0 border-t border-border/60 bg-card/40 px-3 py-2">
-      <div className="flex h-10 items-center justify-between gap-3 rounded-lg px-3 text-xs">
+    <div className="shrink-0 border border-border/40 bg-background/60 backdrop-blur-xl px-4 py-3 mx-4 my-3 rounded-2xl shadow-2xl">
+      <div className="flex h-10 items-center justify-between gap-3 text-xs">
         <span className="text-muted-foreground">
           Connect any AI provider (or use local models) - your key stays in your
           OS keychain.
         </span>
-        <Button size="xs" onClick={onAdd}>
+        <Button size="xs" onClick={onAdd} className="rounded-full px-4">
           <HugeiconsIcon icon={Key01Icon} />
           Connect provider
         </Button>

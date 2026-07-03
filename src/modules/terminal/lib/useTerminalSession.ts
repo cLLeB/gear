@@ -35,6 +35,7 @@ type Session = {
   pty: PtySession | null;
   ptyOpening: boolean;
   initialCwd: string | undefined;
+  shellPath: string | undefined;
   lastCwd: string | null;
   /** Private terminals are excluded from Chronicle capture. */
   isPrivate: boolean;
@@ -342,7 +343,7 @@ function createTerminal(leafId: number, s: Session, container: HTMLDivElement): 
 
 // ── session lifecycle ──────────────────────────────────────────────────────
 
-function ensureSession(leafId: number, initialCwd?: string): Session {
+function ensureSession(leafId: number, initialCwd?: string, shellPath?: string): Session {
   const existing = sessions.get(leafId);
   if (existing) return existing;
 
@@ -350,6 +351,7 @@ function ensureSession(leafId: number, initialCwd?: string): Session {
     pty: null,
     ptyOpening: false,
     initialCwd,
+    shellPath,
     lastCwd: null,
     isPrivate: false,
     pendingExit: null,
@@ -401,6 +403,7 @@ async function openPtyForSession(
       },
     },
     cwd,
+    s.shellPath,
   );
 }
 
@@ -527,6 +530,7 @@ type Options = {
   visible: boolean;
   focused?: boolean;
   initialCwd?: string;
+  shellPath?: string;
   /** When true, this terminal's commands are excluded from Chronicle capture. */
   isPrivate?: boolean;
   onSearchReady?: (addon: SearchAddon) => void;
@@ -540,6 +544,7 @@ export function useTerminalSession({
   visible,
   focused = true,
   initialCwd,
+  shellPath,
   isPrivate = false,
   onSearchReady,
   onExit,
@@ -551,7 +556,7 @@ export function useTerminalSession({
   // Create terminal and PTY once, detach on cleanup (terminal stays alive)
   useEffect(() => {
     let cancelled = false;
-    const s = ensureSession(leafId, initialCwd);
+    const s = ensureSession(leafId, initialCwd, shellPath);
     s.isPrivate = isPrivate;
     const callbacks: Callbacks = {
       onSearchReady: (a) => cbRef.current.onSearchReady?.(a),
