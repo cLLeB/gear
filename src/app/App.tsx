@@ -120,6 +120,7 @@ import {
   saveTerminalTabs,
 } from "@/modules/terminal/lib/sessionPersistence";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { useAppCloseGuard } from "./hooks/useAppCloseGuard";
 import { ThemeProvider } from "@/modules/theme";
 import { UpdaterDialog, WhatsNewDialog } from "@/modules/updater";
 import {
@@ -270,6 +271,10 @@ export default function App() {
   // (e.g. cdInNewTab) read the latest pane state instead of a stale closure.
   const tabsRef = useRef(tabs);
   tabsRef.current = tabs;
+
+  // Confirm before quitting while a terminal still has a running process.
+  const { pendingAppClose, confirmAppClose, cancelAppClose } =
+    useAppCloseGuard(tabsRef);
 
   // Persist terminal tabs and editor paths to localStorage for restore on relaunch.
   useEffect(() => {
@@ -1948,6 +1953,28 @@ export default function App() {
           )}
 
           <RewindPanel />
+
+          <AlertDialog
+            open={pendingAppClose}
+            onOpenChange={(open) => !open && cancelAppClose()}
+          >
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Quit Gear?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  A terminal still has a running process. Quitting will end it.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel onClick={cancelAppClose}>
+                  Cancel
+                </AlertDialogCancel>
+                <AlertDialogAction onClick={confirmAppClose}>
+                  Quit
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
 
           <SpaceSwitcher
             open={switcherOpen}
