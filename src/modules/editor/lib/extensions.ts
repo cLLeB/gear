@@ -35,7 +35,7 @@ export function buildSharedExtensions(): Extension[] {
       },
       ".cm-scroller": {
         fontFamily: detectMonoFontFamily(),
-        fontSize: "13px",
+        fontSize: "calc(13px * var(--app-zoom, 1))",
         lineHeight: "1.55",
         backgroundColor: "transparent !important",
       },
