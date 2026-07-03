@@ -66,13 +66,14 @@ type Props = {
   onClose?: () => void;
 };
 
+// Only formats the WebView2 (Chromium) engine can actually decode — so we never
+// show a broken preview. TIFF/HEIC images and MKV/AVI video are intentionally
+// excluded (the engine can't render them).
 const IMAGE_EXTS = new Set([
-  "png", "jpg", "jpeg", "gif", "webp", "svg", "ico", "bmp", "avif", "apng",
-  "jfif", "pjpeg", "tif", "tiff", "heic", "heif",
+  "png", "jpg", "jpeg", "jfif", "pjpeg", "gif", "webp", "svg", "ico", "bmp",
+  "avif", "apng",
 ]);
-const VIDEO_EXTS = new Set([
-  "mp4", "webm", "ogv", "mov", "mkv", "m4v", "avi", "mpeg", "mpg",
-]);
+const VIDEO_EXTS = new Set(["mp4", "webm", "ogv", "mov", "m4v"]);
 const AUDIO_EXTS = new Set([
   "mp3", "wav", "flac", "aac", "m4a", "ogg", "oga", "opus", "weba",
 ]);
