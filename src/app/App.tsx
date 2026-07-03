@@ -1479,6 +1479,7 @@ export default function App() {
             onExit={handleLeafExit}
             onFocusLeaf={handleFocusLeaf}
             onRenameLeaf={(_tabId, leafId, name) => setLeafName(leafId, name)}
+            onCloseLeaf={(_tabId, leafId) => closePaneByLeaf(leafId)}
           />
         </ErrorBoundary>
       </div>

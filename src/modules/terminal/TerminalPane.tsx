@@ -34,6 +34,8 @@ type Props = {
   blocks?: boolean;
   /** Private terminals are excluded from session-timeline capture. */
   isPrivate?: boolean;
+  /** Per-tab shell override from the new-tab picker. */
+  shellPath?: string;
   onSearchReady?: (leafId: number, addon: SearchAddon) => void;
   onExit?: (leafId: number, code: number) => void;
   onCwd?: (leafId: number, cwd: string) => void;
@@ -48,6 +50,7 @@ export const TerminalPane = memo(
       initialCwd,
       blocks = false,
       isPrivate = false,
+      shellPath,
       onSearchReady,
       onExit,
       onCwd,
@@ -66,6 +69,7 @@ export const TerminalPane = memo(
       initialCwd,
       blocks,
       isPrivate,
+      shellPath,
       onSearchReady: (a) => onSearchReady?.(leafId, a),
       onExit: (c) => onExit?.(leafId, c),
       onCwd: (c) => onCwd?.(leafId, c),
