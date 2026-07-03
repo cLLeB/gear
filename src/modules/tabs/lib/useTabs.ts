@@ -123,6 +123,8 @@ export type SettingsViewTab = {
   kind: "settings";
   title: string;
   section?: string;
+  spaceId?: string;
+  cold?: boolean;
 };
 
 /** Fields every tab carries for the Spaces feature. */
@@ -262,6 +264,7 @@ export function useTabs() {
       {
         id: tabId,
         kind: "terminal",
+        spaceId: activeSpaceIdRef.current,
         title: "blocks",
         cwd,
         blocks: true,
@@ -312,6 +315,7 @@ export function useTabs() {
         {
           id: tabId,
           kind: "terminal",
+          spaceId: activeSpaceIdRef.current,
           title,
           cwd,
           paneTree: { kind: "leaf", id: leafId, cwd },
@@ -332,6 +336,7 @@ export function useTabs() {
       {
         id: tabId,
         kind: "terminal",
+        spaceId: activeSpaceIdRef.current,
         title: "private",
         cwd,
         paneTree: { kind: "leaf", id: leafId, cwd },
@@ -377,6 +382,7 @@ export function useTabs() {
           {
             id,
             kind: "editor",
+            spaceId: activeSpaceIdRef.current,
             title: basename(path),
             path,
             dirty: false,
@@ -411,6 +417,7 @@ export function useTabs() {
         const tab: EditorTab = {
           id,
           kind: "editor",
+          spaceId: activeSpaceIdRef.current,
           title: basename(path),
           path,
           dirty: false,
@@ -518,7 +525,13 @@ export function useTabs() {
     const id = nextIdRef.current++;
     setTabs((t) => [
       ...t,
-      { id, kind: "preview", title: titleFromUrl(url), url },
+      {
+        id,
+        kind: "preview",
+        spaceId: activeSpaceIdRef.current,
+        title: titleFromUrl(url),
+        url,
+      },
     ]);
     setActiveId(id);
     return id;
@@ -536,7 +549,16 @@ export function useTabs() {
       }
       const id = nextIdRef.current++;
       targetId = id;
-      return [...curr, { id, kind: "markdown", title: basename(path), path }];
+      return [
+        ...curr,
+        {
+          id,
+          kind: "markdown",
+          spaceId: activeSpaceIdRef.current,
+          title: basename(path),
+          path,
+        },
+      ];
     });
     if (targetId !== null) setActiveId(targetId);
     return targetId;
@@ -970,7 +992,13 @@ export function useTabs() {
       targetId = id;
       return [
         ...curr,
-        { id, kind: "settings", title: "Settings", section } satisfies SettingsViewTab,
+        {
+          id,
+          kind: "settings",
+          spaceId: activeSpaceIdRef.current,
+          title: "Settings",
+          section,
+        } satisfies SettingsViewTab,
       ];
     });
     if (targetId !== null) setActiveId(targetId);
@@ -989,6 +1017,7 @@ export function useTabs() {
         {
           id: tabId,
           kind: "terminal",
+          spaceId: activeSpaceIdRef.current,
           title: "shell",
           cwd,
           paneTree: { kind: "leaf", id: leafId, cwd },
