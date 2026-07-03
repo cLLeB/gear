@@ -23,10 +23,12 @@ type Props = {
   activeLeafId: number;
   blocks: boolean;
   isPrivate: boolean;
+  shellPath?: string;
   /** Show the per-pane label header (true for split panes). */
   showLabel?: boolean;
   onFocusLeaf: (leafId: number) => void;
   onRenameLeaf?: (leafId: number, name: string) => void;
+  onCloseLeaf?: (leafId: number) => void;
   getBundle: (leafId: number) => LeafBundle;
 };
 
@@ -38,9 +40,11 @@ export function PaneTreeView(props: Props) {
       activeLeafId,
       blocks,
       isPrivate,
+      shellPath,
       showLabel = false,
       onFocusLeaf,
       onRenameLeaf,
+      onCloseLeaf,
       getBundle,
     } = props;
     const focused = node.id === activeLeafId;
@@ -67,6 +71,7 @@ export function PaneTreeView(props: Props) {
             label={label}
             focused={focused}
             onCommit={(name) => onRenameLeaf?.(node.id, name)}
+            onClose={onCloseLeaf ? () => onCloseLeaf(node.id) : undefined}
           />
         )}
         <div className="relative min-h-0 flex-1">
@@ -77,6 +82,7 @@ export function PaneTreeView(props: Props) {
             initialCwd={node.cwd}
             blocks={blocks}
             isPrivate={isPrivate}
+            shellPath={shellPath}
             ref={b.setRef}
             onSearchReady={b.onSearchReady}
             onCwd={b.onCwd}
@@ -111,10 +117,12 @@ function PaneLabel({
   label,
   focused,
   onCommit,
+  onClose,
 }: {
   label: string;
   focused: boolean;
   onCommit: (name: string) => void;
+  onClose?: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
@@ -154,12 +162,23 @@ function PaneLabel({
           onDoubleClick={startEdit}
           title="Double-click to rename"
           className={cn(
-            "truncate text-[11px] leading-none",
+            "flex-1 truncate text-[11px] leading-none",
             focused ? "text-foreground/80" : "text-muted-foreground/60",
           )}
         >
           {label || <span className="opacity-40">pane</span>}
         </span>
+      )}
+      {onClose && !editing && (
+        <button
+          type="button"
+          onClick={onClose}
+          title="Close pane (Ctrl+Shift+W)"
+          aria-label="Close pane"
+          className="ml-1 shrink-0 rounded px-1 text-[12px] leading-none text-muted-foreground/60 hover:bg-accent/40 hover:text-foreground"
+        >
+          ×
+        </button>
       )}
     </div>
   );

@@ -16,6 +16,7 @@ type Props = {
   onExit: (leafId: number, code: number) => void;
   onFocusLeaf: (tabId: number, leafId: number) => void;
   onRenameLeaf?: (tabId: number, leafId: number, name: string) => void;
+  onCloseLeaf?: (tabId: number, leafId: number) => void;
 };
 
 type Bundle = {
@@ -34,6 +35,7 @@ export function TerminalStack({
   onExit,
   onFocusLeaf,
   onRenameLeaf,
+  onCloseLeaf,
 }: Props) {
   const terminals = useMemo(() => selectLiveTerminals(tabs), [tabs]);
 
@@ -98,11 +100,15 @@ export function TerminalStack({
               activeLeafId={t.activeLeafId}
               blocks={t.blocks ?? false}
               isPrivate={t.private === true}
+              shellPath={t.shellPath}
               onFocusLeaf={(leafId) => onFocusLeaf(t.id, leafId)}
               onRenameLeaf={
                 onRenameLeaf
                   ? (leafId, name) => onRenameLeaf(t.id, leafId, name)
                   : undefined
+              }
+              onCloseLeaf={
+                onCloseLeaf ? (leafId) => onCloseLeaf(t.id, leafId) : undefined
               }
               getBundle={getBundle}
             />

@@ -58,6 +58,8 @@ type Session = {
   initialCwd: string | undefined;
   /** Private terminals are excluded from Chronicle command capture. */
   isPrivate: boolean;
+  /** Per-tab shell override from the new-tab picker (falls back to the pref). */
+  shellPath: string | undefined;
   lastCwd: string | null;
   pendingExit: number | null;
   shellExited: boolean;
@@ -431,6 +433,7 @@ function ensureSession(
   initialCwd?: string,
   blocks = false,
   isPrivate = false,
+  shellPath?: string,
 ): Session {
   const existing = sessions.get(leafId);
   if (existing) return existing;
@@ -440,6 +443,7 @@ function ensureSession(
     ptyOpening: false,
     initialCwd,
     isPrivate,
+    shellPath,
     lastCwd: null,
     pendingExit: null,
     shellExited: false,
@@ -550,7 +554,7 @@ async function openPtyForSession(
     },
     cwd,
     s.blocks,
-    usePreferencesStore.getState().terminalShell || undefined,
+    s.shellPath || usePreferencesStore.getState().terminalShell || undefined,
   );
   // Only resize if the bound dims changed during the spawn: a same-size
   // ResizePseudoConsole during conhost warmup is a known ConPTY trigger for
@@ -838,6 +842,8 @@ type Options = {
   blocks?: boolean;
   /** When true, this terminal's commands are excluded from Chronicle capture. */
   isPrivate?: boolean;
+  /** Per-tab shell override from the new-tab picker. */
+  shellPath?: string;
   onSearchReady?: (addon: SearchAddon) => void;
   onExit?: (code: number) => void;
   onCwd?: (cwd: string) => void;
@@ -851,6 +857,7 @@ export function useTerminalSession({
   initialCwd,
   blocks = false,
   isPrivate = false,
+  shellPath,
   onSearchReady,
   onExit,
   onCwd,
@@ -866,7 +873,13 @@ export function useTerminalSession({
 
   useEffect(() => {
     let cancelled = false;
-    const s = ensureSession(leafId, initialCwdRef.current, blocks, isPrivate);
+    const s = ensureSession(
+      leafId,
+      initialCwdRef.current,
+      blocks,
+      isPrivate,
+      shellPath,
+    );
     s.isPrivate = isPrivate;
     s.ready.then(() => {
       if (cancelled || s.disposed) return;
