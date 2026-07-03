@@ -93,6 +93,9 @@ export type Preferences = {
   showHidden: boolean;
   terminalWebglEnabled: boolean;
   terminalFontFamily: string;
+  terminalFontWeight: string;
+  terminalCursorBlink: boolean;
+  terminalShell: string;
   terminalLetterSpacing: number;
   terminalFontSize: number;
   terminalScrollback: number;
@@ -142,6 +145,9 @@ const KEY_SHOW_HIDDEN = "showHidden";
 const LEGACY_KEY_SHOW_HIDDEN_DIRS = "showHiddenDirectories";
 const KEY_TERMINAL_WEBGL_ENABLED = "terminalWebglEnabled";
 const KEY_TERMINAL_FONT_FAMILY = "terminalFontFamily";
+const KEY_TERMINAL_FONT_WEIGHT = "terminalFontWeight";
+const KEY_TERMINAL_CURSOR_BLINK = "terminalCursorBlink";
+const KEY_TERMINAL_SHELL = "terminalShell";
 const KEY_TERMINAL_LETTER_SPACING = "terminalLetterSpacing";
 const KEY_TERMINAL_FONT_SIZE = "terminalFontSize";
 const KEY_TERMINAL_SCROLLBACK = "terminalScrollback";
@@ -204,6 +210,9 @@ export const DEFAULT_PREFERENCES: Preferences = {
   showHidden: true,
   terminalWebglEnabled: true,
   terminalFontFamily: "",
+  terminalFontWeight: "normal",
+  terminalCursorBlink: false,
+  terminalShell: "",
   terminalLetterSpacing: 0,
   terminalFontSize: TERMINAL_FONT_SIZE_DEFAULT,
   terminalScrollback: TERMINAL_SCROLLBACK_DEFAULT,
@@ -308,6 +317,14 @@ export async function loadPreferences(): Promise<Preferences> {
     terminalFontFamily:
       get<string>(KEY_TERMINAL_FONT_FAMILY) ??
       DEFAULT_PREFERENCES.terminalFontFamily,
+    terminalFontWeight:
+      get<string>(KEY_TERMINAL_FONT_WEIGHT) ??
+      DEFAULT_PREFERENCES.terminalFontWeight,
+    terminalCursorBlink:
+      get<boolean>(KEY_TERMINAL_CURSOR_BLINK) ??
+      DEFAULT_PREFERENCES.terminalCursorBlink,
+    terminalShell:
+      get<string>(KEY_TERMINAL_SHELL) ?? DEFAULT_PREFERENCES.terminalShell,
     terminalLetterSpacing:
       get<number>(KEY_TERMINAL_LETTER_SPACING) ??
       DEFAULT_PREFERENCES.terminalLetterSpacing,
@@ -491,6 +508,18 @@ export async function setTerminalWebglEnabled(value: boolean): Promise<void> {
 
 export async function setTerminalFontFamily(value: string): Promise<void> {
   await writePref(KEY_TERMINAL_FONT_FAMILY, value.trim());
+}
+
+export async function setTerminalFontWeight(value: string): Promise<void> {
+  await writePref(KEY_TERMINAL_FONT_WEIGHT, value.trim() || "normal");
+}
+
+export async function setTerminalCursorBlink(value: boolean): Promise<void> {
+  await writePref(KEY_TERMINAL_CURSOR_BLINK, value);
+}
+
+export async function setTerminalShell(value: string): Promise<void> {
+  await writePref(KEY_TERMINAL_SHELL, value);
 }
 
 export async function setTerminalLetterSpacing(value: number): Promise<void> {

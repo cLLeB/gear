@@ -3,14 +3,14 @@ export type TerminalKeyEvent = Pick<
   "altKey" | "ctrlKey" | "metaKey" | "key" | "code"
 >;
 
+export type PlatformOpts = { isMac: boolean };
+
 export function terminalWordNavigationSequence(event: TerminalKeyEvent): string | null {
   if (!event.altKey || event.ctrlKey || event.metaKey) return null;
   if (event.key === "ArrowLeft" || event.code === "ArrowLeft") return "\x1bb";
   if (event.key === "ArrowRight" || event.code === "ArrowRight") return "\x1bf";
   return null;
 }
-
-export type PlatformOpts = { isMac: boolean };
 
 /** Cmd+Left/Right → readline line-start (Ctrl+A) / line-end (Ctrl+E).
  * macOS-only — Cmd doesn't exist as a navigation modifier elsewhere. */

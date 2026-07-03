@@ -38,16 +38,16 @@ if [ -z "$__GEAR_HOOKS_LOADED" ]; then
   _gear_precmd() {
     local _gear_ret=$?
     printf '\e]133;D;%s\e\\' "$_gear_ret"
-    # On Windows (MINGW64/MSYS2) $PWD is a MSYS-style path like /c/Users/foo.
-    # Convert it to the Windows-style /C:/Users/foo that parseOsc7 expects so
-    # the file explorer updates correctly — just like PowerShell does.
-    local _gear_pwd="$PWD"
-    if [ -n "${MSYSTEM:-}" ] && [[ "$_gear_pwd" =~ ^/([a-zA-Z])(/|$) ]]; then
-      local _drive="${BASH_REMATCH[1]}"
-      _gear_pwd="/${_drive^^}:${_gear_pwd:2}"
-    fi
-    printf '\e]7;file://%s%s\e\\' "${HOSTNAME:-$(uname -n 2>/dev/null)}" "$(_gear_urlencode "$_gear_pwd")"
-    if [ -z "$__GEAR_PS1_INJECTED" ]; then
+    printf '\e]7;file://%s%s\e\\' "${HOSTNAME:-$(uname -n 2>/dev/null)}" "$(_gear_urlencode "$PWD")"
+    if [ -n "$GEAR_BLOCKS" ]; then
+      # Host renders its own input bar: suppress the shell prompt (B marker
+      # only) and reserve header/gap rows, mirroring the zsh integration.
+      if [ -n "$_gear_block_seen" ]; then
+        PS1='\n\n\[\e]133;B\e\\\]'
+      else
+        PS1='\n\[\e]133;B\e\\\]'
+      fi
+    elif [ -z "$__GEAR_PS1_INJECTED" ]; then
       PS1='\[\e]133;B\e\\\]'"$PS1"
       __GEAR_PS1_INJECTED=1
     fi
@@ -64,7 +64,13 @@ if [ -z "$__GEAR_HOOKS_LOADED" ]; then
   # on every command including inside PROMPT_COMMAND.
   if [ "${BASH_VERSINFO[0]:-0}" -gt 4 ] \
      || { [ "${BASH_VERSINFO[0]:-0}" -eq 4 ] && [ "${BASH_VERSINFO[1]:-0}" -ge 4 ]; }; then
-    PS0='\[\e]133;C\e\\\]'"${PS0:-}"
+    if [ -n "$GEAR_BLOCKS" ]; then
+      # PS0 only expands, never executes: the arithmetic inside the array
+      # subscript sets the seen flag while the unset array expands to nothing.
+      PS0='\[\e]133;C\e\\\]${_gear_noop[$((_gear_block_seen=1))]}'"${PS0:-}"
+    else
+      PS0='\[\e]133;C\e\\\]'"${PS0:-}"
+    fi
   fi
 
   _gear_precmd

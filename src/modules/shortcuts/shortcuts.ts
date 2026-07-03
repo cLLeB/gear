@@ -35,6 +35,9 @@ export type ShortcutId =
   | "settings.open"
   | "sidebar.toggle"
   | "terminal.clear"
+  | "terminal.toggleInput"
+  | "blocks.prev"
+  | "blocks.next"
   | "editor.undo"
   | "editor.redo"
   | "editor.findReplace"
@@ -304,6 +307,26 @@ export const SHORTCUTS: Shortcut[] = [
     label: "Clear terminal",
     group: "General",
     defaultBindings: [{ ctrl: true, key: "k" }],
+  },
+  {
+    id: "terminal.toggleInput",
+    label: "Toggle Shell / AI input",
+    group: "General",
+    defaultBindings: [{ [MOD_PROP]: true, key: "u" }],
+  },
+  {
+    id: "blocks.prev",
+    label: "Previous command block",
+    group: "General",
+    defaultBindings: [{ [MOD_PROP]: true, key: "ArrowUp" }],
+    allowRepeat: true,
+  },
+  {
+    id: "blocks.next",
+    label: "Next command block",
+    group: "General",
+    defaultBindings: [{ [MOD_PROP]: true, key: "ArrowDown" }],
+    allowRepeat: true,
   },
   // --- Editor (display-only; CodeMirror handles these keys natively) ---
   {

@@ -1,29 +1,50 @@
-import { detectMonoFontFamily, ensureMonoFontsLoaded } from "@/lib/fonts";
-import { IS_MAC } from "@/lib/platform";
-import { invoke } from "@tauri-apps/api/core";
+import { ensureMonoFontsLoaded } from "@/lib/fonts";
 import { getLaunchDir } from "@/lib/launchDir";
 import { usePreferencesStore } from "@/modules/settings/preferences";
-import { buildTerminalTheme } from "@/styles/terminalTheme";
-import { openUrl } from "@tauri-apps/plugin-opener";
-import { FitAddon } from "@xterm/addon-fit";
-import { SearchAddon } from "@xterm/addon-search";
-import { WebLinksAddon } from "@xterm/addon-web-links";
-import { WebglAddon } from "@xterm/addon-webgl";
-import { Terminal } from "@xterm/xterm";
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import type { SearchAddon } from "@xterm/addon-search";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  BlockDecorations,
+  type BlockMatch,
+  type VisibleBlocks,
+} from "../block/lib/blockDecorations";
+import type { BlockMode } from "../block/lib/modeMachine";
+import { DormantRing } from "./dormantRing";
 import {
   createShellIntegrationState,
   registerCwdHandler,
+  registerOsc52ClipboardHandler,
   registerPromptTracker,
 } from "./osc-handlers";
 import { openPty, type PtySession } from "./pty-bridge";
+import "../block/block.css";
+import { ensureAgentActivityListener, isAgentActivePty } from "./agentActivity";
 import {
-  terminalDeleteSequence,
-  terminalLineNavigationSequence,
-  terminalWordNavigationSequence,
-} from "./keymap";
-
-// ── types ──────────────────────────────────────────────────────────────────
+  acquireSlot,
+  applyBackgroundActive,
+  applyCursorBlink,
+  applyFontFamily,
+  applyFontSize,
+  applyFontWeight,
+  applyLetterSpacing,
+  applyTheme as applyPoolTheme,
+  applyScrollback,
+  applyWebglPreference,
+  configureRendererPool,
+  discardRetainedSlot,
+  disposeLeafSlot,
+  focusSlot,
+  getLiveSlotForLeaf,
+  getSlotForLeaf,
+  isLeafAltScreen,
+  parkLeafSlot,
+  poolSize,
+  poolSlotStats,
+  refreshLeafSlot,
+  releaseSlot,
+  setSlotFocused,
+} from "./rendererPool";
 
 type Callbacks = {
   onSearchReady?: (addon: SearchAddon) => void;
@@ -35,10 +56,9 @@ type Session = {
   pty: PtySession | null;
   ptyOpening: boolean;
   initialCwd: string | undefined;
-  shellPath: string | undefined;
-  lastCwd: string | null;
-  /** Private terminals are excluded from Chronicle capture. */
+  /** Private terminals are excluded from Chronicle command capture. */
   isPrivate: boolean;
+  lastCwd: string | null;
   pendingExit: number | null;
   shellExited: boolean;
   callbacks: Callbacks;
@@ -46,37 +66,50 @@ type Session = {
   focusedNow: boolean;
   disposed: boolean;
   ready: Promise<void>;
-  // Each session owns its terminal directly — no pool slot swapping
-  term: Terminal | null;
-  fitAddon: FitAddon | null;
-  searchAddon: SearchAddon | null;
-  webglAddon: WebglAddon | null;
-  observer: ResizeObserver | null;
+  cols: number;
+  rows: number;
   container: HTMLDivElement | null;
-  oscDisposers: (() => void)[];
-  fitTimer: ReturnType<typeof setTimeout> | null;
-  ptyTimer: ReturnType<typeof setTimeout> | null;
-  lastCols: number;
-  lastRows: number;
+  snapshot: string | null;
+  searchQuery: string | null;
+  dormantRing: DormantRing;
+  pendingInput: string;
+  hasSlot: boolean;
+  blocks: boolean;
+  blockMode: BlockMode;
+  blockListeners: Set<() => void>;
+  blockDecorations: BlockDecorations | null;
+  // Set by the block shell-input; called to pull focus back when the xterm
+  // grid steals it at the prompt (e.g. on a click), so typing stays in the bar.
+  inputFocus: (() => void) | null;
+  // Per-leaf unsent shell-input text; the single workspace bar swaps it on focus change.
+  inputDraft: string;
+  // Live "input has text" flag from the block shell-input (gates the watermark).
+  inputActive: boolean;
+  // A command was submitted on this leaf; kills the watermark synchronously,
+  // before the shell's OSC 133 C round-trips through the PTY.
+  everSubmitted: boolean;
+  // True if the slot was in alt-screen mode (TUI like vim, htop, dofek)
+  // at the most recent release. Read once on the next bind to trigger a
+  // SIGWINCH-driven repaint instead of replaying dormant bytes.
+  altScreenAtRelease: boolean;
+  // OSC 133 C..D window (or blocks running mode): a foreground process owns
+  // the terminal, so the leaf must keep its live grid while hidden.
+  commandRunning: boolean;
+  hiddenReleaseTimer: ReturnType<typeof setTimeout> | null;
+  spawnFailed: boolean;
 };
 
-// ── module state ───────────────────────────────────────────────────────────
-
 const sessions = new Map<number, Session>();
+
+// Block-overlay viewport listeners, keyed by leafId at module scope so the
+// overlay (a child) can subscribe before the parent effect creates the session.
+const blockViewportListeners = new Map<number, Set<() => void>>();
 
 const readyLeaves = new Set<number>();
 const readyWaiters = new Map<
   number,
   { resolve: () => void; timer: ReturnType<typeof setTimeout> }[]
 >();
-
-// ── constants ──────────────────────────────────────────────────────────────
-
-const FIT_DEBOUNCE_MS = 8;
-const PTY_RESIZE_DEBOUNCE_MS = 256;
-const WEBGL_RECOVERY_DELAY_MS = 250;
-
-// ── ready signalling ───────────────────────────────────────────────────────
 
 function markSessionReady(leafId: number): void {
   if (readyLeaves.has(leafId)) return;
@@ -90,7 +123,10 @@ function markSessionReady(leafId: number): void {
   }
 }
 
-export function whenSessionReady(leafId: number, timeoutMs = 4000): Promise<void> {
+export function whenSessionReady(
+  leafId: number,
+  timeoutMs = 4000,
+): Promise<void> {
   if (readyLeaves.has(leafId)) return Promise.resolve();
   return new Promise((resolve) => {
     const timer = setTimeout(() => {
@@ -105,47 +141,144 @@ export function whenSessionReady(leafId: number, timeoutMs = 4000): Promise<void
   });
 }
 
-// ── public helpers ─────────────────────────────────────────────────────────
+const PENDING_INPUT_MAX = 256 * 1024;
+
+// Input typed before the pty attaches is queued and flushed on attach. Cap the
+// queue so a large paste into a still-spawning pane can't grow it without bound.
+function queuePendingInput(s: Session, data: string): void {
+  if (s.pendingInput.length + data.length > PENDING_INPUT_MAX) return;
+  s.pendingInput += data;
+}
 
 export function writeToSession(leafId: number, data: string): boolean {
   const s = sessions.get(leafId);
-  if (!s || !s.pty) return false;
-  void s.pty.write(data);
-  return true;
-}
-
-// Bracketed paste via xterm, so an app that enabled it (Claude Code) treats a
-// dropped path as a real paste while a plain shell gets the literal text.
-export function pasteIntoLeaf(leafId: number, text: string): boolean {
-  const s = sessions.get(leafId);
-  if (!s || !s.term) return false;
-  s.term.paste(text);
-  return true;
-}
-
-export async function leafHasForegroundProcess(
-  leafId: number,
-): Promise<boolean> {
-  const s = sessions.get(leafId);
-  if (!s?.pty || s.shellExited) return false;
-  try {
-    return await invoke<boolean>("pty_has_foreground_process", {
-      id: s.pty.id,
-    });
-  } catch (e) {
-    console.error(
-      "[Gear] pty_has_foreground_process failed for leaf",
-      leafId,
-      e,
-    );
-    return false;
+  if (!s || s.shellExited) return false;
+  if (s.pty) {
+    void s.pty.write(data);
+    return true;
   }
+  queuePendingInput(s, data);
+  return true;
 }
 
-export function clearFocusedTerminal(): boolean {
+export function submitToLeaf(leafId: number, text: string): void {
+  const s = sessions.get(leafId);
+  if (!s || s.shellExited) return;
+  s.everSubmitted = true;
+  // Bracketed paste keeps a multiline command atomic; trailing CR runs it.
+  const data = text.includes("\n")
+    ? `\x1b[200~${text}\x1b[201~\r`
+    : `${text}\r`;
+  if (s.pty) void s.pty.write(data);
+  else queuePendingInput(s, data);
+}
+
+export function interruptLeaf(leafId: number): void {
+  sessions.get(leafId)?.pty?.write("\x03");
+}
+
+export function leafCwd(leafId: number): string | null {
+  return sessions.get(leafId)?.lastCwd ?? null;
+}
+
+export function navigateFocusedBlocks(dir: -1 | 1): boolean {
   for (const [, s] of sessions) {
-    if (!s.visibleNow || !s.focusedNow || !s.term) continue;
-    s.term.clear();
+    if (!s.visibleNow || !s.focusedNow || !s.blockDecorations) continue;
+    s.blockDecorations.navigateBlocks(dir);
+    return true;
+  }
+  return false;
+}
+
+export function clearLeafBlockSelection(leafId: number): boolean {
+  return sessions.get(leafId)?.blockDecorations?.clearBlockSelection() ?? false;
+}
+
+export function leafGridSelection(leafId: number): string | null {
+  const sel = getSlotForLeaf(leafId)?.term.getSelection() ?? "";
+  return sel.length > 0 ? sel : null;
+}
+
+export function getLeafBlockMode(leafId: number): BlockMode {
+  return sessions.get(leafId)?.blockMode ?? "prompt";
+}
+
+export function subscribeLeafBlockMode(
+  leafId: number,
+  cb: () => void,
+): () => void {
+  const s = sessions.get(leafId);
+  if (!s) return () => {};
+  s.blockListeners.add(cb);
+  return () => {
+    s.blockListeners.delete(cb);
+  };
+}
+
+export function setLeafInputFocus(
+  leafId: number,
+  fn: (() => void) | null,
+): void {
+  const s = sessions.get(leafId);
+  if (s) s.inputFocus = fn;
+}
+
+export function focusLeafInput(leafId: number): void {
+  sessions.get(leafId)?.inputFocus?.();
+}
+
+export function getLeafDraft(leafId: number): string {
+  return sessions.get(leafId)?.inputDraft ?? "";
+}
+
+export function setLeafDraft(leafId: number, text: string): void {
+  const s = sessions.get(leafId);
+  if (s) s.inputDraft = text;
+}
+
+export function setLeafInputActivity(leafId: number, active: boolean): void {
+  const s = sessions.get(leafId);
+  if (!s || s.inputActive === active) return;
+  s.inputActive = active;
+  const set = blockViewportListeners.get(leafId);
+  if (set) for (const l of set) l();
+}
+
+export type WatermarkState = "visible" | "hidden" | "dead";
+
+// Watermark gate: a block terminal that has never run a command, whose grid is
+// still untouched, and whose input is empty. Synchronous so tab switches, slot
+// rebinds and the Enter-to-OSC-133 gap never flash it over real content.
+// "dead" is permanent and lets the component unmount for good. The grid check
+// scans glyphs, not the cursor: the prompt integration prints a blank gap line
+// at spawn, so the cursor sits below row 0 even on a visually empty terminal.
+export function blockWatermarkState(leafId: number): WatermarkState {
+  const s = sessions.get(leafId);
+  if (!s || s.disposed) return "dead";
+  if (s.everSubmitted || s.blockDecorations?.hasAnyBlock()) return "dead";
+  if (!s.blockDecorations || s.inputActive) return "hidden";
+  const slot = getSlotForLeaf(leafId);
+  if (!slot) return "hidden";
+  const buf = slot.term.buffer.active;
+  if (buf.baseY > 0) return "dead";
+  const rows = Math.min(buf.length, slot.term.rows);
+  for (let i = 0; i < rows; i++) {
+    if (buf.getLine(i)?.translateToString(true)) return "dead";
+  }
+  return "visible";
+}
+
+/**
+ * Clear the scrollback and screen of the currently focused terminal, keeping
+ * the active prompt line — macOS Terminal's ⌘K behaviour. Returns false when no
+ * focused terminal slot is bound (e.g. focus is in the editor or AI panel).
+ */
+export function clearFocusedTerminal(): boolean {
+  for (const [leafId, s] of sessions) {
+    if (!s.visibleNow || !s.focusedNow) continue;
+    const slot = getSlotForLeaf(leafId);
+    if (!slot) continue;
+    slot.term.clear();
     return true;
   }
   return false;
@@ -158,192 +291,147 @@ export function leafIdForPty(ptyId: number): number | null {
   return null;
 }
 
-export function refitSlot(leafId: number): void {
+function leafBusy(s: Session): boolean {
+  return s.commandRunning || (s.pty !== null && isAgentActivePty(s.pty.id));
+}
+
+const HIDDEN_RELEASE_DELAY_MS = 300;
+
+// A parked hidden leaf went idle: give the post-command prompt a moment to
+// render into the live buffer, then hand the slot back to the pool.
+function scheduleHiddenRelease(leafId: number, s: Session): void {
+  if (s.visibleNow || !s.hasSlot) return;
+  cancelHiddenRelease(s);
+  s.hiddenReleaseTimer = setTimeout(() => {
+    s.hiddenReleaseTimer = null;
+    if (s.disposed || s.visibleNow || !s.hasSlot) return;
+    if (s.blocks || isLeafAltScreen(leafId) || leafBusy(s)) return;
+    unbindLeafFromSlot(leafId, s);
+  }, HIDDEN_RELEASE_DELAY_MS);
+}
+
+function cancelHiddenRelease(s: Session): void {
+  if (s.hiddenReleaseTimer !== null) {
+    clearTimeout(s.hiddenReleaseTimer);
+    s.hiddenReleaseTimer = null;
+  }
+}
+
+async function releaseIfIdle(leafId: number, s: Session): Promise<void> {
+  const busy = await leafHasForegroundJob(leafId);
+  if (busy || s.disposed || s.visibleNow || !s.hasSlot) return;
+  if (s.blocks || isLeafAltScreen(leafId) || leafBusy(s)) return;
+  unbindLeafFromSlot(leafId, s);
+}
+
+async function leafHasForegroundJob(leafId: number): Promise<boolean> {
   const s = sessions.get(leafId);
-  if (!s?.fitAddon || !s.term) return;
-  s.fitAddon.fit();
-  const newCols = s.term.cols;
-  const newRows = s.term.rows;
-  if (newCols !== s.lastCols || newRows !== s.lastRows) {
-    s.lastCols = newCols;
-    s.lastRows = newRows;
-    void s.pty?.resize(newCols, newRows);
-  }
-}
-
-// ── terminal creation ──────────────────────────────────────────────────────
-
-function termOptions() {
-  const prefs = usePreferencesStore.getState();
-  return {
-    fontFamily: prefs.terminalFontFamily || detectMonoFontFamily(),
-    letterSpacing: prefs.terminalLetterSpacing,
-    fontSize: Math.max(4, Math.round(prefs.terminalFontSize * prefs.zoomLevel)),
-    theme: buildTerminalTheme(),
-    cursorBlink: false,
-    cursorStyle: "bar" as const,
-    cursorInactiveStyle: "outline" as const,
-    scrollback: prefs.terminalScrollback,
-    allowProposedApi: true,
-  };
-}
-
-function attachWebgl(s: Session): void {
-  if (!s.term || s.webglAddon || !s.term.element) return;
-  if (!usePreferencesStore.getState().terminalWebglEnabled) return;
+  if (!s?.pty || s.shellExited) return false;
   try {
-    const webgl = new WebglAddon();
-    webgl.onContextLoss(() => {
-      if (s.webglAddon === webgl) s.webglAddon = null;
-      try { webgl.dispose(); } catch {}
-      setTimeout(() => {
-        if (s.webglAddon || !s.term) return;
-        if (!usePreferencesStore.getState().terminalWebglEnabled) return;
-        attachWebgl(s);
-        if (s.webglAddon) {
-          try { s.term.refresh(0, s.term.rows - 1); } catch {}
-        }
-      }, WEBGL_RECOVERY_DELAY_MS);
-    });
-    s.term.loadAddon(webgl);
-    s.webglAddon = webgl;
+    return await invoke<boolean>("pty_has_foreground_job", { id: s.pty.id });
   } catch (e) {
-    console.warn("[Gear-webgl] unavailable:", e);
+    console.error("[gear] pty_has_foreground_job failed for leaf", leafId, e);
+    return false;
   }
 }
 
-function setupResizeObserver(s: Session, container: HTMLDivElement): void {
-  s.observer?.disconnect();
-  if (s.fitTimer) clearTimeout(s.fitTimer);
-  if (s.ptyTimer) clearTimeout(s.ptyTimer);
-  s.fitTimer = null;
-  s.ptyTimer = null;
-
-  const flushPty = () => {
-    s.ptyTimer = null;
-    if (!s.term || !s.pty) return;
-    if (s.term.cols === s.lastCols && s.term.rows === s.lastRows) return;
-    s.lastCols = s.term.cols;
-    s.lastRows = s.term.rows;
-    void s.pty.resize(s.lastCols, s.lastRows);
-  };
-
-  s.observer = new ResizeObserver(() => {
-    if (s.fitTimer) clearTimeout(s.fitTimer);
-    s.fitTimer = setTimeout(() => {
-      s.fitTimer = null;
-      if (!s.fitAddon) return;
-      s.fitAddon.fit();
-      if (s.ptyTimer) clearTimeout(s.ptyTimer);
-      s.ptyTimer = setTimeout(flushPty, PTY_RESIZE_DEBOUNCE_MS);
-    }, FIT_DEBOUNCE_MS);
-  });
-  s.observer.observe(container);
+function onLeafCommandState(leafId: number, running: boolean): void {
+  const s = sessions.get(leafId);
+  if (!s || s.commandRunning === running) return;
+  s.commandRunning = running;
+  if (!running) {
+    scheduleHiddenRelease(leafId, s);
+    return;
+  }
+  cancelHiddenRelease(s);
+  // A command started in a hidden released leaf (e.g. submitted by the AI):
+  // rebind its retained slot so output parses live instead of filling the
+  // ring. Deferred: this callback fires inside xterm's parse loop and the
+  // rebind touches the same terminal (fit/resize).
+  if (!s.visibleNow && !s.hasSlot && s.container && !s.disposed) {
+    setTimeout(() => {
+      if (s.disposed || s.visibleNow || s.hasSlot || !s.container) return;
+      if (!leafBusy(s)) return;
+      bindLeafToSlot(leafId, s);
+      parkLeafSlot(leafId);
+    }, 0);
+  }
 }
 
-function createTerminal(leafId: number, s: Session, container: HTMLDivElement): void {
-  const term = new Terminal(termOptions());
-  const fitAddon = new FitAddon();
-  const searchAddon = new SearchAddon();
+ensureAgentActivityListener((ptyId) => {
+  const leafId = leafIdForPty(ptyId);
+  if (leafId === null) return;
+  const s = sessions.get(leafId);
+  if (s) scheduleHiddenRelease(leafId, s);
+});
 
-  term.loadAddon(fitAddon);
-  term.loadAddon(searchAddon);
-  term.loadAddon(
-    new WebLinksAddon((_e, uri) => openUrl(uri).catch(console.error)),
-  );
+configureRendererPool({
+  resolveLeaf(leafId) {
+    const s = sessions.get(leafId);
+    if (!s) return null;
+    return {
+      writeToPty: (data) => {
+        // Shell spawn failed (bad cwd, missing binary): Enter retries.
+        if (s.spawnFailed) {
+          if (data.includes("\r")) void respawnSession(leafId);
+          return;
+        }
+        if (s.pty) void s.pty.write(data);
+        else queuePendingInput(s, data);
+      },
+      resizePty: (cols, rows) => {
+        s.cols = cols;
+        s.rows = rows;
+        s.pty?.resize(cols, rows);
+      },
+      kickPty: (cols, rows) => {
+        const pty = s.pty;
+        if (!pty || cols <= 0 || rows <= 0) return;
+        // Linux only emits SIGWINCH when the winsize ioctl actually
+        // changes dims, so bump +1 row then restore. The TUI receives
+        // (possibly two) SIGWINCHes and repaints from scratch.
+        pty
+          .resize(cols, rows + 1)
+          .then(() => pty.resize(cols, rows))
+          .catch((e) => console.warn("[gear] kickPty failed:", e));
+      },
+    };
+  },
+  evictLeaf(leafId) {
+    const s = sessions.get(leafId);
+    if (!s) return;
+    unbindLeafFromSlot(leafId, s);
+  },
+  isLeafFocused(leafId) {
+    const s = sessions.get(leafId);
+    return !!s && s.visibleNow && s.focusedNow;
+  },
+  isLeafBlocks(leafId) {
+    return sessions.get(leafId)?.blocks ?? false;
+  },
+  isLeafBusy(leafId) {
+    const s = sessions.get(leafId);
+    return !!s && leafBusy(s);
+  },
+  isLeafVisible(leafId) {
+    return sessions.get(leafId)?.visibleNow ?? false;
+  },
+  storeSnapshot(leafId, out) {
+    const s = sessions.get(leafId);
+    if (!s) return;
+    s.snapshot = out.snapshot;
+    if (out.cols > 0) s.cols = out.cols;
+    if (out.rows > 0) s.rows = out.rows;
+    s.altScreenAtRelease = out.altScreen;
+  },
+});
 
-  // Open directly into the real container — no off-screen staging
-  term.open(container);
-  fitAddon.fit();
-
-  s.term = term;
-  s.fitAddon = fitAddon;
-  s.searchAddon = searchAddon;
-  s.lastCols = term.cols;
-  s.lastRows = term.rows;
-
-  attachWebgl(s);
-
-  // PTY input: terminal keystrokes → PTY write
-  term.onData((data) => {
-    void s.pty?.write(data);
-  });
-
-  // Custom key overrides (word/line nav, smart delete, shift-enter, paste)
-  term.attachCustomKeyEventHandler((event) => {
-    if (event.isComposing || event.keyCode === 229) return false;
-
-    const lineNav = terminalLineNavigationSequence(event, { isMac: IS_MAC });
-    if (lineNav) {
-      event.preventDefault();
-      if (event.type === "keydown") void s.pty?.write(lineNav);
-      return false;
-    }
-    const wordNav = terminalWordNavigationSequence(event);
-    if (wordNav) {
-      event.preventDefault();
-      if (event.type === "keydown") void s.pty?.write(wordNav);
-      return false;
-    }
-    const del = terminalDeleteSequence(event, { isMac: IS_MAC });
-    if (del) {
-      event.preventDefault();
-      if (event.type === "keydown") void s.pty?.write(del);
-      return false;
-    }
-    if (isShiftEnter(event)) {
-      event.preventDefault();
-      if (event.type === "keydown") void s.pty?.write("\x1b\r");
-      return false;
-    }
-    if (isCtrlPaste(event)) {
-      if (event.type === "keydown") {
-        navigator.clipboard
-          .readText()
-          .then((text) => { if (text) term.paste(text); })
-          .catch(() => {});
-      }
-      return false;
-    }
-    return true;
-  });
-
-  // OSC 7 (cwd) + OSC 133 (prompt boundary) integration
-  const shellState = createShellIntegrationState();
-  const cwdDispose = registerCwdHandler(
-    term,
-    (next) => {
-      markSessionReady(leafId);
-      if (s.lastCwd === next) return;
-      s.lastCwd = next;
-      s.callbacks.onCwd?.(next);
-    },
-    shellState,
-  );
-  const prompt = registerPromptTracker(term, shellState, (cmd) => {
-    // Capture completed commands into the session timeline. Private terminals
-    // are excluded; capture is best-effort and must never disrupt the shell.
-    if (s.isPrivate) return;
-    const root = getLaunchDir();
-    if (!root) return;
-    void invoke("chronicle_record_command", {
-      workspaceRoot: root,
-      command: cmd.command,
-      exitCode: cmd.exitCode,
-      durationMs: cmd.durationMs,
-      cwd: s.lastCwd,
-    }).catch(() => {});
-  });
-  s.oscDisposers = [cwdDispose, prompt.dispose];
-
-  setupResizeObserver(s, container);
-
-  s.callbacks.onSearchReady?.(searchAddon);
-}
-
-// ── session lifecycle ──────────────────────────────────────────────────────
-
-function ensureSession(leafId: number, initialCwd?: string, shellPath?: string): Session {
+function ensureSession(
+  leafId: number,
+  initialCwd?: string,
+  blocks = false,
+  isPrivate = false,
+): Session {
   const existing = sessions.get(leafId);
   if (existing) return existing;
 
@@ -351,9 +439,8 @@ function ensureSession(leafId: number, initialCwd?: string, shellPath?: string):
     pty: null,
     ptyOpening: false,
     initialCwd,
-    shellPath,
+    isPrivate,
     lastCwd: null,
-    isPrivate: false,
     pendingExit: null,
     shellExited: false,
     callbacks: {},
@@ -361,17 +448,26 @@ function ensureSession(leafId: number, initialCwd?: string, shellPath?: string):
     focusedNow: false,
     disposed: false,
     ready: Promise.resolve(),
-    term: null,
-    fitAddon: null,
-    searchAddon: null,
-    webglAddon: null,
-    observer: null,
+    cols: 0,
+    rows: 0,
     container: null,
-    oscDisposers: [],
-    fitTimer: null,
-    ptyTimer: null,
-    lastCols: 0,
-    lastRows: 0,
+    snapshot: null,
+    searchQuery: null,
+    dormantRing: new DormantRing(),
+    pendingInput: "",
+    hasSlot: false,
+    blocks,
+    blockMode: "prompt",
+    blockListeners: new Set(),
+    blockDecorations: null,
+    inputFocus: null,
+    inputDraft: "",
+    inputActive: false,
+    everSubmitted: false,
+    altScreenAtRelease: false,
+    commandRunning: false,
+    hiddenReleaseTimer: null,
+    spawnFailed: false,
   };
   sessions.set(leafId, session);
 
@@ -383,28 +479,218 @@ function ensureSession(leafId: number, initialCwd?: string, shellPath?: string):
   return session;
 }
 
-async function openPtyForSession(
+function deliverPtyBytes(leafId: number, bytes: Uint8Array): void {
+  const s = sessions.get(leafId);
+  if (!s) return;
+  // Retained slots keep parsing live (render paused); the ring is only for
+  // leaves whose buffer was stolen or never bound.
+  const slot = getLiveSlotForLeaf(leafId);
+  if (slot) slot.term.write(bytes);
+  else s.dormantRing.push(bytes);
+}
+
+const SPAWN_RETRY_DELAY_MS = 250;
+
+async function openPtyWithRetry(
+  leafId: number,
   s: Session,
   cwd: string | undefined,
 ): Promise<PtySession> {
-  const startCols = s.lastCols > 0 ? s.lastCols : 80;
-  const startRows = s.lastRows > 0 ? s.lastRows : 24;
-  return openPty(
+  try {
+    return await openPtyForSession(leafId, s, cwd);
+  } catch (e) {
+    console.error("[gear] openPty failed, retrying once:", e);
+    await new Promise((r) => setTimeout(r, SPAWN_RETRY_DELAY_MS));
+    if (s.disposed) throw e;
+    return openPtyForSession(leafId, s, cwd);
+  }
+}
+
+// Spawn failure must not flow through onExit: handleLeafExit closes the pane
+// (or respawns the last one, which would loop). Show the error in the pane
+// and let Enter retry instead of leaving a dead black grid.
+function surfaceSpawnFailure(leafId: number, s: Session, e: unknown): void {
+  console.error("[gear] shell spawn failed:", e);
+  s.shellExited = true;
+  s.spawnFailed = true;
+  const detail = String(e)
+    .replace(/[\x00-\x1f\x7f]/g, " ")
+    .slice(0, 300);
+  deliverPtyBytes(
+    leafId,
+    new TextEncoder().encode(
+      `\r\n\x1b[31m[gear] failed to start shell: ${detail}\x1b[0m\r\n\x1b[2mpress Enter to retry\x1b[0m\r\n`,
+    ),
+  );
+}
+
+async function openPtyForSession(
+  leafId: number,
+  s: Session,
+  cwd: string | undefined,
+): Promise<PtySession> {
+  const startCols = s.cols > 0 ? s.cols : 80;
+  const startRows = s.rows > 0 ? s.rows : 24;
+  const pty = await openPty(
     startCols,
     startRows,
     {
-      onData: (bytes) => s.term?.write(bytes),
+      onData: (bytes) => deliverPtyBytes(leafId, bytes),
       onExit: (code) => {
         s.shellExited = true;
         s.pty = null;
-        if (s.term) s.term.options.disableStdin = true;
+        s.pendingInput = "";
+        s.commandRunning = false;
+        const slot = getSlotForLeaf(leafId);
+        if (slot) slot.term.options.disableStdin = true;
+        scheduleHiddenRelease(leafId, s);
         if (s.callbacks.onExit) s.callbacks.onExit(code);
         else s.pendingExit = code;
       },
     },
     cwd,
-    s.shellPath,
+    s.blocks,
+    usePreferencesStore.getState().terminalShell || undefined,
   );
+  // Only resize if the bound dims changed during the spawn: a same-size
+  // ResizePseudoConsole during conhost warmup is a known ConPTY trigger for
+  // a console that never renders (blank tab).
+  if (
+    s.cols > 0 &&
+    s.rows > 0 &&
+    (s.cols !== startCols || s.rows !== startRows)
+  ) {
+    void pty.resize(s.cols, s.rows);
+  }
+  return pty;
+}
+
+function applyBlockMode(leafId: number, mode: BlockMode): void {
+  const s = sessions.get(leafId);
+  if (!s) return;
+  s.blockMode = mode;
+  s.commandRunning = mode !== "prompt";
+  const slot = getSlotForLeaf(leafId);
+  if (slot) {
+    const prompt = mode === "prompt";
+    slot.term.options.disableStdin = prompt;
+    // Disable the helper textarea at the prompt so a grid click can't focus the
+    // xterm (no flashing cursor) and can't steal focus from the shell input.
+    if (slot.term.textarea) slot.term.textarea.disabled = prompt;
+    if (!prompt) {
+      slot.term.focus();
+    } else if (s.visibleNow && s.focusedNow) {
+      const inputFocus = s.inputFocus;
+      if (inputFocus) setTimeout(inputFocus, 0);
+    }
+  }
+  for (const l of s.blockListeners) l();
+}
+
+function bindLeafToSlot(leafId: number, s: Session): void {
+  if (!s.container) return;
+  const altScreen = s.altScreenAtRelease;
+  s.altScreenAtRelease = false;
+  acquireSlot({
+    leafId,
+    container: s.container,
+    snapshot: s.snapshot,
+    altScreen,
+    drainRing: (write) => s.dormantRing.drain(write),
+    // Keep stdin alive after a spawn failure so Enter can trigger the retry.
+    shellExited: s.shellExited && !s.spawnFailed,
+    searchQuery: s.searchQuery,
+    cols: s.cols,
+    rows: s.rows,
+    registerOsc: (term) => {
+      if (s.blocks) {
+        const osc52 = registerOsc52ClipboardHandler(term);
+        const deco = new BlockDecorations(term, {
+          onCwd: (next) => {
+            markSessionReady(leafId);
+            if (s.lastCwd === next) return;
+            s.lastCwd = next;
+            s.callbacks.onCwd?.(next);
+          },
+          onMode: (mode) => applyBlockMode(leafId, mode),
+          onViewport: () => {
+            const set = blockViewportListeners.get(leafId);
+            if (set) for (const l of set) l();
+          },
+        });
+        s.blockDecorations = deco;
+        const onGridFocus = () => {
+          if (s.blockMode === "prompt") s.inputFocus?.();
+        };
+        term.textarea?.addEventListener("focus", onGridFocus);
+        return [
+          () => {
+            s.blockDecorations = null;
+            osc52();
+            deco.dispose();
+            term.textarea?.removeEventListener("focus", onGridFocus);
+          },
+        ];
+      }
+      // Shared in-command flag — see osc-handlers.ts. The prompt tracker
+      // flips it on OSC 133 B/C/D/A; the cwd handler reads it to ignore OSC
+      // 7 emitted by untrusted command output (remote SSH, `cat` of an
+      // attacker file, etc.).
+      const shellState = createShellIntegrationState();
+      const prompt = registerPromptTracker(
+        term,
+        shellState,
+        (running) => onLeafCommandState(leafId, running),
+        (cmd) => {
+          // Capture completed commands into the session timeline. Private
+          // terminals are excluded; capture is best-effort and must never
+          // disrupt the shell.
+          if (s.isPrivate) return;
+          const root = getLaunchDir();
+          if (!root) return;
+          void invoke("chronicle_record_command", {
+            workspaceRoot: root,
+            command: cmd.command,
+            exitCode: cmd.exitCode,
+            durationMs: cmd.durationMs,
+            cwd: s.lastCwd,
+          }).catch(() => {});
+        },
+      );
+      const cwd = registerCwdHandler(
+        term,
+        (next) => {
+          markSessionReady(leafId);
+          if (s.lastCwd === next) return;
+          s.lastCwd = next;
+          s.callbacks.onCwd?.(next);
+        },
+        shellState,
+      );
+      const osc52 = registerOsc52ClipboardHandler(term);
+      return [prompt.dispose, cwd, osc52];
+    },
+    onSearchReady: (addon) => s.callbacks.onSearchReady?.(addon),
+  });
+  s.snapshot = null;
+  s.hasSlot = true;
+  if (s.blocks) applyBlockMode(leafId, s.blockMode);
+  if (s.lastCwd !== null) s.callbacks.onCwd?.(s.lastCwd);
+  if (s.pendingExit !== null) {
+    const code = s.pendingExit;
+    s.pendingExit = null;
+    s.callbacks.onExit?.(code);
+  }
+}
+
+function unbindLeafFromSlot(leafId: number, s: Session): void {
+  if (!s.hasSlot) return;
+  const out = releaseSlot(leafId);
+  if (out) {
+    if (out.cols > 0) s.cols = out.cols;
+    if (out.rows > 0) s.rows = out.rows;
+  }
+  s.hasSlot = false;
 }
 
 function attachSession(
@@ -417,101 +703,122 @@ function attachSession(
   s.callbacks = callbacks;
   s.container = container;
 
-  // Create the terminal directly in the real container on first attach
-  if (!s.term) {
-    createTerminal(leafId, s, container);
-  }
+  if (s.visibleNow) bindLeafToSlot(leafId, s);
 
-  // Start PTY if not already running
   if (!s.pty && !s.ptyOpening && !s.shellExited) {
     s.ptyOpening = true;
-    openPtyForSession(s, s.initialCwd)
+    openPtyWithRetry(leafId, s, s.initialCwd)
       .then((pty) => {
         s.ptyOpening = false;
-        if (s.disposed) { pty.close(); return; }
+        if (s.disposed) {
+          pty.close();
+          return;
+        }
         s.pty = pty;
-        if (s.lastCols > 0 && s.lastRows > 0) void pty.resize(s.lastCols, s.lastRows);
+        if (s.pendingInput) {
+          void pty.write(s.pendingInput);
+          s.pendingInput = "";
+        }
+        if (s.cols > 0 && s.rows > 0) pty.resize(s.cols, s.rows);
       })
       .catch((e) => {
         s.ptyOpening = false;
-        console.error("[Gear] openPty failed:", e);
+        if (!s.disposed) surfaceSpawnFailure(leafId, s, e);
       });
-  }
-
-  // Flush any callbacks that fired while detached
-  if (s.lastCwd !== null) s.callbacks.onCwd?.(s.lastCwd);
-  if (s.pendingExit !== null) {
-    const code = s.pendingExit;
-    s.pendingExit = null;
-    s.callbacks.onExit?.(code);
   }
 }
 
 function detachSession(leafId: number): void {
   const s = sessions.get(leafId);
   if (!s) return;
-  // Clear callbacks and container reference but keep terminal alive
+  unbindLeafFromSlot(leafId, s);
   s.callbacks = {};
   s.container = null;
 }
 
-export async function respawnSession(leafId: number, cwd?: string): Promise<void> {
+export async function respawnSession(
+  leafId: number,
+  cwd?: string,
+): Promise<void> {
   const s = sessions.get(leafId);
-  if (!s || s.disposed || !s.term) return;
-
+  if (!s || s.disposed) return;
   s.pty?.close();
   s.pty = null;
+  s.snapshot = null;
+  s.dormantRing = new DormantRing();
   s.shellExited = false;
   s.pendingExit = null;
-  readyLeaves.delete(leafId);
+  s.pendingInput = "";
+  s.altScreenAtRelease = false;
+  s.commandRunning = false;
+  s.spawnFailed = false;
+  cancelHiddenRelease(s);
 
-  s.term.options.disableStdin = false;
-  s.term.clear();
-  s.term.reset();
+  const slot = getSlotForLeaf(leafId);
+  if (slot) {
+    slot.term.options.disableStdin = false;
+    slot.term.clear();
+    slot.term.reset();
+  } else {
+    discardRetainedSlot(leafId);
+  }
 
   s.ptyOpening = true;
   let pty: PtySession;
   try {
-    pty = await openPtyForSession(s, cwd ?? s.initialCwd);
+    pty = await openPtyWithRetry(leafId, s, cwd ?? s.initialCwd);
   } catch (e) {
     s.ptyOpening = false;
-    console.error("[Gear] respawn openPty failed:", e);
+    if (!s.disposed) surfaceSpawnFailure(leafId, s, e);
     return;
   }
   s.ptyOpening = false;
-  if (s.disposed) { pty.close(); return; }
+  if (s.disposed) {
+    pty.close();
+    return;
+  }
   s.pty = pty;
-  if (s.lastCols > 0 && s.lastRows > 0) void pty.resize(s.lastCols, s.lastRows);
+  if (s.pendingInput) {
+    void pty.write(s.pendingInput);
+    s.pendingInput = "";
+  }
+  if (s.cols > 0 && s.rows > 0) pty.resize(s.cols, s.rows);
+}
+
+export async function leafHasForegroundProcess(
+  leafId: number,
+): Promise<boolean> {
+  const s = sessions.get(leafId);
+  if (!s?.pty || s.shellExited) return false;
+  try {
+    const result = await invoke<boolean>("pty_has_foreground_process", {
+      id: s.pty.id,
+    });
+    return result;
+  } catch (e) {
+    console.error(
+      "[gear] pty_has_foreground_process failed for leaf",
+      leafId,
+      e,
+    );
+    return false;
+  }
 }
 
 export function disposeSession(leafId: number): void {
   const s = sessions.get(leafId);
   if (!s) return;
   s.disposed = true;
-
-  for (const d of s.oscDisposers) { try { d(); } catch {} }
-  s.oscDisposers = [];
-
-  s.observer?.disconnect();
-  s.observer = null;
-  if (s.fitTimer) { clearTimeout(s.fitTimer); s.fitTimer = null; }
-  if (s.ptyTimer) { clearTimeout(s.ptyTimer); s.ptyTimer = null; }
-
+  cancelHiddenRelease(s);
+  disposeLeafSlot(leafId);
+  s.hasSlot = false;
+  s.snapshot = null;
   s.pty?.close();
   s.pty = null;
-
-  if (s.webglAddon) {
-    try { s.webglAddon.dispose(); } catch {}
-    s.webglAddon = null;
-  }
-  if (s.term) {
-    try { s.term.dispose(); } catch {}
-    s.term = null;
-  }
-
+  s.pendingInput = "";
   sessions.delete(leafId);
+  blockViewportListeners.delete(leafId);
   readyLeaves.delete(leafId);
-
   const waiters = readyWaiters.get(leafId);
   if (waiters) {
     readyWaiters.delete(leafId);
@@ -522,15 +829,13 @@ export function disposeSession(leafId: number): void {
   }
 }
 
-// ── React hook ─────────────────────────────────────────────────────────────
-
 type Options = {
   leafId: number;
   container: React.RefObject<HTMLDivElement | null>;
   visible: boolean;
   focused?: boolean;
   initialCwd?: string;
-  shellPath?: string;
+  blocks?: boolean;
   /** When true, this terminal's commands are excluded from Chronicle capture. */
   isPrivate?: boolean;
   onSearchReady?: (addon: SearchAddon) => void;
@@ -544,7 +849,7 @@ export function useTerminalSession({
   visible,
   focused = true,
   initialCwd,
-  shellPath,
+  blocks = false,
   isPrivate = false,
   onSearchReady,
   onExit,
@@ -553,162 +858,287 @@ export function useTerminalSession({
   const cbRef = useRef({ onSearchReady, onExit, onCwd });
   cbRef.current = { onSearchReady, onExit, onCwd };
 
-  // Create terminal and PTY once, detach on cleanup (terminal stays alive)
+  // initialCwd seeds the first PTY spawn only. It must NOT be an effect dep:
+  // OSC 7 updates the leaf cwd on every `cd`, and re-running the bind effect
+  // would detach/rebind the renderer slot (disposing block markers) on each cd.
+  const initialCwdRef = useRef(initialCwd);
+  initialCwdRef.current = initialCwd;
+
   useEffect(() => {
     let cancelled = false;
-    const s = ensureSession(leafId, initialCwd, shellPath);
+    const s = ensureSession(leafId, initialCwdRef.current, blocks, isPrivate);
     s.isPrivate = isPrivate;
-    const callbacks: Callbacks = {
-      onSearchReady: (a) => cbRef.current.onSearchReady?.(a),
-      onExit: (c) => cbRef.current.onExit?.(c),
-      onCwd: (c) => cbRef.current.onCwd?.(c),
-    };
-
-    const node = container.current;
-    if (node) attachSession(leafId, node, callbacks);
-
-    // After fonts resolve, refit so character cells are exact
     s.ready.then(() => {
       if (cancelled || s.disposed) return;
-      refitSlot(leafId);
+      const node = container.current;
+      if (!node) return;
+      attachSession(leafId, node, {
+        onSearchReady: (a) => cbRef.current.onSearchReady?.(a),
+        onExit: (c) => cbRef.current.onExit?.(c),
+        onCwd: (c) => cbRef.current.onCwd?.(c),
+      });
+      if (s.visibleNow && s.focusedNow && !s.blocks) focusSlot(leafId);
     });
-
     return () => {
       cancelled = true;
       detachSession(leafId);
     };
-    // initialCwd intentionally omitted: cwd changes via OSC 7 must not
-    // trigger a detach/re-attach cycle that briefly drops the terminal
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [leafId, container]);
+  }, [leafId, container, blocks]);
 
-  // Visibility/focus: refit on show, update cursor blink
+  const [blockMode, setBlockMode] = useState<BlockMode>("prompt");
+  useEffect(() => {
+    if (!blocks) return;
+    const s = ensureSession(leafId, initialCwdRef.current, blocks);
+    setBlockMode(s.blockMode);
+    const cb = () => setBlockMode(sessions.get(leafId)?.blockMode ?? "prompt");
+    s.blockListeners.add(cb);
+    return () => {
+      s.blockListeners.delete(cb);
+    };
+  }, [leafId, blocks]);
+
+  const fontSize = usePreferencesStore((p) => p.terminalFontSize);
+  const zoomLevel = usePreferencesStore((p) => p.zoomLevel);
+  useEffect(() => {
+    applyFontSize(Math.max(4, Math.round(fontSize * zoomLevel)));
+  }, [fontSize, zoomLevel]);
+
+  const fontFamily = usePreferencesStore((p) => p.terminalFontFamily);
+  useEffect(() => {
+    applyFontFamily(fontFamily);
+  }, [fontFamily]);
+
+  const fontWeight = usePreferencesStore((p) => p.terminalFontWeight);
+  useEffect(() => {
+    applyFontWeight(fontWeight);
+  }, [fontWeight]);
+
+  const letterSpacing = usePreferencesStore((p) => p.terminalLetterSpacing);
+  useEffect(() => {
+    applyLetterSpacing(letterSpacing);
+  }, [letterSpacing]);
+
+  const scrollback = usePreferencesStore((p) => p.terminalScrollback);
+  useEffect(() => {
+    applyScrollback(scrollback);
+  }, [scrollback]);
+
+  const webglPref = usePreferencesStore((p) => p.terminalWebglEnabled);
+  useEffect(() => {
+    applyWebglPreference(webglPref);
+  }, [webglPref]);
+
+  const cursorBlink = usePreferencesStore((p) => p.terminalCursorBlink);
+  useEffect(() => {
+    applyCursorBlink(cursorBlink);
+  }, [cursorBlink]);
+
+  const bgActive = usePreferencesStore(
+    (p) => p.backgroundKind === "image" && !!p.backgroundImageId,
+  );
+  useEffect(() => {
+    applyBackgroundActive(bgActive);
+  }, [bgActive]);
+
   useEffect(() => {
     const s = sessions.get(leafId);
     if (!s) return;
     s.visibleNow = visible;
     s.focusedNow = focused;
     if (visible) {
-      // Refit in case the container resized while this tab was hidden
-      refitSlot(leafId);
-      if (s.term) {
-        s.term.options.cursorBlink = focused;
-        if (focused) s.term.focus();
+      cancelHiddenRelease(s);
+      if (s.container && !s.hasSlot) bindLeafToSlot(leafId, s);
+      else if (s.hasSlot) refreshLeafSlot(leafId);
+      setSlotFocused(leafId, focused);
+      if (focused && !blocks) focusSlot(leafId);
+    } else if (s.hasSlot) {
+      // Always park first (keeps the grid live, pauses rendering); release
+      // only after confirming nothing owns the terminal. Sync signals (OSC
+      // 133, agent detect) short-circuit; the async foreground-process check
+      // covers shells without integration.
+      parkLeafSlot(leafId);
+      if (!s.blocks && !isLeafAltScreen(leafId) && !leafBusy(s)) {
+        void releaseIfIdle(leafId, s);
       }
-    } else if (s.term) {
-      s.term.options.cursorBlink = false;
     }
-  }, [leafId, visible, focused]);
-
-  // Per-session preference effects — each terminal manages its own options
-
-  const fontSize = usePreferencesStore((p) => p.terminalFontSize);
-  const zoomLevel = usePreferencesStore((p) => p.zoomLevel);
-  useEffect(() => {
-    const s = sessions.get(leafId);
-    if (!s?.term || !s.fitAddon) return;
-    const size = Math.max(4, Math.round(fontSize * zoomLevel));
-    if (s.term.options.fontSize === size) return;
-    s.term.options.fontSize = size;
-    s.fitAddon.fit();
-    s.lastCols = s.term.cols;
-    s.lastRows = s.term.rows;
-    void s.pty?.resize(s.term.cols, s.term.rows);
-  }, [leafId, fontSize, zoomLevel]);
-
-  const fontFamily = usePreferencesStore((p) => p.terminalFontFamily);
-  useEffect(() => {
-    const s = sessions.get(leafId);
-    if (!s?.term || !s.fitAddon) return;
-    const resolved = fontFamily || detectMonoFontFamily();
-    if (s.term.options.fontFamily === resolved) return;
-    s.term.options.fontFamily = resolved;
-    s.fitAddon.fit();
-    s.lastCols = s.term.cols;
-    s.lastRows = s.term.rows;
-    void s.pty?.resize(s.term.cols, s.term.rows);
-  }, [leafId, fontFamily]);
-
-  const letterSpacing = usePreferencesStore((p) => p.terminalLetterSpacing);
-  useEffect(() => {
-    const s = sessions.get(leafId);
-    if (!s?.term || !s.fitAddon) return;
-    if (s.term.options.letterSpacing === letterSpacing) return;
-    s.term.options.letterSpacing = letterSpacing;
-    s.fitAddon.fit();
-  }, [leafId, letterSpacing]);
-
-  const scrollback = usePreferencesStore((p) => p.terminalScrollback);
-  useEffect(() => {
-    const s = sessions.get(leafId);
-    if (!s?.term) return;
-    if (s.term.options.scrollback === scrollback) return;
-    s.term.options.scrollback = scrollback;
-  }, [leafId, scrollback]);
-
-  const webglPref = usePreferencesStore((p) => p.terminalWebglEnabled);
-  useEffect(() => {
-    const s = sessions.get(leafId);
-    if (!s?.term) return;
-    if (webglPref && !s.webglAddon) {
-      attachWebgl(s);
-    } else if (!webglPref && s.webglAddon) {
-      try { s.webglAddon.dispose(); } catch {}
-      s.webglAddon = null;
-    }
-  }, [leafId, webglPref]);
-
-  const applyTheme = useCallback(() => {
-    const s = sessions.get(leafId);
-    if (!s?.term) return;
-    s.term.options.theme = buildTerminalTheme();
-  }, [leafId]);
+  }, [leafId, visible, focused, blocks]);
 
   const write = useCallback(
-    (data: string) => { void sessions.get(leafId)?.pty?.write(data); },
+    (data: string) => {
+      const s = sessions.get(leafId);
+      if (!s || s.shellExited) return;
+      if (s.pty) void s.pty.write(data);
+      else queuePendingInput(s, data);
+    },
     [leafId],
   );
 
-  const focus = useCallback(() => {
-    sessions.get(leafId)?.term?.focus();
-  }, [leafId]);
+  const focus = useCallback(() => focusSlot(leafId), [leafId]);
 
-  const getBuffer = useCallback((maxLines = 200): string | null => {
-    const s = sessions.get(leafId);
-    if (!s?.term) return null;
-    const buf = s.term.buffer.active;
-    const total = buf.length;
-    const lines: string[] = [];
-    const start = Math.max(0, total - maxLines);
-    for (let i = start; i < total; i++) {
-      lines.push(buf.getLine(i)?.translateToString(true) ?? "");
-    }
-    while (lines.length && lines[lines.length - 1] === "") lines.pop();
-    return lines.join("\n");
-  }, [leafId]);
+  const getBuffer = useCallback(
+    (maxLines = 200): string | null => {
+      const s = sessions.get(leafId);
+      if (!s) return null;
+      const slot = getLiveSlotForLeaf(leafId);
+      if (slot) {
+        const buf = slot.term.buffer.active;
+        const total = buf.length;
+        const lines: string[] = [];
+        const start = Math.max(0, total - maxLines);
+        for (let i = start; i < total; i++) {
+          lines.push(buf.getLine(i)?.translateToString(true) ?? "");
+        }
+        while (lines.length && lines[lines.length - 1] === "") lines.pop();
+        return lines.join("\n");
+      }
+      if (!s.snapshot) return "";
+      const plain = stripAnsi(s.snapshot);
+      const lines = plain.split(/\r?\n/);
+      const tail = lines.slice(-maxLines);
+      while (tail.length && tail[tail.length - 1] === "") tail.pop();
+      return tail.join("\n");
+    },
+    [leafId],
+  );
 
   const getSelection = useCallback((): string | null => {
-    const s = sessions.get(leafId);
-    if (!s?.term) return null;
-    const sel = s.term.getSelection();
+    const slot = getSlotForLeaf(leafId);
+    const sel = slot?.term.getSelection() ?? "";
     return sel.length > 0 ? sel : null;
   }, [leafId]);
 
+  const applyTheme = useCallback(() => {
+    applyPoolTheme();
+  }, []);
+
+  const selectBlockAt = useCallback(
+    (clientY: number) =>
+      sessions.get(leafId)?.blockDecorations?.selectBlockAt(clientY),
+    [leafId],
+  );
+
+  const readBlockId = useCallback(
+    (id: string) =>
+      sessions.get(leafId)?.blockDecorations?.readById(id) ?? null,
+    [leafId],
+  );
+
+  const subscribeBlocks = useCallback(
+    (cb: () => void) => {
+      let set = blockViewportListeners.get(leafId);
+      if (!set) {
+        set = new Set();
+        blockViewportListeners.set(leafId, set);
+      }
+      set.add(cb);
+      return () => {
+        const live = blockViewportListeners.get(leafId);
+        live?.delete(cb);
+        if (live && live.size === 0) blockViewportListeners.delete(leafId);
+      };
+    },
+    [leafId],
+  );
+
+  const visibleBlocks = useCallback(
+    (): VisibleBlocks =>
+      sessions.get(leafId)?.blockDecorations?.visibleBlocks() ?? {
+        blocks: [],
+        sticky: null,
+      },
+    [leafId],
+  );
+
+  const searchBlock = useCallback(
+    (id: string, query: string) =>
+      sessions.get(leafId)?.blockDecorations?.searchBlock(id, query) ?? [],
+    [leafId],
+  );
+
+  const revealMatch = useCallback(
+    (m: BlockMatch) => sessions.get(leafId)?.blockDecorations?.revealMatch(m),
+    [leafId],
+  );
+
+  const clearSearch = useCallback(
+    () => sessions.get(leafId)?.blockDecorations?.clearSearch(),
+    [leafId],
+  );
+
   return useMemo(
-    () => ({ write, focus, getBuffer, getSelection, applyTheme }),
-    [write, focus, getBuffer, getSelection, applyTheme],
+    () => ({
+      write,
+      focus,
+      getBuffer,
+      getSelection,
+      applyTheme,
+      blockMode,
+      selectBlockAt,
+      readBlockId,
+      subscribeBlocks,
+      visibleBlocks,
+      searchBlock,
+      revealMatch,
+      clearSearch,
+    }),
+    [
+      write,
+      focus,
+      getBuffer,
+      getSelection,
+      applyTheme,
+      blockMode,
+      selectBlockAt,
+      readBlockId,
+      subscribeBlocks,
+      visibleBlocks,
+      searchBlock,
+      revealMatch,
+      clearSearch,
+    ],
   );
 }
 
-// ── helpers ────────────────────────────────────────────────────────────────
+const ANSI_RE =
+  /\x1b\[[0-9;?]*[A-Za-z]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b[()][AB012]|\x1b[78=>]|\x1bc|\x1b[NOP\]X^_]/g;
 
-function isShiftEnter(e: KeyboardEvent): boolean {
-  return e.key === "Enter" && e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey;
+function stripAnsi(s: string): string {
+  return s.replace(ANSI_RE, "");
 }
 
-function isCtrlPaste(e: KeyboardEvent): boolean {
-  const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
-  const isMac = /Mac|iPhone|iPad/.test(ua);
-  const mod = isMac ? (e.metaKey && !e.ctrlKey) : (!e.metaKey && e.ctrlKey);
-  return mod && !e.altKey && !e.shiftKey && (e.key === "v" || e.code === "KeyV");
+export function terminalDebugStats() {
+  const liveSessions = [...sessions.entries()].map(([leafId, s]) => ({
+    leafId,
+    pty: !!s.pty,
+    visible: s.visibleNow,
+    focused: s.focusedNow,
+    hasSlot: s.hasSlot,
+    ringBytes: s.dormantRing.byteLength(),
+    snapshotLen: s.snapshot?.length ?? 0,
+    shellExited: s.shellExited,
+  }));
+  const ringTotal = liveSessions.reduce((n, s) => n + s.ringBytes, 0);
+  const snapshotTotal = liveSessions.reduce((n, s) => n + s.snapshotLen, 0);
+  const slots = poolSlotStats();
+  return {
+    poolSize: poolSize(),
+    webglContexts: slots.filter((s) => s.webgl).length,
+    idleSlots: slots.filter((s) => s.leafId === null).length,
+    slots,
+    sessionCount: liveSessions.length,
+    sessions: liveSessions,
+    ringBytesTotal: ringTotal,
+    snapshotCharsTotal: snapshotTotal,
+    domCanvases: document.querySelectorAll("canvas").length,
+    domScreens: document.querySelectorAll(".xterm-screen").length,
+    domRows: document.querySelectorAll(".xterm-rows > div").length,
+    jsHeapBytes:
+      (performance as unknown as { memory?: { usedJSHeapSize: number } }).memory
+        ?.usedJSHeapSize ?? null,
+  };
+}
+
+if (import.meta.env?.DEV && typeof window !== "undefined") {
+  (window as unknown as { __gearTerm?: unknown }).__gearTerm =
+    terminalDebugStats;
 }

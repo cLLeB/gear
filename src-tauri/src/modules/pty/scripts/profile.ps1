@@ -1,5 +1,7 @@
 # gear-shell-integration (PowerShell)
-# Emits OSC 7 (cwd) + OSC 133 A/B/D so the host tracks cwd and prompt boundaries.
+# Emits OSC 7 (cwd) + OSC 133 A/B/C/D so the host tracks cwd and prompt
+# boundaries. C comes from a PSConsoleHostReadLine wrapper (PowerShell has no
+# preexec hook).
 
 if ($global:__GEAR_HOOKS_LOADED) { return }
 $global:__GEAR_HOOKS_LOADED = $true
@@ -32,7 +34,41 @@ function global:__gear_urlencode {
     $sb.ToString()
 }
 
+# Wrap PSConsoleHostReadLine (defined by PSReadLine) to emit OSC 133 C with
+# the accepted command line just before execution. Installed lazily from
+# prompt: PSReadLine may finish loading only after this profile has run.
+function global:__gear_install_readline {
+    if ($global:__gear_readline_done) { return }
+    if (-not (Test-Path Function:PSConsoleHostReadLine)) { return }
+    $global:__gear_readline_done = $true
+    # global: is required -- a plain Function: copy made inside a function
+    # lands in its local scope and vanishes when it returns, leaving the
+    # wrapper calling a missing command on every read (empty-input loop).
+    Copy-Item Function:PSConsoleHostReadLine Function:global:__gear_user_readline -Force
+    function global:PSConsoleHostReadLine {
+        try {
+            $line = __gear_user_readline
+        } catch {
+            # Self-heal: restore the original reader so a broken wrapper can
+            # never lock the shell out of input.
+            Copy-Item Function:__gear_user_readline Function:global:PSConsoleHostReadLine -Force
+            return ''
+        }
+        try {
+            if ($line -is [string] -and $line.Trim().Length -gt 0) {
+                $global:__gear_block_seen = $true
+                $esc = [char]27
+                $cmd = $line -replace '[\x00-\x1F\x7F]', ' '
+                if ($cmd.Length -gt 256) { $cmd = $cmd.Substring(0, 256) }
+                [Console]::Write("$esc]133;C;$cmd$esc\")
+            }
+        } catch {}
+        $line
+    }
+}
+
 function global:prompt {
+    __gear_install_readline
     $lec = $LASTEXITCODE
     if ($null -eq $lec) { $lec = if ($?) { 0 } else { 1 } }
     $esc = [char]27
@@ -44,13 +80,20 @@ function global:prompt {
     $loc = Get-Location
     $osc7 = ''
     if ($loc.Provider.Name -eq 'FileSystem') {
-        $cwd = $loc.ProviderPath
-        $cwd = $cwd -replace '^\\\\[?]\\',''
-        $cwd = $cwd -replace '\\','/'
+        $cwd = $loc.ProviderPath -replace '\\','/'
         if ($cwd -match '^[A-Za-z]:') { $cwd = "/$cwd" }
         $cwdEnc = __gear_urlencode $cwd
         $hostName = [System.Environment]::MachineName
         $osc7 = "$esc]7;file://$hostName$cwdEnc$esc\"
+    }
+
+    # Block mode: the host renders its own input bar, so suppress the shell
+    # prompt (markers only) and reserve the header/gap rows in the prompt
+    # itself -- same layout contract as the zsh integration.
+    if ($env:GEAR_BLOCKS) {
+        $global:LASTEXITCODE = $lec
+        $gap = if ($global:__gear_block_seen) { "`n`n" } else { "`n" }
+        return "$oscD$oscA$osc7$gap$oscB"
     }
 
     $original = if (Test-Path Function:__gear_user_prompt) {

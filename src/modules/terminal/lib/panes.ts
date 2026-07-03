@@ -22,6 +22,23 @@ export function leafIds(n: PaneNode): PaneId[] {
   return n.children.flatMap(leafIds);
 }
 
+/** Set a leaf's user-facing name (undefined clears it). Returns a new tree. */
+export function setLeafName(n: PaneNode, id: PaneId, name: string): PaneNode {
+  if (isLeaf(n)) {
+    if (n.id !== id) return n;
+    const trimmed = name.trim() || undefined;
+    if (n.name === trimmed) return n;
+    return { ...n, name: trimmed };
+  }
+  let changed = false;
+  const next = n.children.map((c) => {
+    const u = setLeafName(c, id, name);
+    if (u !== c) changed = true;
+    return u;
+  });
+  return changed ? { ...n, children: next } : n;
+}
+
 export function findLeafCwd(n: PaneNode, id: PaneId): string | undefined {
   if (isLeaf(n)) return n.id === id ? n.cwd : undefined;
   for (const c of n.children) {
@@ -43,26 +60,6 @@ export function setLeafCwd(
   let changed = false;
   const next = n.children.map((c) => {
     const u = setLeafCwd(c, id, cwd);
-    if (u !== c) changed = true;
-    return u;
-  });
-  return changed ? { ...n, children: next } : n;
-}
-
-export function setLeafName(
-  n: PaneNode,
-  id: PaneId,
-  name: string,
-): PaneNode {
-  if (isLeaf(n)) {
-    if (n.id !== id) return n;
-    const trimmed = name.trim() || undefined;
-    if (n.name === trimmed) return n;
-    return { ...n, name: trimmed };
-  }
-  let changed = false;
-  const next = n.children.map((c) => {
-    const u = setLeafName(c, id, name);
     if (u !== c) changed = true;
     return u;
   });

@@ -1,4 +1,7 @@
+import { IS_WINDOWS } from "@/lib/platform";
 import type { IMarker, Terminal } from "@xterm/xterm";
+
+const MAX_OSC52_CLIPBOARD_BYTES = 1024 * 1024;
 
 /**
  * Cross-handler state shared between the OSC 7 cwd handler and the OSC 133
@@ -39,18 +42,16 @@ export type PromptTracker = {
   dispose: () => void;
 };
 
-/** A completed command, surfaced on the OSC 133 D marker. */
-export interface CommandRecord {
-  /** Command text, when the shell reports it (OSC 133 C;<cmd>). May be empty. */
+/** A completed command observed via OSC 133, for session-timeline capture. */
+export type CommandRecord = {
   command: string;
-  /** Exit status from OSC 133 D;<code>, when present. */
   exitCode: number | null;
-  /** Wall-clock duration between the C and D markers, in ms. */
   durationMs: number | null;
-}
+};
 
-/** Strip the leading marker letter and optional `;` from OSC 133 payloads. */
-export function parseOsc133Field(data: string): string {
+// OSC 133 payloads look like "C;<command>" or "D;<exitcode>". Return the field
+// after the leading letter + ";", or "" when there is none.
+function parseOsc133Field(data: string): string {
   const semi = data.indexOf(";");
   return semi === -1 ? "" : data.slice(semi + 1);
 }
@@ -58,6 +59,11 @@ export function parseOsc133Field(data: string): string {
 export function registerPromptTracker(
   term: Terminal,
   state?: ShellIntegrationState,
+  // Fires on C (process executing) and A/D (back at prompt). Distinct from
+  // inCommand, which is already true from B while the user merely types.
+  onCommandState?: (running: boolean) => void,
+  // Fires once per completed command on D, carrying the command line (from
+  // C;<cmd>) and exit status (from D;<code>). Used for Chronicle capture.
   onCommand?: (cmd: CommandRecord) => void,
 ): PromptTracker {
   let marker: IMarker | null = null;
@@ -67,6 +73,7 @@ export function registerPromptTracker(
     // OSC 133 A — start of new prompt (between commands).
     if (data.startsWith("A")) {
       if (state) state.inCommand = false;
+      onCommandState?.(false);
       marker?.dispose();
       marker = term.registerMarker(0);
     } else if (data.startsWith("B")) {
@@ -74,15 +81,17 @@ export function registerPromptTracker(
       // untrusted until we see D (command exit) or the next A (new prompt).
       if (state) state.inCommand = true;
     } else if (data.startsWith("C")) {
-      // OSC 133 C — command pre-execution marker; still inside command. Some
-      // shells (fish) include the command text as C;<cmd>.
+      // OSC 133 C — command pre-execution marker; still inside command. Our
+      // shell integration includes the command text as C;<cmd>.
       if (state) state.inCommand = true;
+      onCommandState?.(true);
       const cmd = parseOsc133Field(data);
       if (cmd) pendingCommand = cmd;
       commandStart = Date.now();
     } else if (data.startsWith("D")) {
       // OSC 133 D — command ends; D;<code> carries the exit status.
       if (state) state.inCommand = false;
+      onCommandState?.(false);
       if (onCommand) {
         const codeStr = parseOsc133Field(data);
         const exitCode = codeStr === "" ? null : Number.parseInt(codeStr, 10);
@@ -107,23 +116,65 @@ export function registerPromptTracker(
   };
 }
 
+export type ClipboardWriter = (text: string) => void | Promise<void>;
+
+export function registerOsc52ClipboardHandler(
+  term: Terminal,
+  writeClipboard: ClipboardWriter = writeSystemClipboard,
+): () => void {
+  const d = term.parser.registerOscHandler(52, (data) => {
+    const text = parseOsc52Clipboard(data);
+    if (text === null) return true;
+    queueMicrotask(() => {
+      try {
+        void Promise.resolve(writeClipboard(text)).catch(() => {});
+      } catch {}
+    });
+    return true;
+  });
+  return () => d.dispose();
+}
+
 function parseOsc7(data: string): string | null {
-  const m = data.match(/^file:\/\/[^/]*(\/.*)?$/);
+  const m = data.match(/^file:\/\/[^/]*(\/.*)$/);
   if (!m) return null;
-  let path = m[1] ?? "/";
+  let path = m[1];
   try {
     path = decodeURIComponent(path);
   } catch {}
-  // Strip Windows extended-length path prefix that survives the backslash→slash
-  // conversion when profile.ps1's StartsWith check doesn't fire:
-  //   \\?\C:\Users\foo  →  //?/C:/Users/foo  (after \→/ and decode)
-  if (path.startsWith("//?/")) path = path.slice(4);
-  // /C:/Users/foo -> C:/Users/foo so it's a valid Windows path (PowerShell style).
-  if (/^\/[A-Za-z]:/.test(path)) path = path.slice(1);
-  // Git Bash / MSYS2 emits POSIX-style paths: /c/Users/foo (no colon).
-  // Convert /c/Users/foo -> C:/Users/foo so the file explorer can resolve it.
-  else if (/^\/[A-Za-z](\/|$)/.test(path)) {
-    path = path[1].toUpperCase() + ":/" + path.slice(3);
+  // /C:/Users/foo -> C:/Users/foo so it's a valid Windows path.
+  if (/^\/[A-Za-z]:/.test(path)) {
+    path = path.slice(1);
+  } else if (IS_WINDOWS) {
+    // git-bash (MSYS) reports cwd as /c/Users/foo; map it to C:/Users/foo.
+    const drive = path.match(/^\/([A-Za-z])(\/.*)?$/);
+    if (drive) path = `${drive[1].toUpperCase()}:${drive[2] ?? "/"}`;
   }
   return path;
+}
+
+function parseOsc52Clipboard(data: string): string | null {
+  const parts = data.split(";");
+  if (parts.length < 2) return null;
+  const selection = parts[0] || "c";
+  if (!selection.includes("c")) return null;
+  const encoded = parts.slice(1).join(";");
+  if (!encoded || encoded === "?") return null;
+  if (encoded.length > Math.ceil((MAX_OSC52_CLIPBOARD_BYTES * 4) / 3) + 4) {
+    return null;
+  }
+  const compact = encoded.replace(/\s/g, "");
+  if (!/^[A-Za-z0-9+/]*={0,2}$/.test(compact)) return null;
+
+  try {
+    const bytes = Uint8Array.from(atob(compact), (c) => c.charCodeAt(0));
+    if (bytes.byteLength > MAX_OSC52_CLIPBOARD_BYTES) return null;
+    return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch {
+    return null;
+  }
+}
+
+async function writeSystemClipboard(text: string): Promise<void> {
+  await navigator.clipboard.writeText(text);
 }

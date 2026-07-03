@@ -56,16 +56,17 @@ fn fish_init_script() -> &'static str {
 pub fn build_command(
     cwd: Option<String>,
     workspace: WorkspaceEnv,
+    blocks: bool,
     custom_shell: Option<String>,
 ) -> Result<CommandBuilder, String> {
     #[cfg(unix)]
     {
         let _ = workspace;
-        unix::build(cwd, custom_shell)
+        unix::build(cwd, blocks, custom_shell)
     }
     #[cfg(windows)]
     {
-        windows::build(cwd, workspace, custom_shell)
+        windows::build(cwd, workspace, blocks, custom_shell)
     }
 }
 
@@ -100,10 +101,13 @@ fn ensure_utf8_locale(cmd: &mut CommandBuilder) {
     cmd.env("LANG", fallback);
 }
 
-fn apply_common(cmd: &mut CommandBuilder, cwd: Option<String>) {
+fn apply_common(cmd: &mut CommandBuilder, cwd: Option<String>, blocks: bool) {
     cmd.env("TERM", "xterm-256color");
     cmd.env("COLORTERM", "truecolor");
-    cmd.env("Gear_TERMINAL", "1");
+    cmd.env("GEAR_TERMINAL", "1");
+    if blocks {
+        cmd.env("GEAR_BLOCKS", "1");
+    }
     ensure_utf8_locale(cmd);
 
     let resolved_cwd = cwd
@@ -207,13 +211,17 @@ mod unix {
         shells
     }
 
-    pub fn build(cwd: Option<String>, custom_shell: Option<String>) -> Result<CommandBuilder, String> {
+    pub fn build(
+        cwd: Option<String>,
+        blocks: bool,
+        custom_shell: Option<String>,
+    ) -> Result<CommandBuilder, String> {
         let (shell, shell_path) = match custom_shell {
             Some(path) if !path.is_empty() => Shell::from_path(&path),
             _ => Shell::detect(),
         };
         let mut cmd = CommandBuilder::new(&shell_path);
-        super::apply_common(&mut cmd, cwd);
+        super::apply_common(&mut cmd, cwd, blocks);
 
         match shell {
             Shell::Zsh => {
@@ -222,7 +230,7 @@ mod unix {
                         // Guard against Gear-in-Gear :)
                         if let Ok(user_zd) = std::env::var("ZDOTDIR") {
                             if Path::new(&user_zd) != zdotdir.as_path() {
-                                cmd.env("Gear_USER_ZDOTDIR", user_zd);
+                                cmd.env("GEAR_USER_ZDOTDIR", user_zd);
                             }
                         }
                         cmd.env("ZDOTDIR", &zdotdir);
@@ -364,9 +372,14 @@ mod windows {
         args: Vec<String>,
     }
 
-    pub fn build(cwd: Option<String>, workspace: WorkspaceEnv, custom_shell: Option<String>) -> Result<CommandBuilder, String> {
+    pub fn build(
+        cwd: Option<String>,
+        workspace: WorkspaceEnv,
+        blocks: bool,
+        custom_shell: Option<String>,
+    ) -> Result<CommandBuilder, String> {
         if let WorkspaceEnv::Wsl { distro } = workspace {
-            return build_wsl(cwd, distro, custom_shell);
+            return build_wsl(cwd, distro, blocks, custom_shell);
         }
         let shell_path = match custom_shell {
             Some(path) if !path.is_empty() => PathBuf::from(path),
@@ -380,7 +393,7 @@ mod windows {
         let is_powershell = shell_name == "pwsh.exe" || shell_name == "powershell.exe";
 
         let mut cmd = CommandBuilder::new(&shell_path);
-        super::apply_common(&mut cmd, cwd);
+        super::apply_common(&mut cmd, cwd, blocks);
 
         if is_powershell {
             match prepare_ps_profile() {
@@ -416,7 +429,15 @@ mod windows {
         Ok(cmd)
     }
 
-    fn build_wsl(cwd: Option<String>, distro: String, custom_shell: Option<String>) -> Result<CommandBuilder, String> {
+    fn build_wsl(
+        cwd: Option<String>,
+        distro: String,
+        blocks: bool,
+        custom_shell: Option<String>,
+    ) -> Result<CommandBuilder, String> {
+        // WSL block-mode env passthrough is not wired yet; accept the flag so
+        // the signature matches the native path.
+        let _ = blocks;
         crate::modules::workspace::validate_wsl_distro_name(&distro)?;
         let shell_path = match custom_shell {
             Some(path) if !path.is_empty() => path,
@@ -479,7 +500,7 @@ mod windows {
         }
         cmd.env("TERM", "xterm-256color");
         cmd.env("COLORTERM", "truecolor");
-        cmd.env("Gear_TERMINAL", "1");
+        cmd.env("GEAR_TERMINAL", "1");
         super::ensure_utf8_locale(&mut cmd);
         log::info!("spawning WSL shell: {distro} ({shell_path})");
         Ok(cmd)
@@ -509,7 +530,7 @@ mod windows {
             ) => {
                 args.push("env".to_string());
                 if let Some(user_zdotdir) = user_zdotdir {
-                    args.push(format!("Gear_USER_ZDOTDIR={user_zdotdir}"));
+                    args.push(format!("GEAR_USER_ZDOTDIR={user_zdotdir}"));
                 }
                 args.push(format!("ZDOTDIR={zdotdir}"));
                 args.push(shell_path.to_string());
@@ -700,7 +721,7 @@ mod windows {
                     "/home/vinicios/repo".to_string(),
                     "--exec".to_string(),
                     "env".to_string(),
-                    "Gear_USER_ZDOTDIR=/home/vinicios/.config/zsh".to_string(),
+                    "GEAR_USER_ZDOTDIR=/home/vinicios/.config/zsh".to_string(),
                     "ZDOTDIR=/home/vinicios/.cache/Gear/shell-integration/zsh".to_string(),
                     "/usr/bin/zsh".to_string(),
                     "-l".to_string(),

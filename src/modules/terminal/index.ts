@@ -1,11 +1,11 @@
 export { TerminalPane, type TerminalPaneHandle } from "./TerminalPane";
 export { TerminalStack } from "./TerminalStack";
-export { refitSlot } from "./lib/rendererPool";
 export {
   clearFocusedTerminal,
   disposeSession,
   leafHasForegroundProcess,
   leafIdForPty,
+  navigateFocusedBlocks,
   respawnSession,
   whenSessionReady,
   writeToSession,
