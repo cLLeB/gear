@@ -5,6 +5,7 @@ export {
   LOCAL_WORKSPACE,
   useWorkspaceEnvStore,
   workspaceScopeKey,
+  parseWorkspaceScopeKey,
   type WorkspaceEnv,
   type WslDistro,
 } from "./env";

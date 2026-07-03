@@ -96,6 +96,7 @@ export type Preferences = {
   terminalFontWeight: string;
   terminalCursorBlink: boolean;
   terminalShell: string;
+  defaultWorkspaceEnv: string;
   terminalLetterSpacing: number;
   terminalFontSize: number;
   terminalScrollback: number;
@@ -148,6 +149,7 @@ const KEY_TERMINAL_FONT_FAMILY = "terminalFontFamily";
 const KEY_TERMINAL_FONT_WEIGHT = "terminalFontWeight";
 const KEY_TERMINAL_CURSOR_BLINK = "terminalCursorBlink";
 const KEY_TERMINAL_SHELL = "terminalShell";
+const KEY_DEFAULT_WORKSPACE_ENV = "defaultWorkspaceEnv";
 const KEY_TERMINAL_LETTER_SPACING = "terminalLetterSpacing";
 const KEY_TERMINAL_FONT_SIZE = "terminalFontSize";
 const KEY_TERMINAL_SCROLLBACK = "terminalScrollback";
@@ -213,6 +215,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   terminalFontWeight: "normal",
   terminalCursorBlink: false,
   terminalShell: "",
+  defaultWorkspaceEnv: "local",
   terminalLetterSpacing: 0,
   terminalFontSize: TERMINAL_FONT_SIZE_DEFAULT,
   terminalScrollback: TERMINAL_SCROLLBACK_DEFAULT,
@@ -325,6 +328,9 @@ export async function loadPreferences(): Promise<Preferences> {
       DEFAULT_PREFERENCES.terminalCursorBlink,
     terminalShell:
       get<string>(KEY_TERMINAL_SHELL) ?? DEFAULT_PREFERENCES.terminalShell,
+    defaultWorkspaceEnv:
+      get<string>(KEY_DEFAULT_WORKSPACE_ENV) ??
+      DEFAULT_PREFERENCES.defaultWorkspaceEnv,
     terminalLetterSpacing:
       get<number>(KEY_TERMINAL_LETTER_SPACING) ??
       DEFAULT_PREFERENCES.terminalLetterSpacing,
@@ -520,6 +526,10 @@ export async function setTerminalCursorBlink(value: boolean): Promise<void> {
 
 export async function setTerminalShell(value: string): Promise<void> {
   await writePref(KEY_TERMINAL_SHELL, value);
+}
+
+export async function setDefaultWorkspaceEnv(value: string): Promise<void> {
+  await writePref(KEY_DEFAULT_WORKSPACE_ENV, value);
 }
 
 export async function setTerminalLetterSpacing(value: number): Promise<void> {

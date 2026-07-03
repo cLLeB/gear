@@ -1,6 +1,9 @@
-export { TabBar } from "./TabBar";
+export { TabBar, TabIcon } from "./TabBar";
+export { labelFor } from "./lib/tabLabel";
 export {
   MAX_PANES_PER_TAB,
+  DEFAULT_SPACE_ID,
+  pickTabBySpaceIndex,
   useTabs,
   type Tab,
   type TerminalTab,
