@@ -1,10 +1,12 @@
 use ignore::WalkBuilder;
+use nucleo_matcher::pattern::{CaseMatching, Normalization, Pattern};
+use nucleo_matcher::{Config, Matcher, Utf32Str};
 use serde::Serialize;
 
 use super::to_canon;
 use crate::modules::workspace::{resolve_path, WorkspaceEnv};
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 pub struct SearchHit {
     /// Absolute path of the matched file.
     pub path: String,
@@ -50,7 +52,7 @@ pub fn fs_search(
     workspace: Option<WorkspaceEnv>,
     show_hidden: Option<bool>,
 ) -> Result<SearchResult, String> {
-    let q = query.trim().to_lowercase();
+    let q = query.trim();
     if q.is_empty() {
         return Ok(SearchResult {
             hits: Vec::new(),
@@ -96,10 +98,6 @@ pub fn fs_search(
             truncated = true;
             break;
         }
-        if out.len() >= cap {
-            truncated = true;
-            break;
-        }
         let path = dent.path();
         if path == root_path {
             continue;
@@ -108,9 +106,6 @@ pub fn fs_search(
             Ok(r) => to_canon(r),
             Err(_) => continue,
         };
-        if !rel.to_lowercase().contains(&q) {
-            continue;
-        }
         let name = path
             .file_name()
             .map(|s| s.to_string_lossy().into_owned())
@@ -124,17 +119,33 @@ pub fn fs_search(
         });
     }
 
-    // Rank: filename matches first, then shorter relative paths.
-    out.sort_by(|a, b| {
-        let an = a.name.to_lowercase().contains(&q);
-        let bn = b.name.to_lowercase().contains(&q);
-        bn.cmp(&an).then(a.rel.len().cmp(&b.rel.len()))
-    });
+    let hits = rank_fuzzy(out, q, cap);
 
-    Ok(SearchResult {
-        hits: out,
-        truncated,
-    })
+    Ok(SearchResult { hits, truncated })
+}
+
+/// Fuzzy-rank candidates against the query (path-aware, smart-case),
+/// dropping non-matches and keeping the best `cap`. Shorter paths break ties.
+fn rank_fuzzy(cands: Vec<SearchHit>, query: &str, cap: usize) -> Vec<SearchHit> {
+    let mut matcher = Matcher::new(Config::DEFAULT.match_paths());
+    let pattern = Pattern::parse(query, CaseMatching::Smart, Normalization::Smart);
+    let mut buf = Vec::new();
+
+    let mut scored = Vec::with_capacity(cands.len());
+    for (i, c) in cands.iter().enumerate() {
+        if let Some(s) = pattern.score(Utf32Str::new(&c.rel, &mut buf), &mut matcher) {
+            scored.push((s, i));
+        }
+    }
+    scored.sort_by(|a, b| {
+        b.0.cmp(&a.0)
+            .then_with(|| cands[a.1].rel.len().cmp(&cands[b.1].rel.len()))
+    });
+    scored
+        .into_iter()
+        .take(cap)
+        .map(|(_, i)| cands[i].clone())
+        .collect()
 }
 
 #[derive(Serialize)]
