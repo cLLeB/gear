@@ -30,6 +30,8 @@ import { InlineInput } from "./InlineInput";
 import { copyToClipboard, revealInFinder } from "./lib/contextActions";
 import { fileIconUrl, folderIconUrl } from "./lib/iconResolver";
 import { COMPACT_CONTENT, COMPACT_ITEM } from "./lib/menuItemClass";
+import { cn } from "@/lib/utils";
+import { useExplorerFileDrop } from "./lib/useExplorerFileDrop";
 import { useFileTree } from "./lib/useFileTree";
 import { useGlobalShortcuts } from "@/modules/shortcuts";
 
@@ -205,6 +207,18 @@ export const FileExplorer = forwardRef<FileExplorerHandle, Props>(
       tree.pendingCreate,
       tree,
     ]);
+
+    // Accept files/folders dragged in from the OS (Windows Explorer, Finder…).
+    const dirByPath = useMemo(() => {
+      const m = new Map<string, boolean>();
+      for (const r of rows) if (r.kind === "entry") m.set(r.path, r.isDir);
+      return m;
+    }, [rows]);
+    const fileDrop = useExplorerFileDrop({
+      rootPath,
+      isDir: (p) => dirByPath.get(p),
+      onCopied: tree.refresh,
+    });
 
     const entryPaths = useMemo<string[]>(() => {
       const out: string[] = [];
@@ -573,7 +587,12 @@ export const FileExplorer = forwardRef<FileExplorerHandle, Props>(
             <ContextMenuTrigger asChild>
               <div
                 ref={scrollRef}
-                className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden [scrollbar-gutter:stable]"
+                data-explorer-drop=""
+                className={cn(
+                  "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden [scrollbar-gutter:stable]",
+                  fileDrop.externalTargetDir != null &&
+                    "rounded-sm ring-1 ring-inset ring-primary/50",
+                )}
               >
                 {pendingAtRoot ? (
                   <div
