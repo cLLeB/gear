@@ -3,6 +3,7 @@ pub mod chronicle;
 pub mod fs;
 pub mod git;
 pub mod net;
+pub mod lsp;
 pub mod proc;
 pub mod pty;
 pub mod secrets;

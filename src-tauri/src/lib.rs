@@ -1,7 +1,9 @@
 pub mod modules;
 
 use fs::to_canon;
-use modules::{agent, chronicle, fs, git, net, pty, secrets, shell, workspace};
+use modules::{
+    agent, chronicle, fs, git, lsp, net, pty, secrets, shell, workspace,
+};
 use std::sync::Mutex;
 use tauri::State;
 use tauri_plugin_window_state::StateFlags;
@@ -80,6 +82,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .manage(pty::PtyState::default())
         .manage(chronicle::ChronicleState::default())
+        .manage(lsp::LspState::default())
         .manage(shell::ShellState::default())
         .manage(secrets::SecretsState::default())
         .manage(fs::watch::FsWatchState::default())
@@ -102,6 +105,12 @@ pub fn run() {
             pty::pty_has_foreground_job,
             pty::pty_authorize_cwd,
             pty::pty_list_shells,
+            lsp::lsp_detect,
+            lsp::lsp_host_pid,
+            lsp::lsp_resolve_root,
+            lsp::lsp_spawn,
+            lsp::lsp_send,
+            lsp::lsp_kill,
             fs::tree::list_subdirs,
             fs::tree::fs_read_dir,
             fs::file::fs_read_file,
