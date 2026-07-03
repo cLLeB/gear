@@ -306,6 +306,17 @@ pub(crate) fn build_oneshot_command(
     {
         let mut cmd = Command::new("/bin/sh");
         cmd.arg("-c").arg(command);
+        // Strip AppImage-injected env (no-op off Linux / outside an AppImage).
+        for (key, value) in crate::modules::workspace::appimage_env_overrides() {
+            match value {
+                Some(v) => {
+                    cmd.env(key, v);
+                }
+                None => {
+                    cmd.env_remove(key);
+                }
+            }
+        }
         Ok(cmd)
     }
     #[cfg(windows)]
