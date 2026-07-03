@@ -16,6 +16,8 @@ const LANGUAGES: { label: string; ext: string }[] = [
   { label: "Python", ext: "py" },
   { label: "Rust", ext: "rs" },
   { label: "Go", ext: "go" },
+  { label: "Swift", ext: "swift" },
+  { label: "Vue", ext: "vue" },
   { label: "JSON", ext: "json" },
   { label: "Markdown", ext: "md" },
   { label: "HTML", ext: "html" },

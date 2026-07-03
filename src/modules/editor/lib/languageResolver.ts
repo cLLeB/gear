@@ -111,6 +111,14 @@ const loaders: Record<string, LanguageLoader> = {
       (m) => m.dockerFile,
     ),
 
+  // Swift
+  swift: () =>
+    import("@codemirror/legacy-modes/mode/swift").then((m) => m.swift),
+
+  // Vue single-file components and Twig templates use the HTML grammar.
+  vue: () => import("@codemirror/lang-html").then((m) => m.html()),
+  twig: () => import("@codemirror/lang-html").then((m) => m.html()),
+
   // LaTeX / TeX
   tex: () => import("@codemirror/legacy-modes/mode/stex").then((m) => m.stex),
   latex: () =>
@@ -151,6 +159,8 @@ function cacheKey(filename: string): string | null {
   const lower = filename.toLowerCase();
   const base = lower.split("/").pop() ?? lower;
   if (filenameOverrides[base]) return `name:${base}`;
+  // Any Dockerfile variant: Dockerfile.dev, Dockerfile.prod, Dockerfile.web…
+  if (base.startsWith("dockerfile.")) return "name:dockerfile";
   const ext = extOf(base);
   return ext ? `ext:${ext}` : null;
 }
@@ -170,7 +180,11 @@ export async function resolveLanguage(
 
   const lower = filename.toLowerCase();
   const base = lower.split("/").pop() ?? lower;
-  const loader = filenameOverrides[base] ?? loaders[extOf(base) ?? ""];
+  const loader =
+    filenameOverrides[base] ??
+    (base.startsWith("dockerfile.")
+      ? loaders.dockerfile
+      : loaders[extOf(base) ?? ""]);
   if (!loader) {
     cache.set(key, null);
     return null;
