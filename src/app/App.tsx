@@ -528,6 +528,23 @@ export default function App() {
     },
     [moveTabToSpace],
   );
+
+  // Dropping a tab onto another tab: if they're in different spaces, move the
+  // dragged tab into the target's space (drag-to-organize across spaces).
+  const handleReorderTabAcrossSpaces = useCallback(
+    (tabId: number, targetTabId: number) => {
+      const all = tabsRef.current;
+      const moved = all.find((t) => t.id === tabId);
+      const target = all.find((t) => t.id === targetTabId);
+      if (!moved || !target) return;
+      const targetSpace = target.spaceId ?? DEFAULT_SPACE_ID;
+      if ((moved.spaceId ?? DEFAULT_SPACE_ID) !== targetSpace) {
+        moveTabToSpace(tabId, targetSpace);
+        useSpaces.getState().setActive(targetSpace);
+      }
+    },
+    [moveTabToSpace],
+  );
   const [launchCwdResolved, setLaunchCwdResolved] = useState(false);
   const [pendingDeleteTabs, setPendingDeleteTabs] = useState<number[] | null>(
     null,
@@ -1942,7 +1959,9 @@ export default function App() {
             onJumpTab={handleJumpTab}
             onCloseTab={handleClose}
             onMoveTabToSpace={handleMoveTabToSpace}
-            onReorderTab={() => {}}
+            onReorderTab={(tabId, targetTabId) =>
+              handleReorderTabAcrossSpaces(tabId, targetTabId)
+            }
             onReorderSpaces={(ids) => useSpaces.getState().reorder(ids)}
           />
 
