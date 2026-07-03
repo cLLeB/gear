@@ -3,8 +3,9 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
+import { cn } from "@/lib/utils";
 import type { SearchAddon } from "@xterm/addon-search";
-import { Fragment } from "react";
+import { Fragment, useRef, useState } from "react";
 import { useTerminalDropStore } from "./lib/dropStore";
 import { leafIds, type PaneNode } from "./lib/panes";
 import { TerminalPane, type TerminalPaneHandle } from "./TerminalPane";
@@ -22,17 +23,32 @@ type Props = {
   activeLeafId: number;
   blocks: boolean;
   isPrivate: boolean;
+  /** Show the per-pane label header (true for split panes). */
+  showLabel?: boolean;
   onFocusLeaf: (leafId: number) => void;
+  onRenameLeaf?: (leafId: number, name: string) => void;
   getBundle: (leafId: number) => LeafBundle;
 };
 
 export function PaneTreeView(props: Props) {
   const { node } = props;
   if (node.kind === "leaf") {
-    const { tabVisible, activeLeafId, blocks, isPrivate, onFocusLeaf, getBundle } =
-      props;
+    const {
+      tabVisible,
+      activeLeafId,
+      blocks,
+      isPrivate,
+      showLabel = false,
+      onFocusLeaf,
+      onRenameLeaf,
+      getBundle,
+    } = props;
     const focused = node.id === activeLeafId;
     const b = getBundle(node.id);
+    const cwdBasename = node.cwd
+      ? (node.cwd.split(/[\\/]/).filter(Boolean).pop() ?? node.cwd)
+      : undefined;
+    const label = node.name ?? cwdBasename ?? "";
     return (
       <div
         onMouseDownCapture={() => {
@@ -44,21 +60,30 @@ export function PaneTreeView(props: Props) {
           if (!focused) onFocusLeaf(node.id);
         }}
         data-pane-leaf={node.id}
-        className="relative h-full w-full"
+        className="relative flex h-full w-full flex-col"
       >
-        <TerminalPane
-          leafId={node.id}
-          visible={tabVisible}
-          focused={focused}
-          initialCwd={node.cwd}
-          blocks={blocks}
-          isPrivate={isPrivate}
-          ref={b.setRef}
-          onSearchReady={b.onSearchReady}
-          onCwd={b.onCwd}
-          onExit={b.onExit}
-        />
-        <DropOverlay leafId={node.id} />
+        {showLabel && (
+          <PaneLabel
+            label={label}
+            focused={focused}
+            onCommit={(name) => onRenameLeaf?.(node.id, name)}
+          />
+        )}
+        <div className="relative min-h-0 flex-1">
+          <TerminalPane
+            leafId={node.id}
+            visible={tabVisible}
+            focused={focused}
+            initialCwd={node.cwd}
+            blocks={blocks}
+            isPrivate={isPrivate}
+            ref={b.setRef}
+            onSearchReady={b.onSearchReady}
+            onCwd={b.onCwd}
+            onExit={b.onExit}
+          />
+          <DropOverlay leafId={node.id} />
+        </div>
       </div>
     );
   }
@@ -74,11 +99,69 @@ export function PaneTreeView(props: Props) {
         <Fragment key={leafIds(child)[0]}>
           {i > 0 && <ResizableHandle />}
           <ResizablePanel id={`pane-${child.id}`} minSize="10%">
-            <PaneTreeView {...props} node={child} />
+            <PaneTreeView {...props} node={child} showLabel />
           </ResizablePanel>
         </Fragment>
       ))}
     </ResizablePanelGroup>
+  );
+}
+
+function PaneLabel({
+  label,
+  focused,
+  onCommit,
+}: {
+  label: string;
+  focused: boolean;
+  onCommit: (name: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const startEdit = () => {
+    setDraft(label);
+    setEditing(true);
+    window.setTimeout(() => inputRef.current?.select(), 0);
+  };
+  const commit = () => {
+    setEditing(false);
+    onCommit(draft);
+  };
+
+  return (
+    <div
+      className={cn(
+        "flex h-5 shrink-0 items-center border-b border-border/40 px-2",
+        focused ? "bg-accent/30" : "bg-background/30",
+      )}
+    >
+      {editing ? (
+        <input
+          ref={inputRef}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") commit();
+            if (e.key === "Escape") setEditing(false);
+          }}
+          className="w-full bg-transparent text-[11px] outline-none"
+        />
+      ) : (
+        <span
+          onDoubleClick={startEdit}
+          title="Double-click to rename"
+          className={cn(
+            "truncate text-[11px] leading-none",
+            focused ? "text-foreground/80" : "text-muted-foreground/60",
+          )}
+        >
+          {label || <span className="opacity-40">pane</span>}
+        </span>
+      )}
+    </div>
   );
 }
 
