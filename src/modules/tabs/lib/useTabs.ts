@@ -164,6 +164,8 @@ export type TabPatch = Partial<{
   url: string;
   section: string;
   shellPath: string;
+  spaceId: string;
+  cold: boolean;
   /** Empty string resets a terminal tab to its cwd-derived name. */
   customTitle: string;
 }>;
@@ -267,6 +269,23 @@ export function useTabs() {
     ]);
     setActiveId(tabId);
     return tabId;
+  }, []);
+
+  const moveTabToSpace = useCallback((tabId: number, spaceId: string) => {
+    setTabs((t) =>
+      t.map((x) => (x.id === tabId ? ({ ...x, spaceId } as Tab) : x)),
+    );
+  }, []);
+
+  // Reassign every tab in one space to another (used when a space is deleted).
+  const reassignSpaceTabs = useCallback((from: string, to: string) => {
+    setTabs((t) =>
+      t.map((x) =>
+        (x.spaceId ?? DEFAULT_SPACE_ID) === from
+          ? ({ ...x, spaceId: to } as Tab)
+          : x,
+      ),
+    );
   }, []);
 
   const newAgentTab = useCallback(
@@ -974,6 +993,8 @@ export function useTabs() {
     newBlockTab,
     newTabInSpace,
     setActiveSpaceForNewTabs,
+    moveTabToSpace,
+    reassignSpaceTabs,
     newAgentTab,
     newPrivateTab,
     openFileTab,
