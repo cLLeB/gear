@@ -43,8 +43,8 @@ export type EditorTab = {
   title: string;
   path: string;
   dirty: boolean;
-  /** Space this tab belongs to (spaces feature; optional until adopted). */
   spaceId?: string;
+  cold?: boolean;
   /**
    * True while the tab is in the transient "preview" state — opened by a
    * single-click in the explorer and not yet pinned by the user. A preview tab
@@ -58,6 +58,8 @@ export type PreviewTab = {
   kind: "preview";
   title: string;
   url: string;
+  spaceId?: string;
+  cold?: boolean;
 };
 
 export type MarkdownTab = {
@@ -65,6 +67,8 @@ export type MarkdownTab = {
   kind: "markdown";
   title: string;
   path: string;
+  spaceId?: string;
+  cold?: boolean;
 };
 
 export type AiDiffStatus = "pending" | "approved" | "rejected";
@@ -119,7 +123,15 @@ export type SettingsViewTab = {
   section?: string;
 };
 
-export type Tab =
+/** Fields every tab carries for the Spaces feature. */
+type SpaceMembership = {
+  /** Space this tab belongs to. Undefined is treated as the default space. */
+  spaceId?: string;
+  /** Restored but not yet activated — no PTY/content spawns until first shown. */
+  cold?: boolean;
+};
+
+export type Tab = (
   | TerminalTab
   | EditorTab
   | PreviewTab
@@ -128,7 +140,21 @@ export type Tab =
   | GitDiffTab
   | GitHistoryTab
   | GitCommitFileDiffTab
-  | SettingsViewTab;
+  | SettingsViewTab
+) &
+  SpaceMembership;
+
+/** Fallback space every tab belongs to before the Spaces feature assigns one. */
+export const DEFAULT_SPACE_ID = "default";
+
+/** The tab at position `idx` within `spaceId`, or undefined if out of range. */
+export function pickTabBySpaceIndex(
+  tabs: Tab[],
+  idx: number,
+  spaceId: string,
+): Tab | undefined {
+  return tabs.filter((t) => (t.spaceId ?? DEFAULT_SPACE_ID) === spaceId)[idx];
+}
 
 export type TabPatch = Partial<{
   title: string;
@@ -162,6 +188,7 @@ export function useTabs() {
       {
         id: 1,
         kind: "editor",
+        spaceId: DEFAULT_SPACE_ID,
         title: "untitled",
         path: "",
         dirty: false,
@@ -172,10 +199,17 @@ export function useTabs() {
   const [activeId, setActiveId] = useState(1);
   const nextIdRef = useRef(3);
   const tabsRef = useRef(tabs);
+  // Space that newly-created tabs are assigned to. Driven by the Spaces feature
+  // via setActiveSpaceForNewTabs; defaults to the single default space.
+  const activeSpaceIdRef = useRef(DEFAULT_SPACE_ID);
 
   useEffect(() => {
     tabsRef.current = tabs;
   }, [tabs]);
+
+  const setActiveSpaceForNewTabs = useCallback((spaceId: string) => {
+    activeSpaceIdRef.current = spaceId;
+  }, []);
 
   const newTab = useCallback((cwd?: string, shellPath?: string) => {
     const tabId = nextIdRef.current++;
@@ -185,6 +219,7 @@ export function useTabs() {
       {
         id: tabId,
         kind: "terminal",
+        spaceId: activeSpaceIdRef.current,
         title: "shell",
         cwd,
         shellPath,
@@ -193,6 +228,25 @@ export function useTabs() {
       },
     ]);
     setActiveId(tabId);
+    return tabId;
+  }, []);
+
+  const newTabInSpace = useCallback((spaceId: string, cwd?: string) => {
+    const tabId = nextIdRef.current++;
+    const leafId = nextIdRef.current++;
+    setTabs((curr) => [
+      ...curr,
+      {
+        id: tabId,
+        kind: "terminal",
+        spaceId,
+        cold: true,
+        title: cwd ? basename(cwd) : "shell",
+        cwd,
+        paneTree: { kind: "leaf", id: leafId, cwd },
+        activeLeafId: leafId,
+      },
+    ]);
     return tabId;
   }, []);
 
@@ -918,6 +972,8 @@ export function useTabs() {
     setActiveId,
     newTab,
     newBlockTab,
+    newTabInSpace,
+    setActiveSpaceForNewTabs,
     newAgentTab,
     newPrivateTab,
     openFileTab,
