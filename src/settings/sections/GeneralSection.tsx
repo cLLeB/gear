@@ -35,6 +35,7 @@ import {
   setTerminalScrollback,
   setTerminalWebglEnabled,
   setTerminalCursorBlink,
+  setTerminalFontWeight,
   setVimMode,
 } from "@/modules/settings/store";
 import { useTheme } from "@/modules/theme";
@@ -61,6 +62,14 @@ const AUTO_SAVE_STEP = 100;
 const AUTO_SAVE_MIN = 100;
 const AUTO_SAVE_MAX = 60000;
 
+const TERMINAL_FONT_WEIGHTS: { label: string; value: string }[] = [
+  { label: "Light", value: "300" },
+  { label: "Normal", value: "normal" },
+  { label: "Medium", value: "500" },
+  { label: "Semibold", value: "600" },
+  { label: "Bold", value: "bold" },
+];
+
 export function GeneralSection() {
   const { t } = useTranslation();
   const { mode, setMode } = useTheme();
@@ -73,6 +82,7 @@ export function GeneralSection() {
   const showHidden = usePreferencesStore((s) => s.showHidden);
   const terminalWebglEnabled = usePreferencesStore((s) => s.terminalWebglEnabled);
   const terminalCursorBlink = usePreferencesStore((s) => s.terminalCursorBlink);
+  const terminalFontWeight = usePreferencesStore((s) => s.terminalFontWeight);
   const terminalFontFamily = usePreferencesStore((s) => s.terminalFontFamily);
   const terminalLetterSpacing = usePreferencesStore((s) => s.terminalLetterSpacing);
   const terminalFontSize = usePreferencesStore((s) => s.terminalFontSize);
@@ -314,6 +324,33 @@ export function GeneralSection() {
                   className={cn("rounded-none px-3 py-1.5 text-[12px]", v === terminalLetterSpacing && "bg-accent/50")}
                 >
                   {formatSpacing(v)} px
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </SettingRow>
+        <SettingRow
+          title="Terminal font weight"
+          description="Stroke weight of the terminal text."
+        >
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="h-8 justify-between gap-2 rounded-none px-2.5 text-[12px]">
+                <span>
+                  {TERMINAL_FONT_WEIGHTS.find((w) => w.value === terminalFontWeight)?.label ??
+                    terminalFontWeight}
+                </span>
+                <HugeiconsIcon icon={ArrowDown01Icon} size={12} strokeWidth={2} className="opacity-70" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-[120px] rounded-none border border-border bg-popover p-0 shadow-none ring-0">
+              {TERMINAL_FONT_WEIGHTS.map((w) => (
+                <DropdownMenuItem
+                  key={w.value}
+                  onSelect={() => void setTerminalFontWeight(w.value)}
+                  className={cn("rounded-none px-3 py-1.5 text-[12px]", w.value === terminalFontWeight && "bg-accent/50")}
+                >
+                  {w.label}
                 </DropdownMenuItem>
               ))}
             </DropdownMenuContent>
