@@ -1,10 +1,41 @@
 const KEY = "Gear.terminal.sessions";
 const EDITOR_KEY = "Gear.editor.sessions";
+const SPACES_KEY = "Gear.spaces.meta";
 
 export type PersistedTab = {
   title: string;
   cwd: string | undefined;
+  spaceId?: string;
 };
+
+/** Persisted spaces list + active space, restored on relaunch. */
+export type PersistedSpaces = {
+  spaces: unknown[];
+  activeId: string | null;
+};
+
+export function saveSpacesMeta(meta: PersistedSpaces): void {
+  try {
+    window.localStorage.setItem(SPACES_KEY, JSON.stringify(meta));
+  } catch {
+    // storage full or not available
+  }
+}
+
+export function loadSpacesMeta(): PersistedSpaces | null {
+  try {
+    const raw = window.localStorage.getItem(SPACES_KEY);
+    if (!raw) return null;
+    const parsed: unknown = JSON.parse(raw);
+    if (typeof parsed !== "object" || parsed === null) return null;
+    const rec = parsed as Record<string, unknown>;
+    if (!Array.isArray(rec.spaces)) return null;
+    const activeId = typeof rec.activeId === "string" ? rec.activeId : null;
+    return { spaces: rec.spaces, activeId };
+  } catch {
+    return null;
+  }
+}
 
 export function saveTerminalTabs(tabs: PersistedTab[]): void {
   try {
@@ -64,7 +95,8 @@ export function loadTerminalTabs(): PersistedTab[] | null {
       if (typeof rec.title !== "string") continue;
       const cwd =
         typeof rec.cwd === "string" ? sanitizeCwd(rec.cwd) : undefined;
-      result.push({ title: rec.title, cwd });
+      const spaceId = typeof rec.spaceId === "string" ? rec.spaceId : undefined;
+      result.push({ title: rec.title, cwd, spaceId });
     }
     return result.length > 0 ? result : null;
   } catch {
