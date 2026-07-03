@@ -31,6 +31,7 @@ import {
   wrapCompartment,
 } from "./lib/extensions";
 import { useLspExtension } from "@/modules/lsp";
+import { convertFileSrc } from "@tauri-apps/api/core";
 import { initVimGlobals, vimHandlersExtension } from "./lib/vim";
 
 initVimGlobals();
@@ -332,6 +333,42 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
         </div>
       );
     }
+    if (doc.status === "binary" || doc.status === "toolarge") {
+      const ext = path.split(".").pop()?.toLowerCase() ?? "";
+      const isImage = ["png", "jpg", "jpeg", "gif", "webp", "svg", "ico"].includes(ext);
+      const isVideo = ["mp4", "webm", "ogg", "mov"].includes(ext);
+      const isAudio = ["mp3", "wav", "flac", "aac", "m4a"].includes(ext);
+      const isPdf = ext === "pdf";
+      if (isImage || isVideo || isAudio || isPdf) {
+        const assetUrl = convertFileSrc(path);
+        const name = path.split(/[\\/]/).pop();
+        return (
+          <div className="flex h-full min-h-0 flex-col items-center justify-center overflow-auto bg-background p-4">
+            {isImage && (
+              <img
+                src={assetUrl}
+                loading="lazy"
+                decoding="async"
+                className="max-h-full max-w-full rounded-md border border-border object-contain shadow-sm"
+                alt={name}
+              />
+            )}
+            {isVideo && (
+              // biome-ignore lint/a11y/useMediaCaption: local media preview, no caption track
+              <video controls preload="metadata" className="max-h-full max-w-full" src={assetUrl} />
+            )}
+            {isAudio && (
+              // biome-ignore lint/a11y/useMediaCaption: local media preview, no caption track
+              <audio controls preload="metadata" className="w-full max-w-md" src={assetUrl} />
+            )}
+            {isPdf && (
+              <iframe src={assetUrl} className="h-full w-full border-none" title={name} />
+            )}
+          </div>
+        );
+      }
+    }
+
     if (doc.status === "binary") {
       return (
         <div className="flex h-full flex-col items-center justify-center gap-1 px-6 text-center">
