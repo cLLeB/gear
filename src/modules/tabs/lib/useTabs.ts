@@ -196,6 +196,25 @@ export function useTabs() {
     return tabId;
   }, []);
 
+  const newBlockTab = useCallback((cwd?: string) => {
+    const tabId = nextIdRef.current++;
+    const leafId = nextIdRef.current++;
+    setTabs((t) => [
+      ...t,
+      {
+        id: tabId,
+        kind: "terminal",
+        title: "blocks",
+        cwd,
+        blocks: true,
+        paneTree: { kind: "leaf", id: leafId, cwd },
+        activeLeafId: leafId,
+      },
+    ]);
+    setActiveId(tabId);
+    return tabId;
+  }, []);
+
   const newAgentTab = useCallback(
     (cwd: string | undefined, title: string) => {
       const tabId = nextIdRef.current++;
@@ -898,6 +917,7 @@ export function useTabs() {
     activeId,
     setActiveId,
     newTab,
+    newBlockTab,
     newAgentTab,
     newPrivateTab,
     openFileTab,

@@ -206,6 +206,7 @@ export default function App() {
     activeId,
     setActiveId,
     newTab,
+    newBlockTab,
     newAgentTab,
     newPrivateTab,
     openFileTab,
@@ -874,6 +875,10 @@ export default function App() {
     newPrivateTab(inheritedCwdForNewTab());
   }, [newPrivateTab, inheritedCwdForNewTab]);
 
+  const openBlockTab = useCallback(() => {
+    newBlockTab(inheritedCwdForNewTab());
+  }, [newBlockTab, inheritedCwdForNewTab]);
+
   const sendCd = useCallback(
     (path: string) => {
       if (activeLeafId === null) return;
@@ -1093,6 +1098,7 @@ export default function App() {
       "commandPalette.open": () => setCommandPaletteOpen(true),
       "tab.new": () => openNewTab(),
       "tab.newPrivate": openNewPrivateTab,
+      "tab.newBlocks": openBlockTab,
       "tab.newPreview": () => openPreviewTab(""),
       "tab.newEditor": () => setNewEditorOpen(true),
       "tab.close": handleCloseTabOrPane,
@@ -1137,6 +1143,7 @@ export default function App() {
       handleCloseTabOrPane,
       openNewTab,
       openNewPrivateTab,
+      openBlockTab,
       openPreviewTab,
       selectByIndex,
       splitActivePaneInActiveTab,
@@ -1581,6 +1588,7 @@ export default function App() {
               onSelect={setActiveId}
               onNew={openNewTab}
               onNewPrivate={openNewPrivateTab}
+              onNewBlocks={openBlockTab}
               onNewPreview={() => openPreviewTab("")}
               onNewEditor={() => setNewEditorOpen(true)}
               onNewGitGraph={openGitGraphFromContext}
