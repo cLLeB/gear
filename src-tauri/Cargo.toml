@@ -49,6 +49,7 @@ rusqlite = { version = "0.32", features = ["bundled"] }
 zstd = "0.13"
 blake3 = "1"
 which = "8"
+nucleo-matcher = "0.3"
 
 [dev-dependencies]
 proptest = "1"
