@@ -27,6 +27,8 @@ type ThemeProviderState = {
   customThemes: Theme[];
   setMode: (mode: ThemePref) => void;
   setThemeId: (id: string) => void;
+  /** Apply a theme transiently without persisting; null reverts to committed. */
+  previewThemeId: (id: string | null) => void;
 };
 
 const ThemeProviderContext = createContext<ThemeProviderState | null>(null);
@@ -71,6 +73,7 @@ export function ThemeProvider({
   const [themeId, setThemeIdState] = useState<string>(() =>
     readFastThemeId(defaultThemeId),
   );
+  const [previewId, setPreviewId] = useState<string | null>(null);
   const [customThemes, setCustomThemes] = useState<Theme[]>([]);
   const [systemDark, setSystemDark] = useState<boolean>(() =>
     typeof window === "undefined"
@@ -139,13 +142,14 @@ export function ThemeProvider({
     root.classList.add(resolvedMode);
   }, [resolvedMode]);
 
+  const effectiveId = previewId ?? themeId;
   useEffect(() => {
     const theme =
-      customThemes.find((t) => t.id === themeId) ??
-      getBuiltinTheme(themeId) ??
+      customThemes.find((t) => t.id === effectiveId) ??
+      getBuiltinTheme(effectiveId) ??
       getDefaultTheme();
     applyTheme(theme, resolvedMode);
-  }, [themeId, resolvedMode, customThemes]);
+  }, [effectiveId, resolvedMode, customThemes]);
 
   const setMode = useCallback((next: ThemePref) => {
     setModeState(next);
@@ -154,14 +158,35 @@ export function ThemeProvider({
   }, []);
 
   const setThemeId = useCallback((next: string) => {
+    setPreviewId(null);
     setThemeIdState(next);
     writeFastPath(modeRef.current, next);
     void persistThemeId(next);
   }, []);
 
+  const previewThemeId = useCallback((id: string | null) => {
+    setPreviewId(id);
+  }, []);
+
   const value = useMemo<ThemeProviderState>(
-    () => ({ mode, resolvedMode, themeId, customThemes, setMode, setThemeId }),
-    [mode, resolvedMode, themeId, customThemes, setMode, setThemeId],
+    () => ({
+      mode,
+      resolvedMode,
+      themeId,
+      customThemes,
+      setMode,
+      setThemeId,
+      previewThemeId,
+    }),
+    [
+      mode,
+      resolvedMode,
+      themeId,
+      customThemes,
+      setMode,
+      setThemeId,
+      previewThemeId,
+    ],
   );
 
   return (
