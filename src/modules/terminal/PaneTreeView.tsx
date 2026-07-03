@@ -25,6 +25,7 @@ type Props = {
   showLabel?: boolean;
   /** Private tab: its terminals are excluded from session-timeline capture. */
   isPrivate?: boolean;
+  shellPath?: string;
   onFocusLeaf: (leafId: number) => void;
   onRenameLeaf?: (leafId: number, name: string) => void;
   getBundle: (leafId: number) => LeafBundle;
@@ -36,6 +37,7 @@ export function PaneTreeView({
   activeLeafId,
   showLabel = false,
   isPrivate = false,
+  shellPath,
   onFocusLeaf,
   onRenameLeaf,
   getBundle,
@@ -53,6 +55,7 @@ export function PaneTreeView({
         tabVisible={tabVisible}
         focused={focused}
         initialCwd={node.cwd}
+        shellPath={shellPath}
         label={label}
         showLabel={showLabel}
         isPrivate={isPrivate}
@@ -77,6 +80,7 @@ export function PaneTreeView({
               activeLeafId={activeLeafId}
               showLabel
               isPrivate={isPrivate}
+              shellPath={shellPath}
               onFocusLeaf={onFocusLeaf}
               onRenameLeaf={onRenameLeaf}
               getBundle={getBundle}
@@ -93,6 +97,7 @@ type PaneLeafProps = {
   tabVisible: boolean;
   focused: boolean;
   initialCwd?: string;
+  shellPath?: string;
   label: string;
   showLabel: boolean;
   isPrivate?: boolean;
@@ -106,6 +111,7 @@ function PaneLeaf({
   tabVisible,
   focused,
   initialCwd,
+  shellPath,
   label,
   showLabel,
   isPrivate,
@@ -164,6 +170,7 @@ function PaneLeaf({
         visible={tabVisible}
         focused={focused}
         initialCwd={initialCwd}
+        shellPath={shellPath}
         isPrivate={isPrivate}
         onSearchReady={(_id, addon) => bundle.onSearch(addon)}
         onCwd={(_id, cwd) => bundle.onCwd(cwd)}

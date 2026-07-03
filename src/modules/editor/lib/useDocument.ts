@@ -50,6 +50,7 @@ export function useDocument({ path, onDirtyChange }: Options) {
   }, []);
 
   const saveNow = useCallback(async () => {
+    if (path === "") return; // Cannot save an in-memory untitled file directly to disk
     const content = bufferRef.current;
     await invoke("fs_write_file", {
       path,
@@ -74,6 +75,15 @@ export function useDocument({ path, onDirtyChange }: Options) {
   // Load on path change or explicit reload.
   useEffect(() => {
     let cancelled = false;
+
+    if (path === "") {
+      setDoc({ status: "ready", content: "", size: 0 });
+      setDirty(false);
+      bufferRef.current = "";
+      savedRef.current = "";
+      return;
+    }
+
     setDoc({ status: "loading" });
     setDirty(false);
 
@@ -110,7 +120,7 @@ export function useDocument({ path, onDirtyChange }: Options) {
   /** Re-read the file from disk. No-op (silent) if the buffer is dirty —
    *  callers shouldn't clobber unsaved user edits. Returns whether reload ran. */
   const reload = useCallback((): boolean => {
-    if (dirtyRef.current) return false;
+    if (dirtyRef.current || path === "") return false;
     invoke<ReadResult>("fs_read_file", { path, workspace: currentWorkspaceEnv() })
       .then((res) => {
         if (res.kind === "text" && res.content !== savedRef.current) {

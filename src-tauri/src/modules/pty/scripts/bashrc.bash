@@ -38,7 +38,15 @@ if [ -z "$__GEAR_HOOKS_LOADED" ]; then
   _gear_precmd() {
     local _gear_ret=$?
     printf '\e]133;D;%s\e\\' "$_gear_ret"
-    printf '\e]7;file://%s%s\e\\' "${HOSTNAME:-$(uname -n 2>/dev/null)}" "$(_gear_urlencode "$PWD")"
+    # On Windows (MINGW64/MSYS2) $PWD is a MSYS-style path like /c/Users/foo.
+    # Convert it to the Windows-style /C:/Users/foo that parseOsc7 expects so
+    # the file explorer updates correctly — just like PowerShell does.
+    local _gear_pwd="$PWD"
+    if [ -n "${MSYSTEM:-}" ] && [[ "$_gear_pwd" =~ ^/([a-zA-Z])(/|$) ]]; then
+      local _drive="${BASH_REMATCH[1]}"
+      _gear_pwd="/${_drive^^}:${_gear_pwd:2}"
+    fi
+    printf '\e]7;file://%s%s\e\\' "${HOSTNAME:-$(uname -n 2>/dev/null)}" "$(_gear_urlencode "$_gear_pwd")"
     if [ -z "$__GEAR_PS1_INJECTED" ]; then
       PS1='\[\e]133;B\e\\\]'"$PS1"
       __GEAR_PS1_INJECTED=1

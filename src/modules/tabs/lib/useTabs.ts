@@ -22,6 +22,7 @@ export type TerminalTab = {
   kind: "terminal";
   title: string;
   cwd?: string;
+  shellPath?: string;
   paneTree: PaneNode;
   activeLeafId: number;
   /** AI agent cannot read buffer / context of this terminal. */
@@ -128,6 +129,7 @@ export type TabPatch = Partial<{
   dirty: boolean;
   url: string;
   section: string;
+  shellPath: string;
   /** Empty string resets a terminal tab to its cwd-derived name. */
   customTitle: string;
 }>;
@@ -146,18 +148,16 @@ function titleFromUrl(url: string): string {
   }
 }
 
-export function useTabs(initial?: Partial<TerminalTab>) {
+export function useTabs() {
   const [tabs, setTabs] = useState<Tab[]>(() => {
-    const tabId = 1;
-    const leafId = 2;
     return [
       {
-        id: tabId,
-        kind: "terminal",
-        title: initial?.title ?? "shell",
-        cwd: initial?.cwd,
-        paneTree: { kind: "leaf", id: leafId, cwd: initial?.cwd },
-        activeLeafId: leafId,
+        id: 1,
+        kind: "editor",
+        title: "untitled",
+        path: "",
+        dirty: false,
+        preview: false,
       },
     ];
   });
@@ -169,7 +169,7 @@ export function useTabs(initial?: Partial<TerminalTab>) {
     tabsRef.current = tabs;
   }, [tabs]);
 
-  const newTab = useCallback((cwd?: string) => {
+  const newTab = useCallback((cwd?: string, shellPath?: string) => {
     const tabId = nextIdRef.current++;
     const leafId = nextIdRef.current++;
     setTabs((t) => [
@@ -179,6 +179,7 @@ export function useTabs(initial?: Partial<TerminalTab>) {
         kind: "terminal",
         title: "shell",
         cwd,
+        shellPath,
         paneTree: { kind: "leaf", id: leafId, cwd },
         activeLeafId: leafId,
       },

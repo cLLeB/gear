@@ -26,7 +26,9 @@ import {
   SidebarLeftIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { useEffect, useRef, useState, type RefObject } from "react";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+
+import { useRef, type RefObject } from "react";
 import {
   SearchInline,
   type SearchInlineHandle,
@@ -63,7 +65,7 @@ type Props = {
   searchRef: RefObject<SearchInlineHandle | null>;
 };
 
-const COMPACT_WIDTH = 720;
+
 
 export function Header({
   tabs,
@@ -91,7 +93,7 @@ export function Header({
   searchRef,
 }: Props) {
   const rootRef = useRef<HTMLDivElement>(null);
-  const [compact, setCompact] = useState(false);
+  const compact = false;
   const userShortcuts = usePreferencesStore((s) => s.shortcuts);
 
   const tokensFor = (id: ShortcutId): string => {
@@ -105,17 +107,11 @@ export function Header({
   const splitRightTokens = tokensFor("pane.splitRight");
   const splitDownTokens = tokensFor("pane.splitDown");
 
-  useEffect(() => {
-    const el = rootRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver((entries) => {
-      const w = entries[0]?.contentRect.width ?? 0;
-      setCompact(w < COMPACT_WIDTH);
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-
+  // Double-click on the drag region toggles maximize / restore.
+  // Dragging itself is handled natively via data-tauri-drag-region.
+  const handleDragRegionDoubleClick = () => {
+    void getCurrentWindow().toggleMaximize();
+  };
   const settingsButton = (
     <Button
       variant="ghost"
@@ -131,7 +127,6 @@ export function Header({
   return (
     <div
       ref={rootRef}
-      data-tauri-drag-region
       className={`flex h-10 shrink-0 items-center gap-2 border-b border-border/60 bg-card select-none ${
         IS_MAC ? "pr-2 pl-20" : "pr-0 pl-2"
       }`}
@@ -236,9 +231,13 @@ export function Header({
           onRename={onRename}
           onReorder={onReorder}
           onCloseOthers={onCloseOthers}
-          compact={compact}
+          
         />
-        <div data-tauri-drag-region className="h-full min-w-2 flex-1" />
+        <div
+          data-tauri-drag-region
+          className="h-full min-w-2 flex-1"
+          onDoubleClick={handleDragRegionDoubleClick}
+        />
       </div>
 
       <SearchInline ref={searchRef} target={searchTarget} compact={compact} />

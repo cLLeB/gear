@@ -4,6 +4,12 @@ use portable_pty::CommandBuilder;
 
 use crate::modules::workspace::{self, WorkspaceEnv};
 
+#[derive(serde::Serialize, Debug)]
+pub struct ShellProfile {
+    pub name: String,
+    pub path: String,
+}
+
 #[cfg(windows)]
 const BASHRC_SCRIPT: &str = include_str!("scripts/bashrc.bash");
 #[cfg(windows)]
@@ -50,15 +56,27 @@ fn fish_init_script() -> &'static str {
 pub fn build_command(
     cwd: Option<String>,
     workspace: WorkspaceEnv,
+    custom_shell: Option<String>,
 ) -> Result<CommandBuilder, String> {
     #[cfg(unix)]
     {
         let _ = workspace;
-        unix::build(cwd)
+        unix::build(cwd, custom_shell)
     }
     #[cfg(windows)]
     {
-        windows::build(cwd, workspace)
+        windows::build(cwd, workspace, custom_shell)
+    }
+}
+
+pub fn available_shells() -> Vec<ShellProfile> {
+    #[cfg(unix)]
+    {
+        unix::available_shells()
+    }
+    #[cfg(windows)]
+    {
+        detect_windows_shells()
     }
 }
 
@@ -146,6 +164,17 @@ mod unix {
             };
             (shell, path)
         }
+
+        pub fn from_path(path: &str) -> (Shell, String) {
+            let name = path.rsplit('/').next().unwrap_or("").to_string();
+            let shell = match name.as_str() {
+                "zsh" => Shell::Zsh,
+                "bash" => Shell::Bash,
+                "fish" => Shell::Fish,
+                _ => Shell::Other,
+            };
+            (shell, path.to_string())
+        }
     }
 
     fn login_shell() -> Option<String> {
@@ -164,8 +193,25 @@ mod unix {
         }
     }
 
-    pub fn build(cwd: Option<String>) -> Result<CommandBuilder, String> {
-        let (shell, shell_path) = Shell::detect();
+    pub fn available_shells() -> Vec<super::ShellProfile> {
+        let mut shells = Vec::new();
+        if let Ok(content) = std::fs::read_to_string("/etc/shells") {
+            for line in content.lines() {
+                let trimmed = line.trim();
+                if trimmed.starts_with('/') && PathBuf::from(trimmed).is_file() {
+                    let name = trimmed.rsplit('/').next().unwrap_or("shell").to_string();
+                    shells.push(super::ShellProfile { name, path: trimmed.to_string() });
+                }
+            }
+        }
+        shells
+    }
+
+    pub fn build(cwd: Option<String>, custom_shell: Option<String>) -> Result<CommandBuilder, String> {
+        let (shell, shell_path) = match custom_shell {
+            Some(path) if !path.is_empty() => Shell::from_path(&path),
+            _ => Shell::detect(),
+        };
         let mut cmd = CommandBuilder::new(&shell_path);
         super::apply_common(&mut cmd, cwd);
 
@@ -318,11 +364,14 @@ mod windows {
         args: Vec<String>,
     }
 
-    pub fn build(cwd: Option<String>, workspace: WorkspaceEnv) -> Result<CommandBuilder, String> {
+    pub fn build(cwd: Option<String>, workspace: WorkspaceEnv, custom_shell: Option<String>) -> Result<CommandBuilder, String> {
         if let WorkspaceEnv::Wsl { distro } = workspace {
-            return build_wsl(cwd, distro);
+            return build_wsl(cwd, distro, custom_shell);
         }
-        let shell_path = super::windows_shell_path();
+        let shell_path = match custom_shell {
+            Some(path) if !path.is_empty() => PathBuf::from(path),
+            _ => super::windows_shell_path(),
+        };
         let shell_name = shell_path
             .file_name()
             .and_then(|s| s.to_str())
@@ -347,6 +396,18 @@ mod windows {
                     log::warn!("powershell shell integration disabled: {e}");
                 }
             }
+        } else if shell_name.contains("bash") {
+            // Bash integration: use custom rcfile and interactive mode
+            match prepare_windows_bash_rcfile() {
+                Ok(rcfile) => {
+                    cmd.arg("--rcfile");
+                    cmd.arg(&rcfile);
+                    cmd.arg("-i");
+                }
+                Err(e) => {
+                    log::warn!("bash shell integration disabled: {e}");
+                }
+            }
         } else {
             log::info!("spawning {} without shell integration", shell_name);
         }
@@ -355,9 +416,12 @@ mod windows {
         Ok(cmd)
     }
 
-    fn build_wsl(cwd: Option<String>, distro: String) -> Result<CommandBuilder, String> {
+    fn build_wsl(cwd: Option<String>, distro: String, custom_shell: Option<String>) -> Result<CommandBuilder, String> {
         crate::modules::workspace::validate_wsl_distro_name(&distro)?;
-        let shell_path = crate::modules::workspace::wsl_login_shell(distro.clone())?;
+        let shell_path = match custom_shell {
+            Some(path) if !path.is_empty() => path,
+            _ => crate::modules::workspace::wsl_login_shell(distro.clone())?,
+        };
         let shell_kind = ShellKind::from_path(&shell_path);
         let integration = match shell_kind {
             ShellKind::Zsh => match prepare_wsl_zdotdir(&distro) {
@@ -558,6 +622,15 @@ mod windows {
         Ok(file)
     }
 
+    // Prepare Bash rcfile for Windows shells (e.g., Git Bash)
+    fn prepare_windows_bash_rcfile() -> Result<PathBuf, String> {
+        let dir = integration_root()?.join("bash");
+        fs::create_dir_all(&dir).map_err(|e| format!("create {}: {e}", dir.display()))?;
+        let rc = dir.join("bashrc");
+        write_if_changed(&rc, super::BASHRC_SCRIPT)?;
+        Ok(rc)
+    }
+
     fn write_if_changed(path: &Path, content: &str) -> Result<(), String> {
         if let Ok(existing) = fs::read_to_string(path) {
             if existing == content {
@@ -734,7 +807,7 @@ mod windows {
 
 #[cfg(windows)]
 pub fn windows_shell_path() -> PathBuf {
-    // Prefer PowerShell 7 (pwsh), then PowerShell 5, then cmd.
+    // Prefer PowerShell 7 (pwsh), then PowerShell 5.
     if let Some(p) = which_in_path("pwsh.exe") {
         return p;
     }
@@ -750,15 +823,10 @@ pub fn windows_shell_path() -> PathBuf {
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from(r"C:\Windows"))
         .join("System32");
-    let ps5 = system32
+    system32
         .join("WindowsPowerShell")
         .join("v1.0")
-        .join("powershell.exe");
-    if ps5.is_file() {
-        return ps5;
-    }
-
-    system32.join("cmd.exe")
+        .join("powershell.exe")
 }
 
 #[cfg(windows)]
@@ -771,4 +839,40 @@ fn which_in_path(name: &str) -> Option<PathBuf> {
         }
     }
     None
+}
+
+#[cfg(windows)]
+fn detect_windows_shells() -> Vec<ShellProfile> {
+    let mut shells = Vec::new();
+
+    if let Some(p) = which_in_path("pwsh.exe") {
+        shells.push(ShellProfile { name: "PowerShell 7".into(), path: p.to_string_lossy().into_owned() });
+    } else if let Some(pf) = std::env::var_os("ProgramFiles").map(PathBuf::from) {
+        let candidate = pf.join("PowerShell").join("7").join("pwsh.exe");
+        if candidate.is_file() {
+            shells.push(ShellProfile { name: "PowerShell 7".into(), path: candidate.to_string_lossy().into_owned() });
+        }
+    }
+
+    let system32 = std::env::var_os("SystemRoot")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from(r"C:\Windows"))
+        .join("System32");
+
+    let ps5 = system32
+        .join("WindowsPowerShell")
+        .join("v1.0")
+        .join("powershell.exe");
+    if ps5.is_file() {
+        shells.push(ShellProfile { name: "Windows PowerShell".into(), path: ps5.to_string_lossy().into_owned() });
+    }
+
+    if let Some(pf) = std::env::var_os("ProgramFiles").map(PathBuf::from) {
+        let candidate = pf.join("Git").join("bin").join("bash.exe");
+        if candidate.is_file() {
+            shells.push(ShellProfile { name: "Git Bash".into(), path: candidate.to_string_lossy().into_owned() });
+        }
+    }
+
+    shells
 }

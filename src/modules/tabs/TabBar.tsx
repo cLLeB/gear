@@ -10,6 +10,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -28,15 +29,18 @@ import {
   PlusSignIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useRef, useState } from "react";
 import { labelFor } from "./lib/tabLabel";
 import type { EditorTab, Tab } from "./lib/useTabs";
+
+type ShellProfile = { name: string; path: string };
 
 type Props = {
   tabs: Tab[];
   activeId: number;
   onSelect: (id: number) => void;
-  onNew: () => void;
+  onNew: (shellPath?: string) => void;
   onNewPrivate: () => void;
   onNewPreview: () => void;
   onNewEditor: () => void;
@@ -71,6 +75,13 @@ export function TabBar({
   const dragIdRef = useRef<number | null>(null);
   const [dragOverId, setDragOverId] = useState<number | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [shells, setShells] = useState<ShellProfile[]>([]);
+
+  useEffect(() => {
+    invoke<ShellProfile[]>("pty_list_shells")
+      .then(setShells)
+      .catch(() => setShells([]));
+  }, []);
 
   // Horizontal wheel scroll without holding shift.
   useEffect(() => {
@@ -152,6 +163,10 @@ export function TabBar({
                       }}
                       onMouseDown={(e) => {
                         if (e.button === 1) e.preventDefault();
+                        if (onReorder) e.stopPropagation();
+                      }}
+                      onPointerDown={(e) => {
+                        if (onReorder) e.stopPropagation();
                       }}
                       onDragStart={(e) => {
                         dragIdRef.current = t.id;
@@ -269,6 +284,22 @@ export function TabBar({
                 {fmtShortcut(MOD_KEY, "T")}
               </span>
             </DropdownMenuItem>
+            {shells.length > 0 && (
+              <>
+                <DropdownMenuSeparator />
+                {shells.map((s) => (
+                  <DropdownMenuItem key={s.path} onSelect={() => onNew(s.path)}>
+                    <HugeiconsIcon
+                      icon={ComputerTerminal02Icon}
+                      size={14}
+                      strokeWidth={1.75}
+                      className="opacity-60"
+                    />
+                    <span className="flex-1 text-muted-foreground">{s.name}</span>
+                  </DropdownMenuItem>
+                ))}
+              </>
+            )}
             <DropdownMenuItem onSelect={() => onNewPrivate()}>
               <HugeiconsIcon
                 icon={IncognitoIcon}

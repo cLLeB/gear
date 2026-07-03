@@ -18,6 +18,7 @@ type Props = {
   /** This leaf is the active pane within its tab — receives auto-focus. */
   focused?: boolean;
   initialCwd?: string;
+  shellPath?: string;
   /** Private terminals are excluded from session-timeline capture. */
   isPrivate?: boolean;
   onSearchReady?: (leafId: number, addon: SearchAddon) => void;
@@ -32,6 +33,7 @@ export const TerminalPane = forwardRef<TerminalPaneHandle, Props>(
       visible,
       focused = true,
       initialCwd,
+      shellPath,
       isPrivate,
       onSearchReady,
       onExit,
@@ -48,6 +50,7 @@ export const TerminalPane = forwardRef<TerminalPaneHandle, Props>(
       visible,
       focused,
       initialCwd,
+      shellPath,
       isPrivate,
       onSearchReady: (a) => onSearchReady?.(leafId, a),
       onExit: (c) => onExit?.(leafId, c),

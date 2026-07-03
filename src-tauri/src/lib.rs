@@ -100,6 +100,7 @@ pub fn run() {
             pty::pty_close_all,
             pty::pty_has_foreground_process,
             pty::pty_authorize_cwd,
+            pty::pty_list_shells,
             fs::tree::list_subdirs,
             fs::tree::fs_read_dir,
             fs::file::fs_read_file,

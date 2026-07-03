@@ -20,7 +20,7 @@ if (USE_CUSTOM_WINDOW_CONTROLS) {
 }
 
 // Kill any orphaned PTY sessions left over from a previous crash.
-invoke("pty_close_all").catch(() => {});
+await invoke("pty_close_all").catch(() => {});
 
 // Seed before first paint so default tab mounts at target cwd (no flicker).
 await initLaunchDir();

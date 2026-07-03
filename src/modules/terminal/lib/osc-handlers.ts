@@ -108,9 +108,9 @@ export function registerPromptTracker(
 }
 
 function parseOsc7(data: string): string | null {
-  const m = data.match(/^file:\/\/[^/]*(\/.*)$/);
+  const m = data.match(/^file:\/\/[^/]*(\/.*)?$/);
   if (!m) return null;
-  let path = m[1];
+  let path = m[1] ?? "/";
   try {
     path = decodeURIComponent(path);
   } catch {}
@@ -118,7 +118,12 @@ function parseOsc7(data: string): string | null {
   // conversion when profile.ps1's StartsWith check doesn't fire:
   //   \\?\C:\Users\foo  →  //?/C:/Users/foo  (after \→/ and decode)
   if (path.startsWith("//?/")) path = path.slice(4);
-  // /C:/Users/foo -> C:/Users/foo so it's a valid Windows path.
+  // /C:/Users/foo -> C:/Users/foo so it's a valid Windows path (PowerShell style).
   if (/^\/[A-Za-z]:/.test(path)) path = path.slice(1);
+  // Git Bash / MSYS2 emits POSIX-style paths: /c/Users/foo (no colon).
+  // Convert /c/Users/foo -> C:/Users/foo so the file explorer can resolve it.
+  else if (/^\/[A-Za-z](\/|$)/.test(path)) {
+    path = path[1].toUpperCase() + ":/" + path.slice(3);
+  }
   return path;
 }

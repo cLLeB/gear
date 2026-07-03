@@ -312,16 +312,7 @@ pub(crate) fn build_oneshot_command(
     {
         let shell = crate::modules::pty::shell_init::windows_shell_path();
         let mut cmd = Command::new(&shell);
-        let is_cmd = shell
-            .file_name()
-            .and_then(|s| s.to_str())
-            .map(|s| s.eq_ignore_ascii_case("cmd.exe"))
-            .unwrap_or(false);
-        if is_cmd {
-            cmd.arg("/C").arg(command);
-        } else {
-            cmd.arg("-NoProfile").arg("-Command").arg(command);
-        }
+        cmd.arg("-NoProfile").arg("-Command").arg(command);
         cmd.creation_flags(0x0800_0000);
         Ok(cmd)
     }

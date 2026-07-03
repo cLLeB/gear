@@ -231,13 +231,7 @@ export default function App() {
     closePaneByLeaf,
     resetWorkspace,
     openSettingsTab,
-  } = useTabs(
-    getLaunchDir()
-      ? { cwd: getLaunchDir() }
-      : restoredSessions?.[0]
-        ? { cwd: restoredSessions[0].cwd, title: restoredSessions[0].title }
-        : undefined,
-  );
+  } = useTabs();
 
   // Open tabs 2..N from the restored session list after first mount.
   // Also re-open editor files that were open in the previous session.
@@ -307,6 +301,9 @@ export default function App() {
   const sidebarWidthWriteTimerRef = useRef(0);
   const [sidebarView, setSidebarViewState] =
     useState<SidebarViewId>(readSidebarView);
+  // Reactive expanded/collapsed state for the sidebar content panel, so the
+  // activity rail can reflect which view (if any) is currently visible.
+  const [sidebarOpen] = useState(true);
   const persistSidebarView = useCallback((view: SidebarViewId) => {
     setSidebarViewState(view);
     try {
@@ -870,8 +867,8 @@ export default function App() {
     [askFromSelection],
   );
 
-  const openNewTab = useCallback(() => {
-    newTab(inheritedCwdForNewTab());
+  const openNewTab = useCallback((shellPath?: string) => {
+    newTab(inheritedCwdForNewTab(), shellPath);
   }, [newTab, inheritedCwdForNewTab]);
 
   const openNewPrivateTab = useCallback(() => {
@@ -908,7 +905,8 @@ export default function App() {
     (path: string, pin?: boolean) => {
       // Explorer defaults to preview (pin=false); explicit actions like
       // context-menu "Open" pass pin=true for a persistent tab.
-      openFileTab(path, pin ?? false);
+      // We default to pin=true so files open in new persistent tabs instead of replacing.
+      openFileTab(path, pin ?? true);
     },
     [openFileTab],
   );
@@ -1094,7 +1092,7 @@ export default function App() {
   const shortcutHandlers = useMemo<ShortcutHandlers>(
     () => ({
       "commandPalette.open": () => setCommandPaletteOpen(true),
-      "tab.new": openNewTab,
+      "tab.new": () => openNewTab(),
       "tab.newPrivate": openNewPrivateTab,
       "tab.newPreview": () => openPreviewTab(""),
       "tab.newEditor": () => setNewEditorOpen(true),
@@ -1576,7 +1574,7 @@ export default function App() {
       <TooltipProvider>
         <div className="relative flex h-screen flex-col overflow-hidden bg-background text-foreground">
           {!zenMode && (
-            <div className="h-[2px] w-full shrink-0 bg-gradient-to-r from-primary/30 via-primary to-primary/30" />
+            <div data-tauri-drag-region className="h-[2px] w-full shrink-0 bg-gradient-to-r from-primary/30 via-primary to-primary/30" />
           )}
           {!zenMode && (
             <Header
@@ -1612,7 +1610,7 @@ export default function App() {
             />
           )}
 
-          <main className="zoom-content flex min-h-0 flex-1 flex-col">
+          <main className="zoom-content flex flex-col min-h-0 flex-1 relative bg-background">
             <ResizablePanelGroup
               orientation="horizontal"
               className="min-h-0 flex-1"
@@ -1631,15 +1629,8 @@ export default function App() {
                       if (size.inPixels > 0) persistSidebarWidth(size.inPixels);
                     }}
                   >
-                    <div className="flex h-full min-h-0 flex-col border-r border-border bg-card">
-                      <SidebarRail
-                        activeView={sidebarView}
-                        onSelectView={persistSidebarView}
-                        changedCount={sourceControl.changedCount}
-                        sidebarPosition={sidebarPosition}
-                        onToggleSidebarPosition={toggleSidebarPosition}
-                      />
-                      <div className="min-h-0 flex-1">
+                    <div className="flex h-full min-h-0 flex-col p-2 pr-1">
+                      <div className="min-h-0 flex-1 rounded-xl border border-border/40 bg-card/60 backdrop-blur-md shadow-sm overflow-hidden flex flex-col">
                         <ErrorBoundary compact label="Sidebar">
                           {sidebarView === "explorer" ? (
                             <FileExplorer
@@ -1666,12 +1657,12 @@ export default function App() {
                       </div>
                     </div>
                   </ResizablePanel>
-                  <ResizableHandle withHandle />
+                  <ResizableHandle withHandle className="bg-transparent w-2" />
                 </>
               )}
               <ResizablePanel id="workspace" defaultSize="78%" minSize="30%">
-                <div className="flex h-full min-h-0 flex-col">
-                  <div className="relative min-h-0 flex-1">
+                <div className="flex h-full min-h-0 flex-col p-2 pl-1 pr-1">
+                  <div className="relative min-h-0 flex-1 rounded-xl border border-border/40 bg-background/90 backdrop-blur shadow-sm overflow-hidden">
                     {workspaceSurface}
                   </div>
                   {keysLoaded ? (
@@ -1695,11 +1686,27 @@ export default function App() {
                       )}
                     </motion.div>
                   ) : null}
+                  {!zenMode && (
+                    <div className="flex justify-center pb-1 pt-2 shrink-0">
+                      <SidebarRail
+                        activeView={sidebarView}
+                        sidebarOpen={sidebarOpen}
+                        onSelectView={cycleSidebarView}
+                        changedCount={sourceControl.changedCount}
+                        aiActive={panelOpen}
+                        onToggleAi={togglePanelAndFocus}
+                        onToggleRewind={() => useRewindStore.getState().toggle()}
+                        onOpenSettings={() => openSettingsTab()}
+                        sidebarPosition={sidebarPosition}
+                        onToggleSidebarPosition={toggleSidebarPosition}
+                      />
+                    </div>
+                  )}
                 </div>
               </ResizablePanel>
               {!zenMode && sidebarPosition === "right" && (
                 <>
-                  <ResizableHandle withHandle />
+                  <ResizableHandle withHandle className="bg-transparent w-2" />
                   <ResizablePanel
                     id="sidebar"
                     panelRef={sidebarRef}
@@ -1712,15 +1719,8 @@ export default function App() {
                       if (size.inPixels > 0) persistSidebarWidth(size.inPixels);
                     }}
                   >
-                    <div className="flex h-full min-h-0 flex-col border-l border-border bg-card">
-                      <SidebarRail
-                        activeView={sidebarView}
-                        onSelectView={persistSidebarView}
-                        changedCount={sourceControl.changedCount}
-                        sidebarPosition={sidebarPosition}
-                        onToggleSidebarPosition={toggleSidebarPosition}
-                      />
-                      <div className="min-h-0 flex-1">
+                    <div className="flex h-full min-h-0 flex-col p-2 pl-1">
+                      <div className="min-h-0 flex-1 rounded-xl border border-border/40 bg-card/60 backdrop-blur-md shadow-sm overflow-hidden flex flex-col">
                         <ErrorBoundary compact label="Sidebar">
                           {sidebarView === "explorer" ? (
                             <FileExplorer

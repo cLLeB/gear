@@ -45,6 +45,7 @@ pub async fn pty_open(
     rows: u16,
     cwd: Option<String>,
     workspace: Option<WorkspaceEnv>,
+    custom_shell: Option<String>,
     on_data: Channel<Response>,
     on_exit: Channel<i32>,
 ) -> Result<u32, String> {
@@ -55,7 +56,7 @@ pub async fn pty_open(
     })?;
     let id = state.next_id.fetch_add(1, Ordering::Relaxed);
     let session = tauri::async_runtime::spawn_blocking(move || {
-        session::spawn(id, app, cols, rows, cwd, workspace, on_data, on_exit).map(|(s, _)| s)
+        session::spawn(id, app, cols, rows, cwd, workspace, custom_shell, on_data, on_exit).map(|(s, _)| s)
     })
     .await
     .map_err(|e| {
@@ -69,6 +70,11 @@ pub async fn pty_open(
     state.sessions.write().unwrap().insert(id, session);
     log::info!("pty opened id={id} cols={cols} rows={rows}");
     Ok(id)
+}
+
+#[tauri::command]
+pub fn pty_list_shells() -> Vec<shell_init::ShellProfile> {
+    shell_init::available_shells()
 }
 
 #[tauri::command]
