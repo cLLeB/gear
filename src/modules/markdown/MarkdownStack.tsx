@@ -5,9 +5,10 @@ import { MarkdownPreviewPane } from "./MarkdownPreviewPane";
 type Props = {
   tabs: Tab[];
   activeId: number;
+  onEditRaw?: (path: string) => void;
 };
 
-export function MarkdownStack({ tabs, activeId }: Props) {
+export function MarkdownStack({ tabs, activeId, onEditRaw }: Props) {
   const markdowns = tabs.filter((t): t is MarkdownTab => t.kind === "markdown");
   if (markdowns.length === 0) return null;
   return (
@@ -23,7 +24,11 @@ export function MarkdownStack({ tabs, activeId }: Props) {
             )}
             aria-hidden={!visible}
           >
-            <MarkdownPreviewPane path={t.path} visible={visible} />
+            <MarkdownPreviewPane
+              path={t.path}
+              visible={visible}
+              onEditRaw={onEditRaw ? () => onEditRaw(t.path) : undefined}
+            />
           </div>
         );
       })}

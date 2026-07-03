@@ -20,11 +20,12 @@ type Status =
 type Props = {
   path: string;
   visible: boolean;
+  onEditRaw?: () => void;
 };
 
 const components = { code: MarkdownCode };
 
-export function MarkdownPreviewPane({ path, visible }: Props) {
+export function MarkdownPreviewPane({ path, visible, onEditRaw }: Props) {
   const [status, setStatus] = useState<Status>({ kind: "loading" });
 
   useEffect(() => {
@@ -63,6 +64,18 @@ export function MarkdownPreviewPane({ path, visible }: Props) {
         !visible && "pointer-events-none",
       )}
     >
+      {onEditRaw && (
+        <div className="flex shrink-0 items-center justify-end border-b border-border/50 px-2 py-1">
+          <button
+            type="button"
+            onClick={onEditRaw}
+            className="rounded px-2 py-0.5 text-[11px] text-muted-foreground hover:bg-accent/40 hover:text-foreground"
+            title="Open the raw Markdown in the code editor"
+          >
+            Edit raw
+          </button>
+        </div>
+      )}
       <div className="flex-1 overflow-auto px-6 py-4">
         {status.kind === "loading" && (
           <p className="text-[12px] text-muted-foreground">Loading…</p>

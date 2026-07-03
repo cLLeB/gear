@@ -18,6 +18,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { useRewindStore } from "@/modules/rewind";
 import { LspStatusPill } from "@/modules/lsp";
 import { CwdBreadcrumb } from "./CwdBreadcrumb";
+import { LanguagePicker } from "./LanguagePicker";
 import { WorkspaceEnvSelector } from "./WorkspaceEnvSelector";
 import type { WorkspaceEnv } from "@/modules/workspace";
 import { useUpdaterStore } from "@/modules/updater";
@@ -35,6 +36,10 @@ type Props = {
   /** Called when no provider is connected and the user clicks the AI button. */
   onConnectProvider: () => void;
   privateActive: boolean;
+  /** Active editor's language (override or file-derived); null hides the picker. */
+  editorLanguage?: string | null;
+  editorLanguageIsOverride?: boolean;
+  onSetEditorLanguage?: (ext: string | undefined) => void;
 };
 
 export function StatusBar({
@@ -47,6 +52,9 @@ export function StatusBar({
   hasComposer,
   onConnectProvider,
   privateActive,
+  editorLanguage,
+  editorLanguageIsOverride,
+  onSetEditorLanguage,
 }: Props) {
   const panelOpen = useChatStore((s) => s.panelOpen);
   const openPanel = useChatStore((s) => s.openPanel);
@@ -78,6 +86,13 @@ export function StatusBar({
         ) : null}
       </div>
       <div className="flex shrink-0 items-center gap-1.5">
+        {editorLanguage != null && onSetEditorLanguage && (
+          <LanguagePicker
+            language={editorLanguage}
+            isOverride={editorLanguageIsOverride ?? false}
+            onSelect={onSetEditorLanguage}
+          />
+        )}
         {hasUpdate && (
           <Tooltip>
             <TooltipTrigger asChild>

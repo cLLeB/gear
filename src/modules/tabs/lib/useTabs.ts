@@ -45,6 +45,8 @@ export type EditorTab = {
   dirty: boolean;
   spaceId?: string;
   cold?: boolean;
+  /** Manual language override (file extension, e.g. "ts") set via the picker. */
+  languageOverride?: string;
   /**
    * True while the tab is in the transient "preview" state — opened by a
    * single-click in the explorer and not yet pinned by the user. A preview tab
@@ -270,6 +272,19 @@ export function useTabs() {
     setActiveId(tabId);
     return tabId;
   }, []);
+
+  const setTabLanguage = useCallback(
+    (tabId: number, language: string | undefined) => {
+      setTabs((t) =>
+        t.map((x) =>
+          x.id === tabId && x.kind === "editor"
+            ? { ...x, languageOverride: language }
+            : x,
+        ),
+      );
+    },
+    [],
+  );
 
   const moveTabToSpace = useCallback((tabId: number, spaceId: string) => {
     setTabs((t) =>
@@ -995,6 +1010,7 @@ export function useTabs() {
     setActiveSpaceForNewTabs,
     moveTabToSpace,
     reassignSpaceTabs,
+    setTabLanguage,
     newAgentTab,
     newPrivateTab,
     openFileTab,

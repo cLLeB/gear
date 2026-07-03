@@ -60,6 +60,7 @@ export type EditorPaneHandle = {
 
 type Props = {
   path: string;
+  languageOverride?: string;
   onDirtyChange?: (dirty: boolean) => void;
   onSaved?: () => void;
   onClose?: () => void;
@@ -72,7 +73,10 @@ function formatBytes(n: number): string {
 }
 
 export const EditorPane = forwardRef<EditorPaneHandle, Props>(
-  function EditorPane({ path, onDirtyChange, onSaved, onClose }, ref) {
+  function EditorPane(
+    { path, languageOverride, onDirtyChange, onSaved, onClose },
+    ref,
+  ) {
     const { doc, onChange, save, reload } = useDocument({ path, onDirtyChange });
     const reloadRef = useRef(reload);
     reloadRef.current = reload;
@@ -136,8 +140,8 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
 
     // LSP: presets key languages by file extension; enable once the doc is ready.
     const langId = useMemo(
-      () => path.split(".").pop()?.toLowerCase() ?? null,
-      [path],
+      () => languageOverride ?? (path.split(".").pop()?.toLowerCase() ?? null),
+      [path, languageOverride],
     );
     const lspExt = useLspExtension(path, langId, doc.status === "ready");
 
@@ -229,9 +233,12 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
 
     useEffect(() => {
       let cancelled = false;
-      const ext = path.split(".").pop()?.toLowerCase() ?? null;
-      languageRef.current = ext;
-      resolveLanguage(path).then((ext) => {
+      // A manual override resolves against a synthetic filename so the language
+      // is picked by the chosen extension instead of the file's real one.
+      const resolveTarget = languageOverride ? `_.${languageOverride}` : path;
+      languageRef.current =
+        languageOverride ?? (path.split(".").pop()?.toLowerCase() ?? null);
+      resolveLanguage(resolveTarget).then((ext) => {
         if (cancelled) return;
         const view = cmRef.current?.view;
         if (!view) return;
@@ -242,7 +249,7 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
       return () => {
         cancelled = true;
       };
-    }, [path, doc.status]);
+    }, [path, doc.status, languageOverride]);
 
     // Swap the LSP extension in/out as activation and readiness change.
     useEffect(() => {
