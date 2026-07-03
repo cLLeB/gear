@@ -88,7 +88,9 @@ import { SidebarRail, type SidebarViewId } from "@/modules/sidebar";
 import { SourceControlPanel, useSourceControl } from "@/modules/source-control";
 import { StatusBar } from "@/modules/statusbar";
 import { RewindPanel, useRewindStore } from "@/modules/rewind";
+import { SpaceSwitcher, useSpaces } from "@/modules/spaces";
 import {
+  DEFAULT_SPACE_ID,
   MAX_PANES_PER_TAB,
   useTabs,
   useWindowTitle,
@@ -207,6 +209,9 @@ export default function App() {
     setActiveId,
     newTab,
     newBlockTab,
+    setActiveSpaceForNewTabs,
+    moveTabToSpace,
+    reassignSpaceTabs,
     newAgentTab,
     newPrivateTab,
     openFileTab,
@@ -398,6 +403,101 @@ export default function App() {
   const workspaceEnv = useWorkspaceEnvStore((s) => s.env);
   const setWorkspaceEnv = useWorkspaceEnvStore((s) => s.setEnv);
   const [launchCwd, setLaunchCwd] = useState<string | null>(null);
+
+  // ── Spaces (in-session tab groups) ─────────────────────────────────────────
+  const activeSpaceId = useSpaces((s) => s.activeId) ?? DEFAULT_SPACE_ID;
+  const [switcherOpen, setSwitcherOpen] = useState(false);
+
+  // Seed a single default space so filtering and the switcher have a home. The
+  // default space's id IS DEFAULT_SPACE_ID, so existing/undefined-space tabs
+  // belong to it and stay visible.
+  useEffect(() => {
+    const st = useSpaces.getState();
+    if (st.spaces.length === 0) {
+      const now = Date.now();
+      st.hydrate(
+        [
+          {
+            id: DEFAULT_SPACE_ID,
+            name: "Main",
+            root: null,
+            env: workspaceEnv,
+            createdAt: now,
+            updatedAt: now,
+          },
+        ],
+        DEFAULT_SPACE_ID,
+      );
+    }
+    // Run once on mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Only the active space's tabs appear in the tab strip; all tabs stay mounted
+  // so switching spaces never tears down a background terminal's PTY.
+  const spaceTabs = useMemo(
+    () => tabs.filter((t) => (t.spaceId ?? DEFAULT_SPACE_ID) === activeSpaceId),
+    [tabs, activeSpaceId],
+  );
+
+  useEffect(() => {
+    setActiveSpaceForNewTabs(activeSpaceId);
+    const inSpace = tabsRef.current.filter(
+      (t) => (t.spaceId ?? DEFAULT_SPACE_ID) === activeSpaceId,
+    );
+    if (inSpace.length > 0 && !inSpace.some((t) => t.id === activeId)) {
+      setActiveId(inSpace[inSpace.length - 1].id);
+    }
+  }, [activeSpaceId, activeId, setActiveSpaceForNewTabs, setActiveId]);
+
+  const handleNewSpace = useCallback(() => {
+    const st = useSpaces.getState();
+    const meta = st.create({
+      name: `Space ${st.spaces.length + 1}`,
+      root: null,
+      env: workspaceEnv,
+    });
+    setActiveSpaceForNewTabs(meta.id);
+    st.setActive(meta.id);
+    newTab();
+  }, [workspaceEnv, setActiveSpaceForNewTabs, newTab]);
+
+  const handleDeleteSpace = useCallback(
+    (id: string) => {
+      const next = useSpaces.getState().remove(id);
+      if (!next) return; // refuses to delete the last space
+      reassignSpaceTabs(id, next);
+    },
+    [reassignSpaceTabs],
+  );
+
+  const handleNewTabInSpace = useCallback(
+    (spaceId: string) => {
+      useSpaces.getState().setActive(spaceId);
+      setActiveSpaceForNewTabs(spaceId);
+      newTab();
+    },
+    [newTab, setActiveSpaceForNewTabs],
+  );
+
+  const handleJumpTab = useCallback(
+    (tabId: number) => {
+      const t = tabsRef.current.find((x) => x.id === tabId);
+      if (!t) return;
+      setActiveId(tabId);
+      useSpaces.getState().setActive(t.spaceId ?? DEFAULT_SPACE_ID);
+      setSwitcherOpen(false);
+    },
+    [setActiveId],
+  );
+
+  const handleMoveTabToSpace = useCallback(
+    (tabId: number, targetSpaceId: string) => {
+      moveTabToSpace(tabId, targetSpaceId);
+      useSpaces.getState().setActive(targetSpaceId);
+    },
+    [moveTabToSpace],
+  );
   const [launchCwdResolved, setLaunchCwdResolved] = useState(false);
   const [pendingDeleteTabs, setPendingDeleteTabs] = useState<number[] | null>(
     null,
@@ -1100,6 +1200,7 @@ export default function App() {
       "tab.new": () => openNewTab(),
       "tab.newPrivate": openNewPrivateTab,
       "tab.newBlocks": openBlockTab,
+      "space.overview": () => setSwitcherOpen(true),
       "tab.newPreview": () => openPreviewTab(""),
       "tab.newEditor": () => setNewEditorOpen(true),
       "tab.close": handleCloseTabOrPane,
@@ -1586,7 +1687,7 @@ export default function App() {
           )}
           {!zenMode && (
             <Header
-              tabs={tabs}
+              tabs={spaceTabs}
               activeId={activeId}
               onSelect={setActiveId}
               onNew={openNewTab}
@@ -1778,6 +1879,20 @@ export default function App() {
           )}
 
           <RewindPanel />
+
+          <SpaceSwitcher
+            open={switcherOpen}
+            onOpenChange={setSwitcherOpen}
+            tabs={tabs}
+            onNewSpace={handleNewSpace}
+            onDeleteSpace={handleDeleteSpace}
+            onNewTabInSpace={handleNewTabInSpace}
+            onJumpTab={handleJumpTab}
+            onCloseTab={handleClose}
+            onMoveTabToSpace={handleMoveTabToSpace}
+            onReorderTab={() => {}}
+            onReorderSpaces={(ids) => useSpaces.getState().reorder(ids)}
+          />
 
           <CommandPalette
             open={commandPaletteOpen}
