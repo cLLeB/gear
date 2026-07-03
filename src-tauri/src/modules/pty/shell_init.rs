@@ -108,6 +108,18 @@ fn apply_common(cmd: &mut CommandBuilder, cwd: Option<String>, blocks: bool) {
     if blocks {
         cmd.env("GEAR_BLOCKS", "1");
     }
+    // Drop AppImage-injected env so spawned system binaries use the host runtime
+    // (no-op off Linux / when not running from an AppImage).
+    for (key, value) in workspace::appimage_env_overrides() {
+        match value {
+            Some(v) => {
+                cmd.env(key, v);
+            }
+            None => {
+                cmd.env_remove(key);
+            }
+        }
+    }
     ensure_utf8_locale(cmd);
 
     let resolved_cwd = cwd

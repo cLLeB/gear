@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet};
+use std::ffi::OsString;
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
 use std::path::{Path, PathBuf};
@@ -230,6 +231,91 @@ fn is_executable_dir(path: &Path) -> bool {
         (Ok(a), Ok(b)) => a == b,
         _ => false,
     }
+}
+
+// PATH-like vars where the AppImage prepends its own mount dir; we drop only
+// the AppImage entries and keep the rest.
+#[cfg(target_os = "linux")]
+const APPIMAGE_PATH_VARS: &[&str] = &[
+    "LD_LIBRARY_PATH",
+    "PATH",
+    "XDG_DATA_DIRS",
+    "GST_PLUGIN_SYSTEM_PATH",
+    "GST_PLUGIN_SYSTEM_PATH_1_0",
+    "GST_PLUGIN_PATH",
+    "GI_TYPELIB_PATH",
+    "GDK_PIXBUF_MODULEDIR",
+    "GIO_MODULE_DIR",
+    "GSETTINGS_SCHEMA_DIR",
+];
+
+// Single-value vars pointing inside the AppImage; unset when they do.
+#[cfg(target_os = "linux")]
+const APPIMAGE_VALUE_VARS: &[&str] = &[
+    "GDK_PIXBUF_MODULE_FILE",
+    "LD_PRELOAD",
+    "FONTCONFIG_FILE",
+    "FONTCONFIG_PATH",
+];
+
+// AppImage marker vars; always unset for spawned children.
+#[cfg(target_os = "linux")]
+const APPIMAGE_MARKER_VARS: &[&str] = &["APPDIR", "APPIMAGE", "ARGV0"];
+
+/// Env overrides that strip AppImage-injected values from spawned shells, so
+/// system binaries don't inherit the AppImage's runtime. Empty off Linux / when
+/// not running from an AppImage. `None` means unset the var.
+pub fn appimage_env_overrides() -> Vec<(&'static str, Option<OsString>)> {
+    #[cfg(target_os = "linux")]
+    {
+        let Some(appdir) = std::env::var_os("APPDIR") else {
+            return Vec::new();
+        };
+        compute_appimage_env_overrides(Path::new(&appdir), |k| std::env::var_os(k))
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        Vec::new()
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn compute_appimage_env_overrides(
+    appdir: &Path,
+    read: impl Fn(&str) -> Option<OsString>,
+) -> Vec<(&'static str, Option<OsString>)> {
+    let mut out = Vec::new();
+
+    for &key in APPIMAGE_PATH_VARS {
+        let Some(val) = read(key) else { continue };
+        let original: Vec<PathBuf> = std::env::split_paths(&val).collect();
+        let kept: Vec<PathBuf> = original
+            .iter()
+            .filter(|p| !p.as_os_str().is_empty() && !p.starts_with(appdir))
+            .cloned()
+            .collect();
+        if kept.len() == original.len() {
+            continue; // nothing AppImage-injected; leave as-is
+        }
+        match std::env::join_paths(&kept) {
+            Ok(joined) if !kept.is_empty() => out.push((key, Some(joined))),
+            _ => out.push((key, None)),
+        }
+    }
+
+    for &key in APPIMAGE_VALUE_VARS {
+        if read(key).is_some_and(|v| Path::new(&v).starts_with(appdir)) {
+            out.push((key, None));
+        }
+    }
+
+    for &key in APPIMAGE_MARKER_VARS {
+        if read(key).is_some() {
+            out.push((key, None));
+        }
+    }
+
+    out
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]
