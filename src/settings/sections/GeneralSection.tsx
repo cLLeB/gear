@@ -34,6 +34,7 @@ import {
   setTerminalFontSize,
   setTerminalScrollback,
   setTerminalWebglEnabled,
+  setTerminalCursorBlink,
   setVimMode,
 } from "@/modules/settings/store";
 import { useTheme } from "@/modules/theme";
@@ -71,6 +72,7 @@ export function GeneralSection() {
   const editorAutoSaveDelay = usePreferencesStore((s) => s.editorAutoSaveDelay);
   const showHidden = usePreferencesStore((s) => s.showHidden);
   const terminalWebglEnabled = usePreferencesStore((s) => s.terminalWebglEnabled);
+  const terminalCursorBlink = usePreferencesStore((s) => s.terminalCursorBlink);
   const terminalFontFamily = usePreferencesStore((s) => s.terminalFontFamily);
   const terminalLetterSpacing = usePreferencesStore((s) => s.terminalLetterSpacing);
   const terminalFontSize = usePreferencesStore((s) => s.terminalFontSize);
@@ -271,6 +273,15 @@ export function GeneralSection() {
           description={t("settings.general.webglRendererDesc")}
         >
           <Switch checked={terminalWebglEnabled} onCheckedChange={onToggleTerminalWebgl} />
+        </SettingRow>
+        <SettingRow
+          title="Terminal cursor blink"
+          description="Blink the terminal cursor. Off keeps it static (lower GPU wakeups)."
+        >
+          <Switch
+            checked={terminalCursorBlink}
+            onCheckedChange={(v) => void setTerminalCursorBlink(v)}
+          />
         </SettingRow>
         <SettingRow
           title={t("settings.general.fontFamily")}
