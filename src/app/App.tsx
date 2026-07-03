@@ -88,7 +88,7 @@ import { SidebarRail, type SidebarViewId } from "@/modules/sidebar";
 import { SourceControlPanel, useSourceControl } from "@/modules/source-control";
 import { StatusBar } from "@/modules/statusbar";
 import { RewindPanel, useRewindStore } from "@/modules/rewind";
-import { SpaceSwitcher, useSpaces } from "@/modules/spaces";
+import { type SpaceMeta, SpaceSwitcher, useSpaces } from "@/modules/spaces";
 import {
   DEFAULT_SPACE_ID,
   MAX_PANES_PER_TAB,
@@ -113,8 +113,10 @@ import {
 } from "@/modules/terminal";
 import {
   loadEditorPaths,
+  loadSpacesMeta,
   loadTerminalTabs,
   saveEditorPaths,
+  saveSpacesMeta,
   saveTerminalTabs,
 } from "@/modules/terminal/lib/sessionPersistence";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -247,7 +249,10 @@ export default function App() {
     const sessions = restoredRef.current;
     if (sessions && sessions.length > 1) {
       for (const s of sessions.slice(1)) {
-        newTab(s.cwd);
+        const id = newTab(s.cwd);
+        if (s.spaceId && s.spaceId !== DEFAULT_SPACE_ID) {
+          moveTabToSpace(id, s.spaceId);
+        }
       }
     }
     const editorPaths = restoredEditorPathsRef.current;
@@ -269,7 +274,7 @@ export default function App() {
   useEffect(() => {
     const toSave = tabs
       .filter((t): t is TerminalTab => t.kind === "terminal" && !t.private)
-      .map((t) => ({ title: t.title, cwd: t.cwd }));
+      .map((t) => ({ title: t.title, cwd: t.cwd, spaceId: t.spaceId }));
     const editorPaths = tabs
       .filter((t) => t.kind === "editor" && !("preview" in t && t.preview))
       .map((t) => (t as { path: string }).path);
@@ -408,30 +413,54 @@ export default function App() {
   const activeSpaceId = useSpaces((s) => s.activeId) ?? DEFAULT_SPACE_ID;
   const [switcherOpen, setSwitcherOpen] = useState(false);
 
-  // Seed a single default space so filtering and the switcher have a home. The
-  // default space's id IS DEFAULT_SPACE_ID, so existing/undefined-space tabs
-  // belong to it and stay visible.
+  const spacesList = useSpaces((s) => s.spaces);
+
+  // Restore persisted spaces, or seed a single default space. The default
+  // space's id IS DEFAULT_SPACE_ID, so existing/undefined-space tabs belong to
+  // it and stay visible. Defensive: any failure falls back to the default so
+  // startup can never break.
   useEffect(() => {
     const st = useSpaces.getState();
-    if (st.spaces.length === 0) {
-      const now = Date.now();
-      st.hydrate(
-        [
-          {
-            id: DEFAULT_SPACE_ID,
-            name: "Main",
-            root: null,
-            env: workspaceEnv,
-            createdAt: now,
-            updatedAt: now,
-          },
-        ],
-        DEFAULT_SPACE_ID,
-      );
+    if (st.spaces.length > 0) return;
+    try {
+      const saved = loadSpacesMeta();
+      if (saved && saved.spaces.length > 0) {
+        st.hydrate(
+          saved.spaces as SpaceMeta[],
+          saved.activeId ?? DEFAULT_SPACE_ID,
+        );
+        return;
+      }
+    } catch {
+      // fall through to default
     }
+    const now = Date.now();
+    st.hydrate(
+      [
+        {
+          id: DEFAULT_SPACE_ID,
+          name: "Main",
+          root: null,
+          env: workspaceEnv,
+          createdAt: now,
+          updatedAt: now,
+        },
+      ],
+      DEFAULT_SPACE_ID,
+    );
     // Run once on mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Persist the spaces list + active space (debounced) for restore on relaunch.
+  useEffect(() => {
+    if (spacesList.length === 0) return;
+    const id = window.setTimeout(
+      () => saveSpacesMeta({ spaces: spacesList, activeId: activeSpaceId }),
+      600,
+    );
+    return () => window.clearTimeout(id);
+  }, [spacesList, activeSpaceId]);
 
   // Only the active space's tabs appear in the tab strip; all tabs stay mounted
   // so switching spaces never tears down a background terminal's PTY.
