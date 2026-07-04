@@ -61,10 +61,8 @@ impl BlobStore {
                     continue;
                 }
                 let hash = format!("{prefix}{name}");
-                if !keep.contains(&hash) {
-                    if std::fs::remove_file(entry.path()).is_ok() {
-                        removed += 1;
-                    }
+                if !keep.contains(&hash) && std::fs::remove_file(entry.path()).is_ok() {
+                    removed += 1;
                 }
             }
         }
