@@ -199,19 +199,33 @@ fn is_usable_launch_dir(path: &Path) -> bool {
     if cfg!(debug_assertions) && path.file_name().and_then(|s| s.to_str()) == Some("src-tauri") {
         return false;
     }
-    // On Windows, reject paths inside AppData or Program Files — those are
-    // Tauri's install/data directories, not user workspace directories.
+    // On Windows, reject paths inside AppData, Program Files, or the Windows
+    // system root — those are install/data/system directories, not user
+    // workspace dirs. SystemRoot/windir matter for Store (MSIX) launches, which
+    // start with the CWD at C:\Windows\System32; without this the explorer would
+    // open there instead of falling back to the user's home directory.
     #[cfg(windows)]
     {
+        // Windows path casing is not canonical — current_dir() can report
+        // C:\Windows\System32 while %SystemRoot% is C:\WINDOWS — and Rust's
+        // Path::starts_with is case-sensitive, so compare lowercased strings.
+        let p = path
+            .to_string_lossy()
+            .to_ascii_lowercase()
+            .replace('/', "\\");
         let install_roots: &[&str] = &[
             "APPDATA",
             "LOCALAPPDATA",
             "ProgramFiles",
             "ProgramFiles(x86)",
+            "SystemRoot",
+            "windir",
         ];
         for var in install_roots {
-            if let Some(root) = std::env::var_os(var).map(PathBuf::from) {
-                if path.starts_with(&root) {
+            if let Ok(root) = std::env::var(var) {
+                let r = root.to_ascii_lowercase().replace('/', "\\");
+                let r = r.trim_end_matches('\\');
+                if !r.is_empty() && (p == r || p.starts_with(&format!("{r}\\"))) {
                     return false;
                 }
             }
@@ -630,6 +644,24 @@ printf %s "$shell""#;
 #[cfg(all(test, windows))]
 mod tests {
     use super::*;
+
+    #[cfg(windows)]
+    #[test]
+    fn rejects_windows_system_dir_case_insensitively() {
+        // %SystemRoot% is often C:\WINDOWS while current_dir() reports
+        // C:\Windows\System32 — the case mismatch must not defeat the reject,
+        // or Store (MSIX) launches open the explorer in System32.
+        assert!(!is_usable_launch_dir(Path::new(r"C:\Windows\System32")));
+        assert!(!is_usable_launch_dir(Path::new(r"C:\WINDOWS\System32")));
+        assert!(!is_usable_launch_dir(Path::new(r"c:\windows\system32")));
+        // A genuine user directory must still be accepted.
+        if let Some(home) = dirs::home_dir() {
+            let docs = home.join("Documents");
+            if docs.is_dir() {
+                assert!(is_usable_launch_dir(&docs));
+            }
+        }
+    }
 
     #[test]
     fn distro_validator_accepts_real_names() {
