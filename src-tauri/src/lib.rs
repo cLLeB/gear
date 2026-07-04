@@ -2,7 +2,7 @@ pub mod modules;
 
 use fs::to_canon;
 use modules::{
-    agent, chronicle, fs, git, lsp, net, pty, secrets, shell, workspace,
+    agent, chronicle, fs, git, history, lsp, net, pty, secrets, shell, workspace,
 };
 use std::sync::Mutex;
 use tauri::State;
@@ -85,6 +85,7 @@ pub fn run() {
         .manage(chronicle::ChronicleState::default())
         .manage(lsp::LspState::default())
         .manage(shell::ShellState::default())
+        .manage(history::HistoryState::default())
         .manage(secrets::SecretsState::default())
         .manage(fs::watch::FsWatchState::default())
         .manage({
@@ -106,6 +107,11 @@ pub fn run() {
             pty::pty_has_foreground_job,
             pty::pty_authorize_cwd,
             pty::pty_list_shells,
+            pty::pty_shell_name,
+            history::history_suggest,
+            history::history_commands,
+            history::history_record,
+            history::history_list,
             lsp::lsp_detect,
             lsp::lsp_host_pid,
             lsp::lsp_resolve_root,
