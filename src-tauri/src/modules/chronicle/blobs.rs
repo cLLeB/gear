@@ -83,7 +83,9 @@ mod tests {
         assert_eq!(h1, h2, "same content => same hash");
         assert_eq!(store.get(&h1).unwrap(), b"hello world");
         // dedup: only one file on disk in the shard dir
-        let count = std::fs::read_dir(dir.path().join(&h1[..2])).unwrap().count();
+        let count = std::fs::read_dir(dir.path().join(&h1[..2]))
+            .unwrap()
+            .count();
         assert_eq!(count, 1);
     }
 

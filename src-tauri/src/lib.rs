@@ -1,9 +1,7 @@
 pub mod modules;
 
 use fs::to_canon;
-use modules::{
-    agent, chronicle, fs, git, history, lsp, net, pty, secrets, shell, workspace,
-};
+use modules::{agent, chronicle, fs, git, history, lsp, net, pty, secrets, shell, workspace};
 use std::sync::Mutex;
 use tauri::State;
 use tauri_plugin_window_state::StateFlags;
