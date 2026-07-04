@@ -838,6 +838,24 @@ mod windows {
     }
 }
 
+/// Short name of the shell that a new terminal would launch (e.g. "zsh",
+/// "bash", "pwsh"). Used for the shell chip in the workspace input bar.
+pub fn detect_shell_name() -> String {
+    #[cfg(unix)]
+    {
+        let (_, path) = unix::Shell::detect();
+        path.rsplit('/').next().unwrap_or("").to_string()
+    }
+    #[cfg(windows)]
+    {
+        windows_shell_path()
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .map(|s| s.to_ascii_lowercase())
+            .unwrap_or_default()
+    }
+}
+
 #[cfg(windows)]
 pub fn windows_shell_path() -> PathBuf {
     // Prefer PowerShell 7 (pwsh), then PowerShell 5.

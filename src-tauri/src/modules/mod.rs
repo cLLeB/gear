@@ -2,6 +2,7 @@ pub mod agent;
 pub mod chronicle;
 pub mod fs;
 pub mod git;
+pub mod history;
 pub mod net;
 pub mod lsp;
 pub mod proc;
