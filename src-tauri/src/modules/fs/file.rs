@@ -121,7 +121,14 @@ pub fn fs_write_file(
         e.to_string()
     })?;
 
-    record_file_edit(&chronicle, workspace_root.as_deref(), &path, before, content.as_bytes(), source.as_deref());
+    record_file_edit(
+        &chronicle,
+        workspace_root.as_deref(),
+        &path,
+        before,
+        content.as_bytes(),
+        source.as_deref(),
+    );
 
     let _ = app.emit(
         "fs:file-written",

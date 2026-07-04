@@ -216,7 +216,10 @@ mod unix {
                 let trimmed = line.trim();
                 if trimmed.starts_with('/') && PathBuf::from(trimmed).is_file() {
                     let name = trimmed.rsplit('/').next().unwrap_or("shell").to_string();
-                    shells.push(super::ShellProfile { name, path: trimmed.to_string() });
+                    shells.push(super::ShellProfile {
+                        name,
+                        path: trimmed.to_string(),
+                    });
                 }
             }
         }
@@ -897,11 +900,17 @@ fn detect_windows_shells() -> Vec<ShellProfile> {
     let mut shells = Vec::new();
 
     if let Some(p) = which_in_path("pwsh.exe") {
-        shells.push(ShellProfile { name: "PowerShell 7".into(), path: p.to_string_lossy().into_owned() });
+        shells.push(ShellProfile {
+            name: "PowerShell 7".into(),
+            path: p.to_string_lossy().into_owned(),
+        });
     } else if let Some(pf) = std::env::var_os("ProgramFiles").map(PathBuf::from) {
         let candidate = pf.join("PowerShell").join("7").join("pwsh.exe");
         if candidate.is_file() {
-            shells.push(ShellProfile { name: "PowerShell 7".into(), path: candidate.to_string_lossy().into_owned() });
+            shells.push(ShellProfile {
+                name: "PowerShell 7".into(),
+                path: candidate.to_string_lossy().into_owned(),
+            });
         }
     }
 
@@ -915,13 +924,19 @@ fn detect_windows_shells() -> Vec<ShellProfile> {
         .join("v1.0")
         .join("powershell.exe");
     if ps5.is_file() {
-        shells.push(ShellProfile { name: "Windows PowerShell".into(), path: ps5.to_string_lossy().into_owned() });
+        shells.push(ShellProfile {
+            name: "Windows PowerShell".into(),
+            path: ps5.to_string_lossy().into_owned(),
+        });
     }
 
     if let Some(pf) = std::env::var_os("ProgramFiles").map(PathBuf::from) {
         let candidate = pf.join("Git").join("bin").join("bash.exe");
         if candidate.is_file() {
-            shells.push(ShellProfile { name: "Git Bash".into(), path: candidate.to_string_lossy().into_owned() });
+            shells.push(ShellProfile {
+                name: "Git Bash".into(),
+                path: candidate.to_string_lossy().into_owned(),
+            });
         }
     }
 

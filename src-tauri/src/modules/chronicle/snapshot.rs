@@ -82,14 +82,20 @@ mod tests {
         store.insert(&mk(100, &b1)).unwrap();
         store.insert(&mk(200, &b2)).unwrap();
         assert_eq!(
-            reconstruct_file(&store, &blobs, "a.txt", 150).unwrap().unwrap(),
+            reconstruct_file(&store, &blobs, "a.txt", 150)
+                .unwrap()
+                .unwrap(),
             b"v1"
         );
         assert_eq!(
-            reconstruct_file(&store, &blobs, "a.txt", 250).unwrap().unwrap(),
+            reconstruct_file(&store, &blobs, "a.txt", 250)
+                .unwrap()
+                .unwrap(),
             b"v2"
         );
-        assert!(reconstruct_file(&store, &blobs, "a.txt", 50).unwrap().is_none());
+        assert!(reconstruct_file(&store, &blobs, "a.txt", 50)
+            .unwrap()
+            .is_none());
     }
 
     #[test]

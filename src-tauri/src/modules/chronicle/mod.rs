@@ -25,12 +25,7 @@ fn now_ms() -> i64 {
 
 /// Emit a git transition into the timeline. Best-effort: looks up
 /// [`ChronicleState`] from the app handle and never fails the caller.
-pub fn record_git(
-    app: &tauri::AppHandle,
-    repo_root: &str,
-    op: &str,
-    reference: Option<String>,
-) {
+pub fn record_git(app: &tauri::AppHandle, repo_root: &str, op: &str, reference: Option<String>) {
     use tauri::Manager;
     let state = app.state::<ChronicleState>();
     let summary = match &reference {
