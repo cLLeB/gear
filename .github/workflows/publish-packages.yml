@@ -273,7 +273,9 @@ jobs:
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git pull --rebase  # pick up apt job's push
+          # Stage + commit before rebasing: createrepo_c and the downloaded rpm
+          # leave a dirty tree, and `git pull --rebase` aborts on unstaged changes.
           git add rpm/
           git commit -m "rpm: release gear ${VERSION}"
+          git pull --rebase  # pick up apt job's push
           git push
