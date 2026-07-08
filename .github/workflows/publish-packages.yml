@@ -60,7 +60,7 @@ jobs:
           echo "sha256=$(sha256sum gear.dmg | awk '{print $1}')" >> $GITHUB_ENV
 
       - name: Checkout homebrew tap
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: cLLeB/homebrew-gear
           token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
@@ -104,7 +104,7 @@ jobs:
           echo "${{ secrets.GEAR_APT_GPG_FP }}:6:" | gpg --import-ownertrust
 
       - name: Checkout packages repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: cLLeB/gear-packages
           token: ${{ secrets.PACKAGES_TOKEN }}
@@ -252,7 +252,7 @@ jobs:
         run: sudo apt-get install -y createrepo-c
 
       - name: Checkout packages repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: cLLeB/gear-packages
           token: ${{ secrets.PACKAGES_TOKEN }}
