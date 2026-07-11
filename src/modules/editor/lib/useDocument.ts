@@ -201,6 +201,22 @@ export function useDocument({ path, onDirtyChange }: Options) {
     return saveNow();
   }, [clearAutoSaveTimer, saveNow]);
 
+  // Adopt externally formatted disk content as the new saved baseline before
+  // the matching editor dispatch lands, so the buffer never flashes dirty. The
+  // formatter's own write becomes the known mtime, or the next save would
+  // report it as an external conflict. Returns the LF text to dispatch.
+  const adoptDiskText = useCallback(
+    (diskText: string, mtime: number): string => {
+      eolRef.current = detectEol(diskText);
+      diskMtimeRef.current = mtime;
+      const content = normalizeToLf(diskText);
+      savedRef.current = content;
+      setDirty(bufferRef.current !== content);
+      return content;
+    },
+    [],
+  );
+
   const onChange = useCallback(
     (next: string) => {
       bufferRef.current = next;
@@ -221,5 +237,5 @@ export function useDocument({ path, onDirtyChange }: Options) {
 
   useEffect(() => clearAutoSaveTimer, [path, clearAutoSaveTimer]);
 
-  return { doc, dirty, onChange, save, reload, openAnyway };
+  return { doc, dirty, onChange, save, reload, openAnyway, adoptDiskText };
 }
