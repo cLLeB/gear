@@ -724,6 +724,55 @@ export function useTabs() {
 		for (const lid of toDispose) disposeSession(lid);
 	}, []);
 
+	/** Close an explicit set of tabs (Close All / Close Saved / Close Others from
+	 * the tab-bar overflow menu). Disposes terminal sessions, keeps the active
+	 * tab valid, and guarantees the active space is never left empty. */
+	const closeTabs = useCallback((ids: number[]): void => {
+		if (ids.length === 0) return;
+		const idSet = new Set(ids);
+		// Reserve ids up front so the setTabs updater stays side-effect free
+		// (unused if no fresh tab is needed — a skipped id is harmless).
+		const freshTabId = nextIdRef.current++;
+		const freshLeafId = nextIdRef.current++;
+		const toDispose: number[] = [];
+		setTabs((curr) => {
+			const remaining = curr.filter((t) => !idSet.has(t.id));
+			if (remaining.length === curr.length) return curr;
+			for (const t of curr) {
+				if (idSet.has(t.id) && t.kind === "terminal") {
+					toDispose.push(...leafIds(t.paneTree));
+				}
+			}
+			const space = activeSpaceIdRef.current;
+			const remainingInSpace = remaining.filter(
+				(t) => (t.spaceId ?? DEFAULT_SPACE_ID) === space,
+			);
+			// Nothing left in the active space: drop in a fresh terminal there so
+			// the user isn't yanked into another space (or an empty workspace).
+			if (remainingInSpace.length === 0) {
+				setActiveId(freshTabId);
+				return [
+					...remaining,
+					{
+						id: freshTabId,
+						kind: "terminal",
+						spaceId: space,
+						title: "shell",
+						paneTree: { kind: "leaf", id: freshLeafId },
+						activeLeafId: freshLeafId,
+					},
+				];
+			}
+			setActiveId((active) =>
+				idSet.has(active)
+					? remainingInSpace[remainingInSpace.length - 1].id
+					: active,
+			);
+			return remaining;
+		});
+		for (const lid of toDispose) disposeSession(lid);
+	}, []);
+
 	const closeOtherTabs = useCallback((keepId: number): void => {
 		const toDispose: number[] = [];
 		setTabs((curr) => {
@@ -795,8 +844,10 @@ export function useTabs() {
 	}, []);
 
 	const selectByIndex = useCallback(
-		(idx: number) => {
-			const t = tabs[idx];
+		(idx: number, spaceId: string = DEFAULT_SPACE_ID) => {
+			// Scope Cmd+number to the active space so index N picks that space's
+			// Nth tab, not the Nth tab across every space.
+			const t = pickTabBySpaceIndex(tabs, idx, spaceId);
 			if (t) setActiveId(t.id);
 		},
 		[tabs],
@@ -1049,6 +1100,7 @@ export function useTabs() {
 		closeAiDiffTab,
 		closeTab,
 		closeOtherTabs,
+		closeTabs,
 		updateTab,
 		selectByIndex,
 		setLeafCwd,

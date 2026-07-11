@@ -5,6 +5,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
+import { writeFsPaths } from "@/lib/pathDrag";
 import { cn } from "@/lib/utils";
 import { ArrowRight01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -116,6 +117,13 @@ function EntryRowImpl(props: EntryRowProps) {
           <button
             type="button"
             data-fs-path={path}
+            draggable
+            onDragStart={(e) => {
+              // Drag the whole selection when the grabbed row is part of a
+              // multi-selection; otherwise just this row's path.
+              const paths = bulkActive ? onGetSelectedPaths() : [path];
+              writeFsPaths(e.dataTransfer, paths.length ? paths : [path]);
+            }}
             onClick={(e) => handleClick(e)}
             onDoubleClick={() => !isDir && tree.beginRename(path)}
             title={metaTitle}

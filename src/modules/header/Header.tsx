@@ -59,6 +59,7 @@ type Props = {
   /** Active terminal tab has more than one pane open. */
   canClosePane: boolean;
   onCloseOthers: (id: number) => void;
+  onCloseTabs: (ids: number[]) => void;
   onActivateAgent: (tabId: number, leafId: number) => void;
   onActivateLocalAgent: () => void;
   onOpenSettings: () => void;
@@ -88,6 +89,7 @@ export function Header({
   onClosePane,
   canClosePane,
   onCloseOthers,
+  onCloseTabs,
   onActivateAgent,
   onActivateLocalAgent,
   onOpenSettings,
@@ -234,6 +236,7 @@ export function Header({
           onRename={onRename}
           onReorder={onReorder}
           onCloseOthers={onCloseOthers}
+          onCloseTabs={onCloseTabs}
           
         />
         <div

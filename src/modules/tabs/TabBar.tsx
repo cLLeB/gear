@@ -6,6 +6,7 @@ import {
 	GitCompareIcon,
 	Globe02Icon,
 	IncognitoIcon,
+	MoreHorizontalIcon,
 	PencilEdit02Icon,
 	PlusSignIcon,
 } from "@hugeicons/core-free-icons";
@@ -34,6 +35,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { fmtShortcut, MOD_KEY } from "@/lib/platform";
 import { cn } from "@/lib/utils";
 import { fileIconUrl } from "@/modules/explorer/lib/iconResolver";
+import { computeCloseTargets } from "./lib/closeTargets";
 import { labelFor } from "./lib/tabLabel";
 import type { EditorTab, Tab } from "./lib/useTabs";
 
@@ -56,6 +58,8 @@ type Props = {
 	onRename: (id: number, title: string) => void;
 	onReorder?: (fromId: number, toId: number) => void;
 	onCloseOthers?: (id: number) => void;
+	/** Bulk close from the overflow menu (Close Others / Saved / All). */
+	onCloseTabs?: (ids: number[]) => void;
 	compact?: boolean;
 };
 
@@ -74,6 +78,7 @@ export function TabBar({
 	onRename,
 	onReorder,
 	onCloseOthers,
+	onCloseTabs,
 	compact,
 }: Props) {
 	const scrollRef = useRef<HTMLDivElement>(null);
@@ -109,6 +114,12 @@ export function TabBar({
 		const active = el.querySelector<HTMLElement>(`[data-tab-id="${activeId}"]`);
 		active?.scrollIntoView({ block: "nearest", inline: "nearest" });
 	}, [activeId, tabs.length]);
+
+	const {
+		others: otherIds,
+		saved: savedIds,
+		all: allIds,
+	} = computeCloseTargets(tabs, activeId);
 
 	return (
 		<div
@@ -407,6 +418,42 @@ export function TabBar({
 						</DropdownMenuItem>
 					</DropdownMenuContent>
 				</DropdownMenu>
+				{onCloseTabs && tabs.length > 1 && (
+					<DropdownMenu>
+						<DropdownMenuTrigger asChild>
+							<Button
+								variant="ghost"
+								size="icon"
+								className="size-7 shrink-0 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+								title="Close tabs"
+							>
+								<HugeiconsIcon
+									icon={MoreHorizontalIcon}
+									size={14}
+									strokeWidth={2}
+								/>
+							</Button>
+						</DropdownMenuTrigger>
+						<DropdownMenuContent align="end" className="min-w-44">
+							<DropdownMenuItem
+								onSelect={() => onCloseTabs(otherIds)}
+								disabled={otherIds.length === 0}
+							>
+								<span className="flex-1">Close Others</span>
+							</DropdownMenuItem>
+							<DropdownMenuItem
+								onSelect={() => onCloseTabs(savedIds)}
+								disabled={savedIds.length === 0}
+							>
+								<span className="flex-1">Close Saved</span>
+							</DropdownMenuItem>
+							<DropdownMenuSeparator />
+							<DropdownMenuItem onSelect={() => onCloseTabs(allIds)}>
+								<span className="flex-1">Close All</span>
+							</DropdownMenuItem>
+						</DropdownMenuContent>
+					</DropdownMenu>
+				)}
 			</div>
 		</div>
 	);

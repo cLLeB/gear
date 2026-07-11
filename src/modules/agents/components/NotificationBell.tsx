@@ -137,7 +137,7 @@ export function NotificationBell({ onActivate, onActivateLocal }: Props) {
   const badge = waitingCount + unreadDone;
 
   const refreshHooks = () => {
-    invoke<boolean>("agent_claude_hooks_status")
+    invoke<boolean>("agent_hooks_status", { agent: "claude" })
       .then(setHooksReady)
       .catch(() => setHooksReady(null));
   };
@@ -153,7 +153,7 @@ export function NotificationBell({ onActivate, onActivateLocal }: Props) {
   const enableClaudeHooks = async () => {
     setInstalling(true);
     try {
-      await invoke("agent_enable_claude_hooks");
+      await invoke("agent_enable_hooks", { agent: "claude" });
       setHooksReady(true);
     } catch {
       setHooksReady(false);

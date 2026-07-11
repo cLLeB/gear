@@ -1,3 +1,8 @@
+import {
+  Language,
+  LanguageDescription,
+  LanguageSupport,
+} from "@codemirror/language";
 import type { Extension } from "@codemirror/state";
 
 type LoaderResult = Extension | { token: unknown };
@@ -66,8 +71,31 @@ const loaders: Record<string, LanguageLoader> = {
   mssql: mssqlLoader,
   plsql: plsqlLoader,
 
-  md: () => import("@codemirror/lang-markdown").then((m) => m.markdown()),
-  markdown: () => import("@codemirror/lang-markdown").then((m) => m.markdown()),
+  // markdownLanguage = GFM (tables, task lists, strikethrough, autolinks);
+  // fenced code blocks highlight through the shared lazy language registry,
+  // plus clickable task checkboxes and Cmd/Ctrl+click links.
+  md: () =>
+    Promise.all([
+      import("@codemirror/lang-markdown"),
+      import("./markdownExtras"),
+    ]).then(([m, extras]) => [
+      m.markdown({
+        base: m.markdownLanguage,
+        codeLanguages: extras.markdownCodeLanguages(),
+      }),
+      extras.markdownExtras(),
+    ]),
+  markdown: () =>
+    Promise.all([
+      import("@codemirror/lang-markdown"),
+      import("./markdownExtras"),
+    ]).then(([m, extras]) => [
+      m.markdown({
+        base: m.markdownLanguage,
+        codeLanguages: extras.markdownCodeLanguages(),
+      }),
+      extras.markdownExtras(),
+    ]),
 
   html: () => import("@codemirror/lang-html").then((m) => m.html()),
   htm: () => import("@codemirror/lang-html").then((m) => m.html()),
@@ -125,6 +153,9 @@ const loaders: Record<string, LanguageLoader> = {
     import("@codemirror/legacy-modes/mode/stex").then((m) => m.stex),
   sty: () => import("@codemirror/legacy-modes/mode/stex").then((m) => m.stex),
   cls: () => import("@codemirror/legacy-modes/mode/stex").then((m) => m.stex),
+
+  // .env files: shell mode highlights KEY=value and $VAR references well.
+  env: () => import("@codemirror/legacy-modes/mode/shell").then((m) => m.shell),
 };
 
 const filenameOverrides: Record<string, LanguageLoader> = {
@@ -202,6 +233,55 @@ export async function resolveLanguage(
   }
   cache.set(key, ext);
   return ext;
+}
+
+// Fence languages for markdown code blocks (```ts, ```python). Each lazily
+// loads through the same loaders as file extensions; nothing loads until a
+// fence names it. Missing loaders are skipped.
+const FENCE_LANGS: readonly { name: string; keys: readonly string[] }[] = [
+  { name: "JavaScript", keys: ["js", "jsx", "mjs", "cjs"] },
+  { name: "TypeScript", keys: ["ts", "tsx"] },
+  { name: "Python", keys: ["py"] },
+  { name: "Rust", keys: ["rs"] },
+  { name: "Go", keys: ["go"] },
+  { name: "JSON", keys: ["json"] },
+  { name: "HTML", keys: ["html", "htm"] },
+  { name: "CSS", keys: ["css"] },
+  { name: "PHP", keys: ["php"] },
+  { name: "Ruby", keys: ["rb"] },
+  { name: "C", keys: ["c", "h"] },
+  { name: "C++", keys: ["cpp", "cc", "cxx", "hpp"] },
+  { name: "Java", keys: ["java"] },
+  { name: "SQL", keys: ["sql"] },
+  { name: "Shell", keys: ["sh", "bash", "zsh"] },
+  { name: "YAML", keys: ["yaml", "yml"] },
+];
+
+let fenceCache: LanguageDescription[] | null = null;
+export function codeLanguageDescriptions(): LanguageDescription[] {
+  if (fenceCache) return fenceCache;
+  fenceCache = FENCE_LANGS.filter((l) => loaders[l.keys[0]]).map((l) =>
+    LanguageDescription.of({
+      name: l.name,
+      alias: [...l.keys],
+      extensions: [...l.keys],
+      load: async () => {
+        const result = await loaders[l.keys[0]]();
+        if (result instanceof LanguageSupport) return result;
+        if (result instanceof Language) return new LanguageSupport(result);
+        if (isStreamParser(result)) {
+          const { StreamLanguage } = await import("@codemirror/language");
+          return new LanguageSupport(
+            StreamLanguage.define(
+              result as Parameters<typeof StreamLanguage.define>[0],
+            ),
+          );
+        }
+        throw new Error(`${l.name} not usable inside markdown fences`);
+      },
+    }),
+  );
+  return fenceCache;
 }
 
 export function preloadLanguages(filenames: string[]): void {

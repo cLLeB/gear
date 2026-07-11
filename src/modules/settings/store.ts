@@ -87,6 +87,7 @@ export type Preferences = {
   autostart: boolean;
   restoreWindowState: boolean;
   autocompleteEnabled: boolean;
+  autocompleteTrigger: AutocompleteTrigger;
   autocompleteProvider: AutocompleteProviderId;
   autocompleteModelId: string;
   lmstudioBaseURL: string;
@@ -122,7 +123,26 @@ export type Preferences = {
   shortcuts: Record<ShortcutId, KeyBinding[]>;
   editorAutoSave: boolean;
   editorAutoSaveDelay: number;
+  editorFontSize: number;
+  editorFormatOnSave: boolean;
+  editorFormatter: EditorFormatter;
+  editorFormatterByLang: Record<string, EditorFormatter>;
+  editorCustomFormatCommand: string;
 };
+
+export type EditorFormatter =
+  | "lsp"
+  | "biome"
+  | "prettier"
+  | "ruff"
+  | "rustfmt"
+  | "gofmt"
+  | "clang-format"
+  | "shfmt"
+  | "zigfmt"
+  | "custom";
+
+export type AutocompleteTrigger = "auto" | "manual";
 
 const STORE_PATH = "Gear-settings.json";
 const KEY_THEME = "theme";
@@ -141,6 +161,7 @@ const KEY_CUSTOM_INSTRUCTIONS = "customInstructions";
 const KEY_AUTOSTART = "autostart";
 const KEY_RESTORE_WINDOW = "restoreWindowState";
 const KEY_AUTOCOMPLETE_ENABLED = "autocompleteEnabled";
+const KEY_AUTOCOMPLETE_TRIGGER = "autocompleteTrigger";
 const KEY_AUTOCOMPLETE_PROVIDER = "autocompleteProvider";
 const KEY_AUTOCOMPLETE_MODEL = "autocompleteModelId";
 const KEY_LMSTUDIO_BASE_URL = "lmstudioBaseURL";
@@ -177,6 +198,18 @@ const KEY_SIDEBAR_POSITION = "sidebarPosition";
 const KEY_SHORTCUTS = "shortcuts";
 const KEY_EDITOR_AUTO_SAVE = "editorAutoSave";
 const KEY_EDITOR_AUTO_SAVE_DELAY = "editorAutoSaveDelay";
+const KEY_EDITOR_FONT_SIZE = "editorFontSize";
+const KEY_EDITOR_FORMAT_ON_SAVE = "editorFormatOnSave";
+const KEY_EDITOR_FORMATTER = "editorFormatter";
+const KEY_EDITOR_FORMATTER_BY_LANG = "editorFormatterByLang";
+const KEY_EDITOR_CUSTOM_FORMAT_COMMAND = "editorCustomFormatCommand";
+
+export const EDITOR_FONT_SIZE_DEFAULT = 13;
+export const EDITOR_FONT_SIZE_MIN = 8;
+export const EDITOR_FONT_SIZE_MAX = 32;
+export const EDITOR_FONT_SIZES = [
+  10, 11, 12, 13, 14, 15, 16, 18, 20, 22, 24,
+] as const;
 
 export const TERMINAL_FONT_SIZE_DEFAULT = 14;
 export const TERMINAL_FONT_SIZE_MIN = 8;
@@ -210,6 +243,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   autostart: false,
   restoreWindowState: true,
   autocompleteEnabled: false,
+  autocompleteTrigger: "auto",
   autocompleteProvider: "cerebras",
   autocompleteModelId: DEFAULT_AUTOCOMPLETE_MODEL.cerebras ?? "",
   lmstudioBaseURL: LMSTUDIO_DEFAULT_BASE_URL,
@@ -245,6 +279,11 @@ export const DEFAULT_PREFERENCES: Preferences = {
   shortcuts: {} as Record<ShortcutId, KeyBinding[]>,
   editorAutoSave: false,
   editorAutoSaveDelay: 1000,
+  editorFontSize: EDITOR_FONT_SIZE_DEFAULT,
+  editorFormatOnSave: false,
+  editorFormatter: "lsp",
+  editorFormatterByLang: {},
+  editorCustomFormatCommand: "",
 };
 
 const store = new LazyStore(STORE_PATH, { defaults: {}, autoSave: 200 });
@@ -292,6 +331,9 @@ export async function loadPreferences(): Promise<Preferences> {
     autocompleteEnabled:
       get<boolean>(KEY_AUTOCOMPLETE_ENABLED) ??
       DEFAULT_PREFERENCES.autocompleteEnabled,
+    autocompleteTrigger:
+      get<AutocompleteTrigger>(KEY_AUTOCOMPLETE_TRIGGER) ??
+      DEFAULT_PREFERENCES.autocompleteTrigger,
     autocompleteProvider:
       get<AutocompleteProviderId>(KEY_AUTOCOMPLETE_PROVIDER) ??
       DEFAULT_PREFERENCES.autocompleteProvider,
@@ -386,7 +428,50 @@ export async function loadPreferences(): Promise<Preferences> {
       get<number>(KEY_EDITOR_AUTO_SAVE_DELAY) ??
         DEFAULT_PREFERENCES.editorAutoSaveDelay,
     ),
+    editorFontSize: clampEditorFontSize(
+      get<number>(KEY_EDITOR_FONT_SIZE) ?? DEFAULT_PREFERENCES.editorFontSize,
+    ),
+    editorFormatOnSave:
+      get<boolean>(KEY_EDITOR_FORMAT_ON_SAVE) ??
+      DEFAULT_PREFERENCES.editorFormatOnSave,
+    editorFormatter:
+      get<EditorFormatter>(KEY_EDITOR_FORMATTER) ??
+      DEFAULT_PREFERENCES.editorFormatter,
+    editorFormatterByLang:
+      get<Record<string, EditorFormatter>>(KEY_EDITOR_FORMATTER_BY_LANG) ??
+      DEFAULT_PREFERENCES.editorFormatterByLang,
+    editorCustomFormatCommand:
+      get<string>(KEY_EDITOR_CUSTOM_FORMAT_COMMAND) ??
+      DEFAULT_PREFERENCES.editorCustomFormatCommand,
   };
+}
+
+function clampEditorFontSize(value: number): number {
+  return Number.isFinite(value)
+    ? Math.min(EDITOR_FONT_SIZE_MAX, Math.max(EDITOR_FONT_SIZE_MIN, Math.round(value)))
+    : EDITOR_FONT_SIZE_DEFAULT;
+}
+
+export async function setEditorFontSize(value: number): Promise<void> {
+  await writePref(KEY_EDITOR_FONT_SIZE, clampEditorFontSize(value));
+}
+
+export async function setEditorFormatOnSave(value: boolean): Promise<void> {
+  await writePref(KEY_EDITOR_FORMAT_ON_SAVE, value);
+}
+
+export async function setEditorFormatter(value: EditorFormatter): Promise<void> {
+  await writePref(KEY_EDITOR_FORMATTER, value);
+}
+
+export async function setEditorFormatterByLang(
+  value: Record<string, EditorFormatter>,
+): Promise<void> {
+  await writePref(KEY_EDITOR_FORMATTER_BY_LANG, value);
+}
+
+export async function setEditorCustomFormatCommand(value: string): Promise<void> {
+  await writePref(KEY_EDITOR_CUSTOM_FORMAT_COMMAND, value);
 }
 
 export async function setTheme(value: ThemePref): Promise<void> {
@@ -451,6 +536,12 @@ export async function setRestoreWindowState(value: boolean): Promise<void> {
 
 export async function setAutocompleteEnabled(value: boolean): Promise<void> {
   await writePref(KEY_AUTOCOMPLETE_ENABLED, value);
+}
+
+export async function setAutocompleteTrigger(
+  value: AutocompleteTrigger,
+): Promise<void> {
+  await writePref(KEY_AUTOCOMPLETE_TRIGGER, value);
 }
 
 export async function setAutocompleteProvider(
@@ -687,6 +778,7 @@ export async function onPreferencesChange(
     [KEY_AUTOSTART]: "autostart",
     [KEY_RESTORE_WINDOW]: "restoreWindowState",
     [KEY_AUTOCOMPLETE_ENABLED]: "autocompleteEnabled",
+    [KEY_AUTOCOMPLETE_TRIGGER]: "autocompleteTrigger",
     [KEY_AUTOCOMPLETE_PROVIDER]: "autocompleteProvider",
     [KEY_AUTOCOMPLETE_MODEL]: "autocompleteModelId",
     [KEY_LMSTUDIO_BASE_URL]: "lmstudioBaseURL",
@@ -722,6 +814,11 @@ export async function onPreferencesChange(
     [KEY_SHORTCUTS]: "shortcuts",
     [KEY_EDITOR_AUTO_SAVE]: "editorAutoSave",
     [KEY_EDITOR_AUTO_SAVE_DELAY]: "editorAutoSaveDelay",
+    [KEY_EDITOR_FONT_SIZE]: "editorFontSize",
+    [KEY_EDITOR_FORMAT_ON_SAVE]: "editorFormatOnSave",
+    [KEY_EDITOR_FORMATTER]: "editorFormatter",
+    [KEY_EDITOR_FORMATTER_BY_LANG]: "editorFormatterByLang",
+    [KEY_EDITOR_CUSTOM_FORMAT_COMMAND]: "editorCustomFormatCommand",
   };
   // Same-process writes still fire onChange immediately; cross-window writes
   // arrive via the Tauri event emitted by writePref().

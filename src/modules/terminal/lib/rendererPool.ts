@@ -14,6 +14,7 @@ import {
   writeTerminalClipboard,
 } from "./terminalClipboard";
 import {
+  terminalClipboardIntent,
   terminalDeleteSequence,
   terminalLineNavigationSequence,
   terminalWordNavigationSequence,
@@ -31,6 +32,7 @@ export type SlotAdapter = {
   isLeafBlocks(leafId: number): boolean;
   isLeafBusy(leafId: number): boolean;
   isLeafVisible(leafId: number): boolean;
+  isLeafPowerShell(leafId: number): boolean;
   storeSnapshot(leafId: number, out: SerializeOutput): void;
 };
 
@@ -278,15 +280,23 @@ function createSlot(): Slot {
       if (event.type === "keydown") bridge.writeToPty("\x1b\r");
       return false;
     }
-    if (isTerminalCopy(event)) {
-      if (event.type === "keydown" && slot.term.hasSelection()) {
+    const clip = terminalClipboardIntent(event, {
+      isMac: IS_MAC,
+      powerShell: adapter?.isLeafPowerShell(leafId) ?? false,
+    });
+    if (clip === "copy") {
+      const hasSelection = slot.term.hasSelection();
+      // Plain Ctrl+C (no Shift) with no selection must pass through to the
+      // PTY as SIGINT so it can still interrupt a running process.
+      if (!event.shiftKey && !hasSelection) return true;
+      if (event.type === "keydown" && hasSelection) {
         const sel = slot.term.getSelection();
         if (sel) void writeTerminalClipboard(sel);
       }
       event.preventDefault();
       return false;
     }
-    if (isTerminalPaste(event)) {
+    if (clip === "paste") {
       if (event.type === "keydown") {
         const targetLeafId = slot.currentLeafId;
         void readTerminalClipboard().then((text) => {
@@ -1043,28 +1053,6 @@ export function getLiveSlotForLeaf(leafId: number): Slot | null {
 const IS_MAC =
   typeof navigator !== "undefined" &&
   /Mac|iPhone|iPad/.test(navigator.userAgent);
-
-function isTerminalCopy(e: KeyboardEvent): boolean {
-  return (
-    !IS_MAC &&
-    e.ctrlKey &&
-    e.shiftKey &&
-    !e.altKey &&
-    !e.metaKey &&
-    (e.code === "KeyC" || e.key === "c" || e.key === "C")
-  );
-}
-
-function isTerminalPaste(e: KeyboardEvent): boolean {
-  return (
-    !IS_MAC &&
-    e.ctrlKey &&
-    e.shiftKey &&
-    !e.altKey &&
-    !e.metaKey &&
-    (e.code === "KeyV" || e.key === "v" || e.key === "V")
-  );
-}
 
 function isShiftEnter(e: KeyboardEvent): boolean {
   return (

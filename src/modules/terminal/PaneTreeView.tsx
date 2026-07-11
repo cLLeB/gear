@@ -3,11 +3,14 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
+import { dragHasFsPaths, readFsPaths } from "@/lib/pathDrag";
 import { cn } from "@/lib/utils";
 import type { SearchAddon } from "@xterm/addon-search";
 import { Fragment, useRef, useState } from "react";
 import { useTerminalDropStore } from "./lib/dropStore";
 import { leafIds, type PaneNode } from "./lib/panes";
+import { formatDroppedPaths } from "./lib/quoteShellPath";
+import { pasteIntoLeaf } from "./lib/rendererPool";
 import { TerminalPane, type TerminalPaneHandle } from "./TerminalPane";
 
 type LeafBundle = {
@@ -65,6 +68,29 @@ export function PaneTreeView(props: Props) {
         }}
         data-pane-leaf={node.id}
         className="relative flex h-full w-full flex-col"
+        // In-app drag from the sidebar file explorer: paste the shell-quoted
+        // path(s) into this pane. OS-level file drops are handled separately by
+        // useTerminalFileDrop (Tauri onDragDropEvent).
+        onDragOver={(e) => {
+          if (!dragHasFsPaths(e.dataTransfer)) return;
+          e.preventDefault();
+          e.dataTransfer.dropEffect = "copy";
+          useTerminalDropStore.getState().setTarget(node.id);
+        }}
+        onDragLeave={(e) => {
+          if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
+          const store = useTerminalDropStore.getState();
+          if (store.targetLeafId === node.id) store.setTarget(null);
+        }}
+        onDrop={(e) => {
+          if (!dragHasFsPaths(e.dataTransfer)) return;
+          e.preventDefault();
+          const paths = readFsPaths(e.dataTransfer);
+          useTerminalDropStore.getState().setTarget(null);
+          if (!paths.length) return;
+          onFocusLeaf(node.id);
+          pasteIntoLeaf(node.id, formatDroppedPaths(paths));
+        }}
       >
         {showLabel && (
           <PaneLabel

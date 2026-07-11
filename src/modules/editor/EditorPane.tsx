@@ -25,19 +25,32 @@ import { Prec } from "@codemirror/state";
 import { vim } from "@replit/codemirror-vim";
 import {
   buildSharedExtensions,
+  indentCompartment,
+  indentExtension,
   languageCompartment,
   lspCompartment,
   vimCompartment,
   wrapCompartment,
 } from "./lib/extensions";
-import { useLspExtension } from "@/modules/lsp";
+import { detectIndentUnit } from "./lib/indent";
+import { lspFormatDocument, useLspExtension } from "@/modules/lsp";
+import { toast } from "sonner";
+import {
+  applyFormattedContent,
+  readFileText,
+  resolveFormatter,
+  runExternalFormatter,
+} from "./lib/externalFormat";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { initVimGlobals, vimHandlersExtension } from "./lib/vim";
 
 initVimGlobals();
 import { resolveLanguage } from "./lib/languageResolver";
-import { useDocument } from "./lib/useDocument";
-import { inlineCompletion } from "./lib/autocomplete/inlineExtension";
+import { FORCE_READ_LIMIT, useDocument } from "./lib/useDocument";
+import {
+  inlineCompletion,
+  triggerInlineCompletion,
+} from "./lib/autocomplete/inlineExtension";
 import { getKey } from "@/modules/ai/lib/keyring";
 import { onKeysChanged } from "@/modules/settings/store";
 
@@ -89,7 +102,11 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
     { path, languageOverride, onDirtyChange, onSaved, onClose },
     ref,
   ) {
-    const { doc, onChange, save, reload } = useDocument({ path, onDirtyChange });
+    const { doc, onChange, save, reload, openAnyway, adoptDiskText } =
+      useDocument({
+        path,
+        onDirtyChange,
+      });
     const reloadRef = useRef(reload);
     reloadRef.current = reload;
     const cmRef = useRef<ReactCodeMirrorRef>(null);
@@ -146,9 +163,55 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
     onSavedRef.current = onSaved;
     const onCloseRef = useRef(onClose);
     onCloseRef.current = onClose;
+    const adoptDiskTextRef = useRef(adoptDiskText);
+    adoptDiskTextRef.current = adoptDiskText;
 
     const pathRef = useRef(path);
     pathRef.current = path;
+
+    // Save, honoring format-on-save: LSP formatters run in-buffer before the
+    // write; external CLI formatters run after (they rewrite the file on disk),
+    // then the result is read back and adopted without a dirty flash.
+    const performSave = useCallback(async () => {
+      const view = cmRef.current?.view;
+      const prefs = usePreferencesStore.getState();
+      const formatter = resolveFormatter(languageRef.current, prefs);
+      if (prefs.editorFormatOnSave && formatter === "lsp" && view) {
+        try {
+          await lspFormatDocument(view);
+        } catch (e) {
+          toast.error("Language server format failed", {
+            description: String(e),
+          });
+        }
+      }
+      // Snapshot: edits typed during the formatter round-trip must not be
+      // clobbered by the disk read-back.
+      const docAtSave = view?.state.doc;
+      const saved = await saveRef.current();
+      if (!saved) return;
+      if (prefs.editorFormatOnSave && formatter !== "lsp") {
+        const error = await runExternalFormatter(
+          formatter,
+          pathRef.current,
+          prefs.editorCustomFormatCommand,
+        );
+        if (error) {
+          toast.error(`${formatter} format failed`, { description: error });
+        } else {
+          const readBack = await readFileText(pathRef.current);
+          if (readBack !== null && view && view.state.doc === docAtSave) {
+            applyFormattedContent(
+              view,
+              adoptDiskTextRef.current(readBack.text, readBack.mtime),
+            );
+          }
+        }
+      }
+      onSavedRef.current?.();
+    }, []);
+    const performSaveRef = useRef(performSave);
+    performSaveRef.current = performSave;
 
     // LSP: presets key languages by file extension; enable once the doc is ready.
     const langId = useMemo(
@@ -166,10 +229,7 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
         ),
         vimHandlersExtension(() => ({
           save: () => {
-            void (async () => {
-              await saveRef.current();
-              onSavedRef.current?.();
-            })();
+            void performSaveRef.current();
           },
           close: () => onCloseRef.current?.(),
         })),
@@ -194,6 +254,7 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
                         : s.autocompleteModelId;
             return {
               enabled: s.autocompleteEnabled,
+              trigger: s.autocompleteTrigger,
               provider: p,
               modelId,
               apiKey: apiKeyRef.current,
@@ -211,12 +272,16 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
             key: "Mod-s",
             preventDefault: true,
             run: () => {
-              void (async () => {
-                await saveRef.current();
-                onSavedRef.current?.();
-              })();
+              void performSaveRef.current();
               return true;
             },
+          },
+          {
+            // Manual AI autocomplete trigger (VS Code's Alt+\\ convention),
+            // used when the trigger mode is "manual".
+            key: "Alt-\\",
+            preventDefault: true,
+            run: (view) => triggerInlineCompletion(view),
           },
         ]),
       ],
@@ -262,6 +327,20 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
         cancelled = true;
       };
     }, [path, doc.status, languageOverride]);
+
+    // Match the file's own indentation (tabs vs N spaces) once it loads, so
+    // edits don't fight the existing style.
+    const readyContent = doc.status === "ready" ? doc.content : null;
+    useEffect(() => {
+      if (readyContent === null) return;
+      const view = cmRef.current?.view;
+      if (!view) return;
+      view.dispatch({
+        effects: indentCompartment.reconfigure(
+          indentExtension(detectIndentUnit(readyContent)),
+        ),
+      });
+    }, [readyContent]);
 
     // Swap the LSP extension in/out as activation and readiness change.
     useEffect(() => {
@@ -401,11 +480,20 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
     }
     if (doc.status === "toolarge") {
       return (
-        <div className="flex h-full flex-col items-center justify-center gap-1 px-6 text-center">
+        <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
           <div className="text-sm text-foreground">File too large</div>
           <div className="text-xs text-muted-foreground">
             {formatBytes(doc.size)} exceeds the {formatBytes(doc.limit)} limit.
           </div>
+          {doc.size <= FORCE_READ_LIMIT && (
+            <button
+              type="button"
+              onClick={openAnyway}
+              className="mt-1 rounded-md border border-border px-2.5 py-1 text-xs text-foreground/85 hover:bg-accent"
+            >
+              Open anyway
+            </button>
+          )}
         </div>
       );
     }

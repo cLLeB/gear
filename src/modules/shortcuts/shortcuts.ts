@@ -32,6 +32,7 @@ export type ShortcutId =
   | "view.zenMode"
   | "view.rewind"
   | "ai.toggle"
+  | "ai.toggleMini"
   | "ai.askSelection"
   | "shortcuts.open"
   | "settings.open"
@@ -206,6 +207,12 @@ export const SHORTCUTS: Shortcut[] = [
     defaultBindings: [{ [MOD_PROP]: true, key: "i" }],
   },
   {
+    id: "ai.toggleMini",
+    label: "Toggle AI chat window",
+    group: "AI",
+    defaultBindings: [{ [MOD_PROP]: true, shift: true, key: "i" }],
+  },
+  {
     id: "ai.askSelection",
     label: "Ask AI about selection",
     group: "AI",
@@ -303,9 +310,10 @@ export const SHORTCUTS: Shortcut[] = [
     id: "view.zenMode",
     label: "Toggle zen mode",
     group: "View",
+    // Not Shift+Z — that is CodeMirror's native redo in the editor.
     defaultBindings: IS_MAC
-      ? [{ meta: true, shift: true, key: "z" }]
-      : [{ ctrl: true, shift: true, key: "z" }],
+      ? [{ meta: true, shift: true, key: "'" }]
+      : [{ ctrl: true, shift: true, key: "'" }],
   },
   {
     id: "view.rewind",

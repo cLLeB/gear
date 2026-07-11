@@ -56,6 +56,7 @@ import {
 	EditorStack,
 	GitDiffStack,
 	NewEditorDialog,
+	useApplyEditorFontSize,
 } from "@/modules/editor";
 import { FileExplorer, type FileExplorerHandle } from "@/modules/explorer";
 import {
@@ -139,7 +140,7 @@ import {
 	WORKSPACE_INPUT_TOGGLE_EVENT,
 	WorkspaceInputBar,
 } from "./components/WorkspaceInputBar";
-import { useAppCloseGuard } from "./hooks/useAppCloseGuard";
+import { appCloseMessage, useAppCloseGuard } from "./hooks/useAppCloseGuard";
 
 type TuiWaitResult = "ready" | "gone" | "timeout";
 
@@ -170,6 +171,15 @@ const SIDEBAR_MIN_WIDTH = 220;
 const SIDEBAR_MAX_WIDTH = 480;
 const SIDEBAR_WIDTH_STORAGE_KEY = "Gear.sidebar.width";
 const SIDEBAR_VIEW_STORAGE_KEY = "Gear.sidebar.view";
+const SIDEBAR_COLLAPSED_STORAGE_KEY = "Gear.sidebar.collapsed";
+
+function readSidebarCollapsed(): boolean {
+	try {
+		return window.localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY) === "1";
+	} catch {
+		return false;
+	}
+}
 
 function clampSidebarWidth(width: number): number {
 	return Math.min(
@@ -242,6 +252,7 @@ export default function App() {
 		splitActivePane,
 		closeActivePane,
 		closeOtherTabs,
+		closeTabs,
 		closePaneByLeaf,
 		resetWorkspace,
 		openSettingsTab,
@@ -313,6 +324,7 @@ export default function App() {
 	const [gitHistoryHandle, setGitHistoryHandle] =
 		useState<GitHistorySearchHandle | null>(null);
 	const { zoomIn, zoomOut, zoomReset } = useZoom();
+	useApplyEditorFontSize();
 	useTerminalFileDrop();
 	const explorerRef = useRef<FileExplorerHandle>(null);
 	const explorerReturnFocusRef = useRef<HTMLElement | null>(null);
@@ -329,6 +341,20 @@ export default function App() {
 		setSidebarViewState(view);
 		try {
 			window.localStorage.setItem(SIDEBAR_VIEW_STORAGE_KEY, view);
+		} catch {
+			// storage may fail in private mode
+		}
+	}, []);
+	const [initialSidebarCollapsed] = useState(readSidebarCollapsed);
+	const collapsedRef = useRef(initialSidebarCollapsed);
+	const persistSidebarCollapsed = useCallback((collapsed: boolean) => {
+		if (collapsedRef.current === collapsed) return;
+		collapsedRef.current = collapsed;
+		try {
+			window.localStorage.setItem(
+				SIDEBAR_COLLAPSED_STORAGE_KEY,
+				collapsed ? "1" : "0",
+			);
 		} catch {
 			// storage may fail in private mode
 		}
@@ -646,6 +672,7 @@ export default function App() {
 	const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
 	const miniOpen = useChatStore((s) => s.mini.open);
 	const openMini = useChatStore((s) => s.openMini);
+	const toggleMini = useChatStore((s) => s.toggleMini);
 	const focusInput = useChatStore((s) => s.focusInput);
 	const openPanel = useChatStore((s) => s.openPanel);
 	const panelOpen = useChatStore((s) => s.panelOpen);
@@ -1281,7 +1308,8 @@ export default function App() {
 			"tab.close": handleCloseTabOrPane,
 			"tab.next": () => cycleTab(1),
 			"tab.prev": () => cycleTab(-1),
-			"tab.selectByIndex": (e) => selectByIndex(parseInt(e.key, 10) - 1),
+			"tab.selectByIndex": (e) =>
+				selectByIndex(parseInt(e.key, 10) - 1, activeSpaceId),
 			"pane.splitRight": () => splitActivePaneInActiveTab("row"),
 			"pane.splitDown": () => splitActivePaneInActiveTab("col"),
 			"pane.close": () => {
@@ -1295,6 +1323,13 @@ export default function App() {
 			"pane.source": toggleSourceControl,
 			"search.focus": () => searchInlineRef.current?.focus(),
 			"ai.toggle": togglePanelAndFocus,
+			"ai.toggleMini": () => {
+				if (!hasComposer) {
+					openSettingsTab("models");
+					return;
+				}
+				toggleMini();
+			},
 			"ai.askSelection": () => askFromSelection(),
 			"shortcuts.open": () => setShortcutsOpen((v) => !v),
 			"settings.open": () => openSettingsTab(),
@@ -1325,11 +1360,15 @@ export default function App() {
 			openNewPrivateTab,
 			openBlockTab,
 			openPreviewTab,
+			activeSpaceId,
 			selectByIndex,
 			splitActivePaneInActiveTab,
 			focusNextPaneInTab,
 			toggleSourceControl,
 			togglePanelAndFocus,
+			toggleMini,
+			hasComposer,
+			openSettingsTab,
 			askFromSelection,
 			toggleSidebar,
 			toggleExplorerFocus,
@@ -1594,7 +1633,11 @@ export default function App() {
 				useManagedAgentsStore
 					.getState()
 					.register({ leafId, tabId, sessionId, task: oneLine, cwd });
-				const hooksReady = invoke("agent_enable_claude_hooks").catch(() => {});
+				// Installs Claude hooks always, plus Codex/Gemini hooks when the
+				// user actually has those CLIs (their config dir exists).
+				const hooksReady = invoke("agent_enable_present_hooks").catch(
+					() => {},
+				);
 				void (async () => {
 					await Promise.all([whenSessionReady(leafId), hooksReady]);
 					if (!writeToSession(leafId, "claude\r")) {
@@ -1797,6 +1840,7 @@ export default function App() {
 								leafIds(activeTerminalTab.paneTree).length > 1
 							}
 							onCloseOthers={closeOtherTabs}
+							onCloseTabs={closeTabs}
 							onActivateAgent={onActivateAgent}
 							onActivateLocalAgent={onActivateLocalAgent}
 							onOpenSettings={() => openSettingsTab()}
@@ -1815,13 +1859,18 @@ export default function App() {
 									<ResizablePanel
 										id="sidebar"
 										panelRef={sidebarRef}
-										defaultSize={`${sidebarWidthRef.current}px`}
+										defaultSize={
+											initialSidebarCollapsed
+												? "0px"
+												: `${sidebarWidthRef.current}px`
+										}
 										minSize={`${SIDEBAR_MIN_WIDTH}px`}
 										maxSize={`${SIDEBAR_MAX_WIDTH}px`}
 										collapsible
 										collapsedSize={0}
 										onResize={(size) => {
 											if (size.inPixels > 0) persistSidebarWidth(size.inPixels);
+											persistSidebarCollapsed(size.inPixels <= 0);
 										}}
 									>
 										<div className="flex h-full min-h-0 flex-col p-2 pr-1">
@@ -1918,13 +1967,18 @@ export default function App() {
 									<ResizablePanel
 										id="sidebar"
 										panelRef={sidebarRef}
-										defaultSize={`${sidebarWidthRef.current}px`}
+										defaultSize={
+											initialSidebarCollapsed
+												? "0px"
+												: `${sidebarWidthRef.current}px`
+										}
 										minSize={`${SIDEBAR_MIN_WIDTH}px`}
 										maxSize={`${SIDEBAR_MAX_WIDTH}px`}
 										collapsible
 										collapsedSize={0}
 										onResize={(size) => {
 											if (size.inPixels > 0) persistSidebarWidth(size.inPixels);
+											persistSidebarCollapsed(size.inPixels <= 0);
 										}}
 									>
 										<div className="flex h-full min-h-0 flex-col p-2 pl-1">
@@ -1990,14 +2044,14 @@ export default function App() {
 					<RewindPanel />
 
 					<AlertDialog
-						open={pendingAppClose}
+						open={pendingAppClose !== null}
 						onOpenChange={(open) => !open && cancelAppClose()}
 					>
 						<AlertDialogContent>
 							<AlertDialogHeader>
 								<AlertDialogTitle>Quit Gear?</AlertDialogTitle>
 								<AlertDialogDescription>
-									A terminal still has a running process. Quitting will end it.
+									{pendingAppClose ? appCloseMessage(pendingAppClose) : ""}
 								</AlertDialogDescription>
 							</AlertDialogHeader>
 							<AlertDialogFooter>
