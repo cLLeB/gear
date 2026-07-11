@@ -73,7 +73,7 @@ Legend: ✅ ported · 🔁 covered-by-equivalent (our own impl) · ⏭️ skip (
 |----|--------|---------|-------|
 | ⏭️ | 2930d8e | fix(explorer): empty file tree on rapid root change (#822) | N/A — our `useFileTree` has no `nodesRef`/`sameDirListing` early-return; different impl, fix not applicable. |
 | ✅ | c0a51d5 | fix(markdown): preserve HTML-wrapped code block text (#887) | PORTED — recursive `markdownCodeText` extractor + test. |
-| 🔁 | cb75fae | fix(markdown): render file previews statically (#913) | review vs our media preview work |
+| ✅ | cb75fae | fix(markdown): render file previews statically (#913) | PORTED — Streamdown `mode="static"` + `parseIncompleteMarkdown={false}` so the markdown preview renders a complete document instead of streaming heuristics. |
 
 ## Chores / deps / docs / release (default ⏭️ skip unless needed)
 | st | commit | subject |
