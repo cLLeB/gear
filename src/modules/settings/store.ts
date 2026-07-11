@@ -87,6 +87,7 @@ export type Preferences = {
   autostart: boolean;
   restoreWindowState: boolean;
   autocompleteEnabled: boolean;
+  autocompleteTrigger: AutocompleteTrigger;
   autocompleteProvider: AutocompleteProviderId;
   autocompleteModelId: string;
   lmstudioBaseURL: string;
@@ -141,6 +142,8 @@ export type EditorFormatter =
   | "zigfmt"
   | "custom";
 
+export type AutocompleteTrigger = "auto" | "manual";
+
 const STORE_PATH = "Gear-settings.json";
 const KEY_THEME = "theme";
 const KEY_THEME_ID = "themeId";
@@ -158,6 +161,7 @@ const KEY_CUSTOM_INSTRUCTIONS = "customInstructions";
 const KEY_AUTOSTART = "autostart";
 const KEY_RESTORE_WINDOW = "restoreWindowState";
 const KEY_AUTOCOMPLETE_ENABLED = "autocompleteEnabled";
+const KEY_AUTOCOMPLETE_TRIGGER = "autocompleteTrigger";
 const KEY_AUTOCOMPLETE_PROVIDER = "autocompleteProvider";
 const KEY_AUTOCOMPLETE_MODEL = "autocompleteModelId";
 const KEY_LMSTUDIO_BASE_URL = "lmstudioBaseURL";
@@ -239,6 +243,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   autostart: false,
   restoreWindowState: true,
   autocompleteEnabled: false,
+  autocompleteTrigger: "auto",
   autocompleteProvider: "cerebras",
   autocompleteModelId: DEFAULT_AUTOCOMPLETE_MODEL.cerebras ?? "",
   lmstudioBaseURL: LMSTUDIO_DEFAULT_BASE_URL,
@@ -326,6 +331,9 @@ export async function loadPreferences(): Promise<Preferences> {
     autocompleteEnabled:
       get<boolean>(KEY_AUTOCOMPLETE_ENABLED) ??
       DEFAULT_PREFERENCES.autocompleteEnabled,
+    autocompleteTrigger:
+      get<AutocompleteTrigger>(KEY_AUTOCOMPLETE_TRIGGER) ??
+      DEFAULT_PREFERENCES.autocompleteTrigger,
     autocompleteProvider:
       get<AutocompleteProviderId>(KEY_AUTOCOMPLETE_PROVIDER) ??
       DEFAULT_PREFERENCES.autocompleteProvider,
@@ -528,6 +536,12 @@ export async function setRestoreWindowState(value: boolean): Promise<void> {
 
 export async function setAutocompleteEnabled(value: boolean): Promise<void> {
   await writePref(KEY_AUTOCOMPLETE_ENABLED, value);
+}
+
+export async function setAutocompleteTrigger(
+  value: AutocompleteTrigger,
+): Promise<void> {
+  await writePref(KEY_AUTOCOMPLETE_TRIGGER, value);
 }
 
 export async function setAutocompleteProvider(
@@ -764,6 +778,7 @@ export async function onPreferencesChange(
     [KEY_AUTOSTART]: "autostart",
     [KEY_RESTORE_WINDOW]: "restoreWindowState",
     [KEY_AUTOCOMPLETE_ENABLED]: "autocompleteEnabled",
+    [KEY_AUTOCOMPLETE_TRIGGER]: "autocompleteTrigger",
     [KEY_AUTOCOMPLETE_PROVIDER]: "autocompleteProvider",
     [KEY_AUTOCOMPLETE_MODEL]: "autocompleteModelId",
     [KEY_LMSTUDIO_BASE_URL]: "lmstudioBaseURL",
