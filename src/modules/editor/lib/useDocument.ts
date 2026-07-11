@@ -76,7 +76,8 @@ export function useDocument({ path, onDirtyChange }: Options) {
     });
     diskMtimeRef.current = mtime;
     savedRef.current = content;
-    setDirty(false);
+    // Edits typed while the write was in flight must stay dirty.
+    setDirty(bufferRef.current !== content);
   }, [path]);
 
   // False when the write was withheld because the file changed on disk since
@@ -176,7 +177,9 @@ export function useDocument({ path, onDirtyChange }: Options) {
       force: forcedPathRef.current === path,
     })
       .then((res) => {
-        // Compare in LF space — the saved baseline is normalized.
+        // Re-check dirty: typing can start while the read is in flight, and the
+        // reload must never clobber those fresh edits. Compare in LF space.
+        if (dirtyRef.current) return;
         if (res.kind === "text" && normalizeToLf(res.content) !== savedRef.current) {
           setReloadCounter((n) => n + 1);
         }
