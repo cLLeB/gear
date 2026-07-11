@@ -1,5 +1,37 @@
 # Changelog
 
+## [0.1.3](https://github.com/cLLeB/gear/compare/v0.1.2...v0.1.3) (2026-07-11)
+
+
+### Features
+
+* **agents:** notification hooks for Codex and Gemini CLIs (port terax-ai 89e399a) ([05c83f7](https://github.com/cLLeB/gear/commit/05c83f796126eeaac99c637ac18c41eca2d74372))
+* AI mini-window toggle shortcut and space-scoped Cmd+number (port terax-ai) ([1db1415](https://github.com/cLLeB/gear/commit/1db14152500bc7e46716f24426b0c518ec1280ef))
+* **ai:** add current frontier models (port terax-ai 9616cc8) ([1976b55](https://github.com/cLLeB/gear/commit/1976b5543e5deb97f646795d090359e0a6454dc4))
+* **ai:** filter search hits by readability, sanitize provider errors, extract prompt builder ([c4bb5b7](https://github.com/cLLeB/gear/commit/c4bb5b7bf18c936da2b0c7ed0bb40abe94306bcf))
+* **editor:** completion-kind icons, themed LSP chrome, rounded vim cursor (port terax-ai 2219adb) ([ee9f3db](https://github.com/cLLeB/gear/commit/ee9f3db1fe246b424f577c8ac6787bb0d8a39071))
+* **editor:** detect and match a file's indentation (port terax-ai 6980581 subset) ([2fc07eb](https://github.com/cLLeB/gear/commit/2fc07eb7937492f8aabc0aacc15bd5e683db3434))
+* **editor:** external formatter registry and format-on-save (port terax-ai a25fb40) ([0ac7856](https://github.com/cLLeB/gear/commit/0ac785697a61b9d01b4310966b3cedc3c8fd30d3))
+* **editor:** GFM markdown editing with fenced highlighting and clickable tasks (port terax-ai 786ceb5) ([d58c176](https://github.com/cLLeB/gear/commit/d58c176ecd3ea55ac2bb64dc6ff0852bc088b8ac))
+* **editor:** improve AI autocomplete quality and add trigger control (port terax-ai 7b1fae6) ([724cf33](https://github.com/cLLeB/gear/commit/724cf3319e3d106b6fb9b5b83e1ca1d278aea61b))
+* **editor:** independent font size, dotenv highlighting, 13 more LSP presets (port terax-ai) ([703254c](https://github.com/cLLeB/gear/commit/703254c0f1284a2f422782f8d6255b50fa68bf7a))
+* **lsp:** find-references picker, ruff preset, activation-aware server choice (port terax-ai 42b51e7) ([c0a5a73](https://github.com/cLLeB/gear/commit/c0a5a7382b628637256c84732a2bbd7240219598))
+* **lsp:** hover code highlighting and cmd-hover link affordance (port terax-ai e874b39) ([42d5afa](https://github.com/cLLeB/gear/commit/42d5afa0cf8de11c23f56a6dfe4dd93e01a25356))
+* sidebar collapse persistence, zen-mode rebind, markdown code text (port terax-ai) ([cf7ed05](https://github.com/cLLeB/gear/commit/cf7ed05e685a510d5d865879642e18c28c18bff9))
+* **tabs:** Close Others / Close Saved / Close All overflow menu ([83ebfca](https://github.com/cLLeB/gear/commit/83ebfca2c335af3129c25f8db2c55781c5dabcdd))
+* **terminal:** drag a file from the sidebar explorer into the terminal ([1b4df7c](https://github.com/cLLeB/gear/commit/1b4df7c669fa7eafd814b1cf0603bf2a9339c408))
+* **terminal:** plain Ctrl+C/Ctrl+V copy-paste in PowerShell ([f0d9574](https://github.com/cLLeB/gear/commit/f0d95746ae1d6e615a0d4954409e1b0b6220f51a))
+
+
+### Bug Fixes
+
+* **chronicle:** collapse nested if to satisfy clippy collapsible_if ([8b6a4e6](https://github.com/cLLeB/gear/commit/8b6a4e6b202a6dbf93a406bcca39be9b64903fc3))
+* **clippy:** drop redundant inner cfg(windows) in job modules ([96b895b](https://github.com/cLLeB/gear/commit/96b895b3e84d6dd6fac7be8344ce068ed10e77be))
+* **editor:** close save/reload races and LSP format/preset rebinding (port terax-ai 85a5653) ([0231d06](https://github.com/cLLeB/gear/commit/0231d06990b7485148d3d5904ded4c93a766afb1))
+* **editor:** preserve line endings, detect save conflicts, block quit on unsaved (port terax-ai 662dbbb) ([94abbaf](https://github.com/cLLeB/gear/commit/94abbaf611827caf818cdb0a61c9298ee082396f))
+* **markdown:** render preview statically (port terax-ai cb75fae) ([32bfab0](https://github.com/cLLeB/gear/commit/32bfab0ea290412bbe666bb5a995d3b477e3a07b))
+* **workspace:** fall back to home on Store (MSIX) launch, not System32 ([e2cd143](https://github.com/cLLeB/gear/commit/e2cd143467c7962a422a78e6fe96094c49027045))
+
 ## [0.1.2](https://github.com/cLLeB/gear/compare/v0.1.1...v0.1.2) (2026-07-04)
 
 
