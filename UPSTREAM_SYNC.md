@@ -28,7 +28,7 @@ Legend: ✅ ported · 🔁 covered-by-equivalent (our own impl) · ⏭️ skip (
 | st | commit | subject | notes |
 |----|--------|---------|-------|
 | 🔁 | a3ebccd | fix(terminal): native clipboard copy/paste on Linux (#713) | partial via `c9cbb57` (Linux clipboard). **See PowerShell Ctrl+C/V request — separate custom work** |
-| 🟡 | 52b90c1 | fix(pty): rewrap fish prompt after config.fish on WSL/Windows | want (Windows-relevant) |
+| ⏭️ | 52b90c1 | fix(pty): rewrap fish prompt after config.fish on WSL/Windows | N/A — our fork uses fish conf.d integration, not the -C FISH_REINSTALL_PROMPT mechanism this fix targets. |
 | 🔁 | d96da41 | refactor(proc): move windows job object out of pty | likely covered by our Windows PTY work; verify |
 
 ## Editor / LSP
@@ -37,7 +37,7 @@ Legend: ✅ ported · 🔁 covered-by-equivalent (our own impl) · ⏭️ skip (
 | 🔁 | 3c3ded3..1ddf798 | LSP subsystem (rust host, client, sessions, chrome, watchdog) | covered by `242551f feat(lsp): adopt LSP subsystem` — verify parity |
 | 🔁 | fef9f22 | fix(lsp): age-guard idle eviction | ported as `4ffa69b` |
 | 🔎 | 42b51e7 | feat(lsp): find references picker, ruff preset | review — may post-date our LSP adopt |
-| 🔎 | 3791846 | feat(lsp): presets for 13 more languages | review — expand our preset list |
+| ✅ | 3791846 | feat(lsp): presets for 13 more languages | PORTED — appended 13 presets (clangd, zls, lua-ls, ruby-lsp, intelephense, yaml-ls, bash-ls, json-ls, css-ls, html-ls, svelte-ls, vue-ls, sourcekit); shapes matched, no overlap with our 4. |
 | 🔎 | e874b39 | feat(lsp): cmd-hover link, hover highlight, statusbar | review |
 | 🔁 | d77476e | feat(editor): per-tab language override dropdown | ported as `aa673f3` |
 | 🟡 | 653dd15 | feat(settings): dedicated editor tab | review — settings UX |
@@ -49,8 +49,8 @@ Legend: ✅ ported · 🔁 covered-by-equivalent (our own impl) · ⏭️ skip (
 | 🟡 | 786ceb5 | feat(editor): markdown notes GFM, clickable tasks | review |
 | 🟡 | 7b1fae6 | feat(editor): AI autocomplete placement/quality/triggers | review |
 | ✅ | 9ec7328 | fix(editor): resolve diff pane language before mount | COVERED — our AiDiffPane/GitDiffPane already seed `resolveLanguageSync(path)` before mount. |
-| 🟡 | e63ca2f | feat(editor): independent font sizing | want — small |
-| 🟡 | ae9e690 | feat(editor): dotenv syntax highlighting | want — small |
+| ✅ | e63ca2f | feat(editor): independent font sizing | PORTED — editorFontSize pref (+setter/clamp/keymap), --editor-font-size CSS var via useApplyEditorFontSize, .cm-scroller uses it, picker in GeneralSection. |
+| ✅ | ae9e690 | feat(editor): dotenv syntax highlighting | PORTED — .env/*.env use shell legacy-mode via an env loader in languageResolver. |
 | ⏭️ | 7649926 | fix(editor): refine Kanagawa JSX colors | N/A — our fork ships no Kanagawa theme. |
 | 🟡 | 1fd11b0 | fix(editor): freeze extension singletons, autosave clamp | review — perf |
 | 🟡 | 2219adb | feat(editor): completion icons, themed lsp chrome, vim cursor | review |
