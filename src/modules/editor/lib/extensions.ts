@@ -1,4 +1,5 @@
 import { detectMonoFontFamily } from "@/lib/fonts";
+import { chromeTheme } from "./chromeTheme";
 import { codeFolding, indentUnit } from "@codemirror/language";
 import { lintGutter } from "@codemirror/lint";
 import { search } from "@codemirror/search";
@@ -11,6 +12,17 @@ export const readOnlyCompartment = new Compartment();
 export const wrapCompartment = new Compartment();
 export const vimCompartment = new Compartment();
 export const lspCompartment = new Compartment();
+export const indentCompartment = new Compartment();
+
+/** Indent config from a unit string ("\t" or N spaces). */
+export function indentExtension(unit: string): Extension {
+  return [
+    indentUnit.of(unit),
+    EditorState.tabSize.of(unit === "\t" ? 4 : unit.length),
+  ];
+}
+
+export const DEFAULT_INDENT: Extension = indentExtension("  ");
 
 // Only what basicSetup doesn't already cover, to avoid duplicate extensions.
 // basicSetup gives us line numbers, fold gutter, history, indentOnInput,
@@ -18,11 +30,11 @@ export const lspCompartment = new Compartment();
 // highlightSelectionMatches and the search keymap.
 export function buildSharedExtensions(): Extension[] {
   return [
-    indentUnit.of("  "),
-    EditorState.tabSize.of(2),
+    indentCompartment.of(DEFAULT_INDENT),
     codeFolding(),
     search({ top: true }),
     lintGutter(),
+    chromeTheme(),
     wrapCompartment.of([]),
     rectangularSelection(),
     crosshairCursor(),
@@ -35,7 +47,7 @@ export function buildSharedExtensions(): Extension[] {
       },
       ".cm-scroller": {
         fontFamily: detectMonoFontFamily(),
-        fontSize: "calc(13px * var(--app-zoom, 1))",
+        fontSize: "calc(var(--editor-font-size, 13px) * var(--app-zoom, 1))",
         lineHeight: "1.55",
         backgroundColor: "transparent !important",
       },
@@ -80,6 +92,7 @@ export function buildSharedExtensions(): Extension[] {
         outline:
           "1px solid color-mix(in srgb, var(--foreground) 55%, transparent) !important",
         color: "var(--foreground) !important",
+        borderRadius: "2px",
       },
       "&:not(.cm-focused) .cm-fat-cursor": {
         background: "transparent !important",

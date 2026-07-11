@@ -28,6 +28,7 @@ import {
   setAutocompleteEnabled,
   setAutocompleteModelId,
   setAutocompleteProvider,
+  setAutocompleteTrigger,
   setDefaultModel,
   setLmstudioBaseURL,
   setLmstudioModelId,
@@ -105,7 +106,7 @@ const LOCAL_META: Partial<Record<ProviderId, LocalMeta>> = {
   },
   openrouter: {
     urlPlaceholder: "",
-    modelPlaceholder: "anthropic/claude-sonnet-4-6",
+    modelPlaceholder: "anthropic/claude-sonnet-5",
     description:
       "Access hundreds of models via OpenRouter's unified API.",
     modelHint: (
@@ -501,6 +502,7 @@ function AutocompleteRow({
   t: (key: string, opts?: Record<string, unknown>) => string;
 }) {
   const enabled = usePreferencesStore((s) => s.autocompleteEnabled);
+  const trigger = usePreferencesStore((s) => s.autocompleteTrigger);
   const provider = usePreferencesStore((s) => s.autocompleteProvider);
   const modelId = usePreferencesStore((s) => s.autocompleteModelId);
   const eligible = useMemo(() => getAutocompleteEligibleModels(), []);
@@ -617,6 +619,19 @@ function AutocompleteRow({
               })}
             </DropdownMenuContent>
           </DropdownMenu>
+          <Button
+            variant="outline"
+            disabled={!enabled}
+            onClick={() =>
+              void setAutocompleteTrigger(
+                trigger === "auto" ? "manual" : "auto",
+              )
+            }
+            title={"Auto suggests as you type; Manual triggers on Alt+\\"}
+            className="h-8 shrink-0 px-2.5 text-[11.5px]"
+          >
+            {trigger === "auto" ? "Auto" : "Manual"}
+          </Button>
         </div>
       </FieldRow>
       {enabled && !hasKey ? (

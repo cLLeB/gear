@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  isPowerShellShellPath,
+  terminalClipboardIntent,
   terminalDeleteSequence,
   terminalLineNavigationSequence,
   terminalWordNavigationSequence,
@@ -11,6 +13,7 @@ const evt = (partial: Partial<TerminalKeyEvent>): TerminalKeyEvent => ({
   altKey: false,
   ctrlKey: false,
   metaKey: false,
+  shiftKey: false,
   key: "",
   code: "",
   ...partial,
@@ -132,6 +135,100 @@ describe("terminalDeleteSequence", () => {
         evt({ key: "Backspace", code: "Backspace" }),
         { isMac: true },
       ),
+    ).toBeNull();
+  });
+});
+
+describe("isPowerShellShellPath", () => {
+  it("matches pwsh / powershell by basename regardless of separators", () => {
+    expect(isPowerShellShellPath("C:\\Program Files\\PowerShell\\7\\pwsh.exe", true)).toBe(true);
+    expect(isPowerShellShellPath("C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe", true)).toBe(true);
+    expect(isPowerShellShellPath("/usr/bin/pwsh", false)).toBe(true);
+  });
+
+  it("treats an unset shell as PowerShell only on Windows (the built-in default)", () => {
+    expect(isPowerShellShellPath(undefined, true)).toBe(true);
+    expect(isPowerShellShellPath("", true)).toBe(true);
+    expect(isPowerShellShellPath(undefined, false)).toBe(false);
+  });
+
+  it("does not match bash / cmd / other shells", () => {
+    expect(isPowerShellShellPath("C:\\Program Files\\Git\\bin\\bash.exe", true)).toBe(false);
+    expect(isPowerShellShellPath("C:\\Windows\\System32\\cmd.exe", true)).toBe(false);
+    expect(isPowerShellShellPath("/bin/zsh", false)).toBe(false);
+  });
+});
+
+describe("terminalClipboardIntent", () => {
+  const copy = { key: "c", code: "KeyC" };
+  const paste = { key: "v", code: "KeyV" };
+
+  it("classifies Ctrl+Shift+C/V as copy/paste in any shell", () => {
+    expect(
+      terminalClipboardIntent(evt({ ctrlKey: true, shiftKey: true, ...copy }), {
+        isMac: false,
+        powerShell: false,
+      }),
+    ).toBe("copy");
+    expect(
+      terminalClipboardIntent(evt({ ctrlKey: true, shiftKey: true, ...paste }), {
+        isMac: false,
+        powerShell: false,
+      }),
+    ).toBe("paste");
+  });
+
+  it("classifies plain Ctrl+C/V as copy/paste in PowerShell", () => {
+    expect(
+      terminalClipboardIntent(evt({ ctrlKey: true, ...copy }), {
+        isMac: false,
+        powerShell: true,
+      }),
+    ).toBe("copy");
+    expect(
+      terminalClipboardIntent(evt({ ctrlKey: true, ...paste }), {
+        isMac: false,
+        powerShell: true,
+      }),
+    ).toBe("paste");
+  });
+
+  it("leaves plain Ctrl+C/V alone in non-PowerShell shells (bash keeps SIGINT/no-op)", () => {
+    expect(
+      terminalClipboardIntent(evt({ ctrlKey: true, ...copy }), {
+        isMac: false,
+        powerShell: false,
+      }),
+    ).toBeNull();
+    expect(
+      terminalClipboardIntent(evt({ ctrlKey: true, ...paste }), {
+        isMac: false,
+        powerShell: false,
+      }),
+    ).toBeNull();
+  });
+
+  it("never intercepts on macOS", () => {
+    expect(
+      terminalClipboardIntent(evt({ ctrlKey: true, shiftKey: true, ...copy }), {
+        isMac: true,
+        powerShell: true,
+      }),
+    ).toBeNull();
+  });
+
+  it("ignores Ctrl+Alt / other keys", () => {
+    expect(
+      terminalClipboardIntent(evt({ ctrlKey: true, altKey: true, ...copy }), {
+        isMac: false,
+        powerShell: true,
+      }),
+    ).toBeNull();
+    expect(
+      terminalClipboardIntent(evt({ ctrlKey: true, key: "a", code: "KeyA" }), {
+        isMac: false,
+        powerShell: true,
+      }),
     ).toBeNull();
   });
 });
