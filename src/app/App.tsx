@@ -242,6 +242,7 @@ export default function App() {
 		splitActivePane,
 		closeActivePane,
 		closeOtherTabs,
+		closeTabs,
 		closePaneByLeaf,
 		resetWorkspace,
 		openSettingsTab,
@@ -1797,6 +1798,7 @@ export default function App() {
 								leafIds(activeTerminalTab.paneTree).length > 1
 							}
 							onCloseOthers={closeOtherTabs}
+							onCloseTabs={closeTabs}
 							onActivateAgent={onActivateAgent}
 							onActivateLocalAgent={onActivateLocalAgent}
 							onOpenSettings={() => openSettingsTab()}
