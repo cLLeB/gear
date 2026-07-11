@@ -71,7 +71,7 @@ export async function requestCompletion(
     maxRetries: 0,
     abortSignal: signal,
     ...(modelSupportsTemperature(deps.provider, modelId)
-      ? { temperature: 0.2 }
+      ? { temperature: 0.1 }
       : {}),
     ...(providerOptions ? { providerOptions } : {}),
   });

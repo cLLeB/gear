@@ -47,7 +47,10 @@ import { initVimGlobals, vimHandlersExtension } from "./lib/vim";
 initVimGlobals();
 import { resolveLanguage } from "./lib/languageResolver";
 import { FORCE_READ_LIMIT, useDocument } from "./lib/useDocument";
-import { inlineCompletion } from "./lib/autocomplete/inlineExtension";
+import {
+  inlineCompletion,
+  triggerInlineCompletion,
+} from "./lib/autocomplete/inlineExtension";
 import { getKey } from "@/modules/ai/lib/keyring";
 import { onKeysChanged } from "@/modules/settings/store";
 
@@ -251,6 +254,7 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
                         : s.autocompleteModelId;
             return {
               enabled: s.autocompleteEnabled,
+              trigger: s.autocompleteTrigger,
               provider: p,
               modelId,
               apiKey: apiKeyRef.current,
@@ -271,6 +275,13 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
               void performSaveRef.current();
               return true;
             },
+          },
+          {
+            // Manual AI autocomplete trigger (VS Code's Alt+\\ convention),
+            // used when the trigger mode is "manual".
+            key: "Alt-\\",
+            preventDefault: true,
+            run: (view) => triggerInlineCompletion(view),
           },
         ]),
       ],
