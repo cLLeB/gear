@@ -122,6 +122,7 @@ export type Preferences = {
   shortcuts: Record<ShortcutId, KeyBinding[]>;
   editorAutoSave: boolean;
   editorAutoSaveDelay: number;
+  editorFontSize: number;
 };
 
 const STORE_PATH = "Gear-settings.json";
@@ -177,6 +178,14 @@ const KEY_SIDEBAR_POSITION = "sidebarPosition";
 const KEY_SHORTCUTS = "shortcuts";
 const KEY_EDITOR_AUTO_SAVE = "editorAutoSave";
 const KEY_EDITOR_AUTO_SAVE_DELAY = "editorAutoSaveDelay";
+const KEY_EDITOR_FONT_SIZE = "editorFontSize";
+
+export const EDITOR_FONT_SIZE_DEFAULT = 13;
+export const EDITOR_FONT_SIZE_MIN = 8;
+export const EDITOR_FONT_SIZE_MAX = 32;
+export const EDITOR_FONT_SIZES = [
+  10, 11, 12, 13, 14, 15, 16, 18, 20, 22, 24,
+] as const;
 
 export const TERMINAL_FONT_SIZE_DEFAULT = 14;
 export const TERMINAL_FONT_SIZE_MIN = 8;
@@ -245,6 +254,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   shortcuts: {} as Record<ShortcutId, KeyBinding[]>,
   editorAutoSave: false,
   editorAutoSaveDelay: 1000,
+  editorFontSize: EDITOR_FONT_SIZE_DEFAULT,
 };
 
 const store = new LazyStore(STORE_PATH, { defaults: {}, autoSave: 200 });
@@ -386,7 +396,20 @@ export async function loadPreferences(): Promise<Preferences> {
       get<number>(KEY_EDITOR_AUTO_SAVE_DELAY) ??
         DEFAULT_PREFERENCES.editorAutoSaveDelay,
     ),
+    editorFontSize: clampEditorFontSize(
+      get<number>(KEY_EDITOR_FONT_SIZE) ?? DEFAULT_PREFERENCES.editorFontSize,
+    ),
   };
+}
+
+function clampEditorFontSize(value: number): number {
+  return Number.isFinite(value)
+    ? Math.min(EDITOR_FONT_SIZE_MAX, Math.max(EDITOR_FONT_SIZE_MIN, Math.round(value)))
+    : EDITOR_FONT_SIZE_DEFAULT;
+}
+
+export async function setEditorFontSize(value: number): Promise<void> {
+  await writePref(KEY_EDITOR_FONT_SIZE, clampEditorFontSize(value));
 }
 
 export async function setTheme(value: ThemePref): Promise<void> {
@@ -722,6 +745,7 @@ export async function onPreferencesChange(
     [KEY_SHORTCUTS]: "shortcuts",
     [KEY_EDITOR_AUTO_SAVE]: "editorAutoSave",
     [KEY_EDITOR_AUTO_SAVE_DELAY]: "editorAutoSaveDelay",
+    [KEY_EDITOR_FONT_SIZE]: "editorFontSize",
   };
   // Same-process writes still fire onChange immediately; cross-window writes
   // arrive via the Tauri event emitted by writePref().

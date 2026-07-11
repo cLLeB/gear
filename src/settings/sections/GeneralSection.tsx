@@ -18,11 +18,13 @@ import { cn } from "@/lib/utils";
 import { usePreferencesStore } from "@/modules/settings/preferences";
 import type { ThemePref } from "@/modules/settings/store";
 import {
+  EDITOR_FONT_SIZES,
   TERMINAL_FONT_SIZES,
   TERMINAL_SCROLLBACK_PRESETS,
   setAgentNotifications,
   setEditorAutoSave,
   setEditorAutoSaveDelay,
+  setEditorFontSize,
   exportSettings,
   importSettings,
   setAutostart,
@@ -79,6 +81,7 @@ export function GeneralSection() {
   const vimMode = usePreferencesStore((s) => s.vimMode);
   const editorAutoSave = usePreferencesStore((s) => s.editorAutoSave);
   const editorAutoSaveDelay = usePreferencesStore((s) => s.editorAutoSaveDelay);
+  const editorFontSize = usePreferencesStore((s) => s.editorFontSize);
   const showHidden = usePreferencesStore((s) => s.showHidden);
   const terminalWebglEnabled = usePreferencesStore((s) => s.terminalWebglEnabled);
   const terminalCursorBlink = usePreferencesStore((s) => s.terminalCursorBlink);
@@ -245,6 +248,30 @@ export function GeneralSection() {
             onChange={(v) => void setEditorAutoSaveDelay(v)}
           />
         )}
+        <SettingRow
+          title="Font size"
+          description="Font size for the code editor, independent of the terminal."
+        >
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="h-8 justify-between gap-2 rounded-none px-2.5 text-[12px]">
+                <span>{editorFontSize} px</span>
+                <HugeiconsIcon icon={ArrowDown01Icon} size={12} strokeWidth={2} className="opacity-70" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-[80px] rounded-none border border-border bg-popover p-0 shadow-none ring-0">
+              {EDITOR_FONT_SIZES.map((size) => (
+                <DropdownMenuItem
+                  key={size}
+                  onSelect={() => void setEditorFontSize(size)}
+                  className={cn("rounded-none px-3 py-1.5 text-[12px]", size === editorFontSize && "bg-accent/50")}
+                >
+                  {size} px
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </SettingRow>
       </div>
 
       <div className="flex flex-col gap-2">

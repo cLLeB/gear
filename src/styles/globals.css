@@ -139,6 +139,7 @@
 
 :root {
   --app-zoom: 1;
+  --editor-font-size: 13px;
 }
 
 /* Light-mode terminal: GitHub-style palette readable on a light surface */

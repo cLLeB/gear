@@ -56,6 +56,7 @@ import {
 	EditorStack,
 	GitDiffStack,
 	NewEditorDialog,
+	useApplyEditorFontSize,
 } from "@/modules/editor";
 import { FileExplorer, type FileExplorerHandle } from "@/modules/explorer";
 import {
@@ -323,6 +324,7 @@ export default function App() {
 	const [gitHistoryHandle, setGitHistoryHandle] =
 		useState<GitHistorySearchHandle | null>(null);
 	const { zoomIn, zoomOut, zoomReset } = useZoom();
+	useApplyEditorFontSize();
 	useTerminalFileDrop();
 	const explorerRef = useRef<FileExplorerHandle>(null);
 	const explorerReturnFocusRef = useRef<HTMLElement | null>(null);
