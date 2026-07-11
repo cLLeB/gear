@@ -1,8 +1,8 @@
 //! Windows Job Object with KILL_ON_JOB_CLOSE for child process trees.
 //! Dropping the handle kills the whole tree, the only reliable orphan guard
 //! on Windows.
-
-#![cfg(windows)]
+//!
+//! Windows-only: gated at the `mod job;` declaration site.
 
 use std::io;
 use std::mem::{size_of, zeroed};
