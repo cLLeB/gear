@@ -32,6 +32,7 @@ export type ShortcutId =
   | "view.zenMode"
   | "view.rewind"
   | "ai.toggle"
+  | "ai.toggleMini"
   | "ai.askSelection"
   | "shortcuts.open"
   | "settings.open"
@@ -204,6 +205,12 @@ export const SHORTCUTS: Shortcut[] = [
     label: "Toggle AI agent",
     group: "AI",
     defaultBindings: [{ [MOD_PROP]: true, key: "i" }],
+  },
+  {
+    id: "ai.toggleMini",
+    label: "Toggle AI chat window",
+    group: "AI",
+    defaultBindings: [{ [MOD_PROP]: true, shift: true, key: "i" }],
   },
   {
     id: "ai.askSelection",
