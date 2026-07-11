@@ -123,7 +123,23 @@ export type Preferences = {
   editorAutoSave: boolean;
   editorAutoSaveDelay: number;
   editorFontSize: number;
+  editorFormatOnSave: boolean;
+  editorFormatter: EditorFormatter;
+  editorFormatterByLang: Record<string, EditorFormatter>;
+  editorCustomFormatCommand: string;
 };
+
+export type EditorFormatter =
+  | "lsp"
+  | "biome"
+  | "prettier"
+  | "ruff"
+  | "rustfmt"
+  | "gofmt"
+  | "clang-format"
+  | "shfmt"
+  | "zigfmt"
+  | "custom";
 
 const STORE_PATH = "Gear-settings.json";
 const KEY_THEME = "theme";
@@ -179,6 +195,10 @@ const KEY_SHORTCUTS = "shortcuts";
 const KEY_EDITOR_AUTO_SAVE = "editorAutoSave";
 const KEY_EDITOR_AUTO_SAVE_DELAY = "editorAutoSaveDelay";
 const KEY_EDITOR_FONT_SIZE = "editorFontSize";
+const KEY_EDITOR_FORMAT_ON_SAVE = "editorFormatOnSave";
+const KEY_EDITOR_FORMATTER = "editorFormatter";
+const KEY_EDITOR_FORMATTER_BY_LANG = "editorFormatterByLang";
+const KEY_EDITOR_CUSTOM_FORMAT_COMMAND = "editorCustomFormatCommand";
 
 export const EDITOR_FONT_SIZE_DEFAULT = 13;
 export const EDITOR_FONT_SIZE_MIN = 8;
@@ -255,6 +275,10 @@ export const DEFAULT_PREFERENCES: Preferences = {
   editorAutoSave: false,
   editorAutoSaveDelay: 1000,
   editorFontSize: EDITOR_FONT_SIZE_DEFAULT,
+  editorFormatOnSave: false,
+  editorFormatter: "lsp",
+  editorFormatterByLang: {},
+  editorCustomFormatCommand: "",
 };
 
 const store = new LazyStore(STORE_PATH, { defaults: {}, autoSave: 200 });
@@ -399,6 +423,18 @@ export async function loadPreferences(): Promise<Preferences> {
     editorFontSize: clampEditorFontSize(
       get<number>(KEY_EDITOR_FONT_SIZE) ?? DEFAULT_PREFERENCES.editorFontSize,
     ),
+    editorFormatOnSave:
+      get<boolean>(KEY_EDITOR_FORMAT_ON_SAVE) ??
+      DEFAULT_PREFERENCES.editorFormatOnSave,
+    editorFormatter:
+      get<EditorFormatter>(KEY_EDITOR_FORMATTER) ??
+      DEFAULT_PREFERENCES.editorFormatter,
+    editorFormatterByLang:
+      get<Record<string, EditorFormatter>>(KEY_EDITOR_FORMATTER_BY_LANG) ??
+      DEFAULT_PREFERENCES.editorFormatterByLang,
+    editorCustomFormatCommand:
+      get<string>(KEY_EDITOR_CUSTOM_FORMAT_COMMAND) ??
+      DEFAULT_PREFERENCES.editorCustomFormatCommand,
   };
 }
 
@@ -410,6 +446,24 @@ function clampEditorFontSize(value: number): number {
 
 export async function setEditorFontSize(value: number): Promise<void> {
   await writePref(KEY_EDITOR_FONT_SIZE, clampEditorFontSize(value));
+}
+
+export async function setEditorFormatOnSave(value: boolean): Promise<void> {
+  await writePref(KEY_EDITOR_FORMAT_ON_SAVE, value);
+}
+
+export async function setEditorFormatter(value: EditorFormatter): Promise<void> {
+  await writePref(KEY_EDITOR_FORMATTER, value);
+}
+
+export async function setEditorFormatterByLang(
+  value: Record<string, EditorFormatter>,
+): Promise<void> {
+  await writePref(KEY_EDITOR_FORMATTER_BY_LANG, value);
+}
+
+export async function setEditorCustomFormatCommand(value: string): Promise<void> {
+  await writePref(KEY_EDITOR_CUSTOM_FORMAT_COMMAND, value);
 }
 
 export async function setTheme(value: ThemePref): Promise<void> {
@@ -746,6 +800,10 @@ export async function onPreferencesChange(
     [KEY_EDITOR_AUTO_SAVE]: "editorAutoSave",
     [KEY_EDITOR_AUTO_SAVE_DELAY]: "editorAutoSaveDelay",
     [KEY_EDITOR_FONT_SIZE]: "editorFontSize",
+    [KEY_EDITOR_FORMAT_ON_SAVE]: "editorFormatOnSave",
+    [KEY_EDITOR_FORMATTER]: "editorFormatter",
+    [KEY_EDITOR_FORMATTER_BY_LANG]: "editorFormatterByLang",
+    [KEY_EDITOR_CUSTOM_FORMAT_COMMAND]: "editorCustomFormatCommand",
   };
   // Same-process writes still fire onChange immediately; cross-window writes
   // arrive via the Tauri event emitted by writePref().

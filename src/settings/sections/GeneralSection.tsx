@@ -22,9 +22,12 @@ import {
   TERMINAL_FONT_SIZES,
   TERMINAL_SCROLLBACK_PRESETS,
   setAgentNotifications,
+  type EditorFormatter,
   setEditorAutoSave,
   setEditorAutoSaveDelay,
   setEditorFontSize,
+  setEditorFormatOnSave,
+  setEditorFormatter,
   exportSettings,
   importSettings,
   setAutostart,
@@ -51,8 +54,22 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { disable, enable, isEnabled } from "@tauri-apps/plugin-autostart";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { FORMATTER_LABELS } from "@/modules/editor/lib/externalFormat";
 import { SectionHeader } from "../components/SectionHeader";
 import { SettingRow } from "../components/SettingRow";
+
+const FORMATTER_ORDER: EditorFormatter[] = [
+  "lsp",
+  "biome",
+  "prettier",
+  "ruff",
+  "rustfmt",
+  "gofmt",
+  "clang-format",
+  "shfmt",
+  "zigfmt",
+  "custom",
+];
 
 const APPEARANCE_DEFS: { id: ThemePref; labelKey: string; icon: typeof ComputerIcon }[] = [
   { id: "system", labelKey: "settings.general.themes.system", icon: ComputerIcon },
@@ -82,6 +99,8 @@ export function GeneralSection() {
   const editorAutoSave = usePreferencesStore((s) => s.editorAutoSave);
   const editorAutoSaveDelay = usePreferencesStore((s) => s.editorAutoSaveDelay);
   const editorFontSize = usePreferencesStore((s) => s.editorFontSize);
+  const editorFormatOnSave = usePreferencesStore((s) => s.editorFormatOnSave);
+  const editorFormatter = usePreferencesStore((s) => s.editorFormatter);
   const showHidden = usePreferencesStore((s) => s.showHidden);
   const terminalWebglEnabled = usePreferencesStore((s) => s.terminalWebglEnabled);
   const terminalCursorBlink = usePreferencesStore((s) => s.terminalCursorBlink);
@@ -272,6 +291,41 @@ export function GeneralSection() {
             </DropdownMenuContent>
           </DropdownMenu>
         </SettingRow>
+        <SettingRow
+          title="Format on save"
+          description="Run the chosen formatter each time a file is saved."
+        >
+          <Switch
+            checked={editorFormatOnSave}
+            onCheckedChange={(v) => void setEditorFormatOnSave(v)}
+          />
+        </SettingRow>
+        {editorFormatOnSave && (
+          <SettingRow
+            title="Formatter"
+            description="Language server, or an external CLI (must be installed and on PATH)."
+          >
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="h-8 justify-between gap-2 rounded-none px-2.5 text-[12px]">
+                  <span>{FORMATTER_LABELS[editorFormatter]}</span>
+                  <HugeiconsIcon icon={ArrowDown01Icon} size={12} strokeWidth={2} className="opacity-70" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="min-w-[160px] rounded-none border border-border bg-popover p-0 shadow-none ring-0">
+                {FORMATTER_ORDER.map((id) => (
+                  <DropdownMenuItem
+                    key={id}
+                    onSelect={() => void setEditorFormatter(id)}
+                    className={cn("rounded-none px-3 py-1.5 text-[12px]", id === editorFormatter && "bg-accent/50")}
+                  >
+                    {FORMATTER_LABELS[id]}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </SettingRow>
+        )}
       </div>
 
       <div className="flex flex-col gap-2">

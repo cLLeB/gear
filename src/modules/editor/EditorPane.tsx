@@ -33,7 +33,14 @@ import {
   wrapCompartment,
 } from "./lib/extensions";
 import { detectIndentUnit } from "./lib/indent";
-import { useLspExtension } from "@/modules/lsp";
+import { lspFormatDocument, useLspExtension } from "@/modules/lsp";
+import { toast } from "sonner";
+import {
+  applyFormattedContent,
+  readFileText,
+  resolveFormatter,
+  runExternalFormatter,
+} from "./lib/externalFormat";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { initVimGlobals, vimHandlersExtension } from "./lib/vim";
 
@@ -92,10 +99,11 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
     { path, languageOverride, onDirtyChange, onSaved, onClose },
     ref,
   ) {
-    const { doc, onChange, save, reload, openAnyway } = useDocument({
-      path,
-      onDirtyChange,
-    });
+    const { doc, onChange, save, reload, openAnyway, adoptDiskText } =
+      useDocument({
+        path,
+        onDirtyChange,
+      });
     const reloadRef = useRef(reload);
     reloadRef.current = reload;
     const cmRef = useRef<ReactCodeMirrorRef>(null);
@@ -152,9 +160,55 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
     onSavedRef.current = onSaved;
     const onCloseRef = useRef(onClose);
     onCloseRef.current = onClose;
+    const adoptDiskTextRef = useRef(adoptDiskText);
+    adoptDiskTextRef.current = adoptDiskText;
 
     const pathRef = useRef(path);
     pathRef.current = path;
+
+    // Save, honoring format-on-save: LSP formatters run in-buffer before the
+    // write; external CLI formatters run after (they rewrite the file on disk),
+    // then the result is read back and adopted without a dirty flash.
+    const performSave = useCallback(async () => {
+      const view = cmRef.current?.view;
+      const prefs = usePreferencesStore.getState();
+      const formatter = resolveFormatter(languageRef.current, prefs);
+      if (prefs.editorFormatOnSave && formatter === "lsp" && view) {
+        try {
+          await lspFormatDocument(view);
+        } catch (e) {
+          toast.error("Language server format failed", {
+            description: String(e),
+          });
+        }
+      }
+      // Snapshot: edits typed during the formatter round-trip must not be
+      // clobbered by the disk read-back.
+      const docAtSave = view?.state.doc;
+      const saved = await saveRef.current();
+      if (!saved) return;
+      if (prefs.editorFormatOnSave && formatter !== "lsp") {
+        const error = await runExternalFormatter(
+          formatter,
+          pathRef.current,
+          prefs.editorCustomFormatCommand,
+        );
+        if (error) {
+          toast.error(`${formatter} format failed`, { description: error });
+        } else {
+          const readBack = await readFileText(pathRef.current);
+          if (readBack !== null && view && view.state.doc === docAtSave) {
+            applyFormattedContent(
+              view,
+              adoptDiskTextRef.current(readBack.text, readBack.mtime),
+            );
+          }
+        }
+      }
+      onSavedRef.current?.();
+    }, []);
+    const performSaveRef = useRef(performSave);
+    performSaveRef.current = performSave;
 
     // LSP: presets key languages by file extension; enable once the doc is ready.
     const langId = useMemo(
@@ -172,10 +226,7 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
         ),
         vimHandlersExtension(() => ({
           save: () => {
-            void (async () => {
-              await saveRef.current();
-              onSavedRef.current?.();
-            })();
+            void performSaveRef.current();
           },
           close: () => onCloseRef.current?.(),
         })),
@@ -217,10 +268,7 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
             key: "Mod-s",
             preventDefault: true,
             run: () => {
-              void (async () => {
-                await saveRef.current();
-                onSavedRef.current?.();
-              })();
+              void performSaveRef.current();
               return true;
             },
           },
