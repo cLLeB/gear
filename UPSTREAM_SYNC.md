@@ -18,7 +18,7 @@ Legend: ✅ ported · 🔁 covered-by-equivalent (our own impl) · ⏭️ skip (
 | ✅ | 78a0b3d | Harden AI search tool path filtering (#960) | ported — search readability/secret filter |
 | ✅ | 882641e | fix(ai): surface provider errors safely | ported — `errors.ts` sanitize+prefix |
 | ✅ | 9616cc8 | feat(ai): add current frontier models | PORTED — added GPT-5.6 Sol/Terra/Luna, Claude Fable 5 + Sonnet 5, Grok 4.5; `supportsTemperature` + `modelSupportsTemperature`/`modelUsesReasoningTokens` helpers gate temperature/reasoning in autocomplete + commit-gen (fixes latent temp-on-GPT-5 bug); context limits + pricing; new `config.test.ts` (31 tests). **Dep bumps (SDK versions) + pnpm-lock deferred** — new ids work with current SDKs; covered separately by dependabot commits in-window. |
-| 🟡 | fe4e074 | feat(ai): shortcut to toggle AI chat mini window | want — small, low-risk |
+| ✅ | fe4e074 | feat(ai): shortcut to toggle AI chat mini window | PORTED — `ai.toggleMini` (Mod+Shift+I) toggles the mini window (opens Settings→Models if no key); status-bar button now toggles. |
 | 🔎 | 89e399a | feat(agents): notification hooks for Codex/Gemini CLI | review — depends if we ship those agents |
 | 🔎 | b23cd00 | feat(agents): per-agent notification bell + clear | review |
 | 🔎 | 68caf02 | feat(agents): shortcut to jump to agent needing attention | review |
@@ -58,7 +58,7 @@ Legend: ✅ ported · 🔁 covered-by-equivalent (our own impl) · ⏭️ skip (
 ## Tabs / Spaces / Workspace / Sidebar
 | st | commit | subject | notes |
 |----|--------|---------|-------|
-| 🔎 | 4d3160d | fix(tabs): scope Cmd+number to active space (#881) | review — we have spaces |
+| ✅ | 4d3160d | fix(tabs): scope Cmd+number to active space (#881) | PORTED — `selectByIndex(idx, spaceId)` via `pickTabBySpaceIndex`; App passes `activeSpaceId` (+4 tests). |
 | 🔎 | 3d1ba19 | feat(workspace): default environment for new spaces (#869) | review — we have spaces |
 | ✅ | 3f4d680 | feat(sidebar): persist collapsed state (#903) | PORTED — `Gear.sidebar.collapsed` localStorage; both sidebar panels honor it on load + persist on resize. |
 | ✅ | a71fcfc | fix(shortcuts): move zen mode off editor redo binding | PORTED — zen toggle moved to Mod+Shift+' (both mac/non-mac) off CodeMirror redo. |

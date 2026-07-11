@@ -670,6 +670,7 @@ export default function App() {
 	const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
 	const miniOpen = useChatStore((s) => s.mini.open);
 	const openMini = useChatStore((s) => s.openMini);
+	const toggleMini = useChatStore((s) => s.toggleMini);
 	const focusInput = useChatStore((s) => s.focusInput);
 	const openPanel = useChatStore((s) => s.openPanel);
 	const panelOpen = useChatStore((s) => s.panelOpen);
@@ -1305,7 +1306,8 @@ export default function App() {
 			"tab.close": handleCloseTabOrPane,
 			"tab.next": () => cycleTab(1),
 			"tab.prev": () => cycleTab(-1),
-			"tab.selectByIndex": (e) => selectByIndex(parseInt(e.key, 10) - 1),
+			"tab.selectByIndex": (e) =>
+				selectByIndex(parseInt(e.key, 10) - 1, activeSpaceId),
 			"pane.splitRight": () => splitActivePaneInActiveTab("row"),
 			"pane.splitDown": () => splitActivePaneInActiveTab("col"),
 			"pane.close": () => {
@@ -1319,6 +1321,13 @@ export default function App() {
 			"pane.source": toggleSourceControl,
 			"search.focus": () => searchInlineRef.current?.focus(),
 			"ai.toggle": togglePanelAndFocus,
+			"ai.toggleMini": () => {
+				if (!hasComposer) {
+					openSettingsTab("models");
+					return;
+				}
+				toggleMini();
+			},
 			"ai.askSelection": () => askFromSelection(),
 			"shortcuts.open": () => setShortcutsOpen((v) => !v),
 			"settings.open": () => openSettingsTab(),
@@ -1349,11 +1358,15 @@ export default function App() {
 			openNewPrivateTab,
 			openBlockTab,
 			openPreviewTab,
+			activeSpaceId,
 			selectByIndex,
 			splitActivePaneInActiveTab,
 			focusNextPaneInTab,
 			toggleSourceControl,
 			togglePanelAndFocus,
+			toggleMini,
+			hasComposer,
+			openSettingsTab,
 			askFromSelection,
 			toggleSidebar,
 			toggleExplorerFocus,

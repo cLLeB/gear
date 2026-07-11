@@ -844,8 +844,10 @@ export function useTabs() {
 	}, []);
 
 	const selectByIndex = useCallback(
-		(idx: number) => {
-			const t = tabs[idx];
+		(idx: number, spaceId: string = DEFAULT_SPACE_ID) => {
+			// Scope Cmd+number to the active space so index N picks that space's
+			// Nth tab, not the Nth tab across every space.
+			const t = pickTabBySpaceIndex(tabs, idx, spaceId);
 			if (t) setActiveId(t.id);
 		},
 		[tabs],
