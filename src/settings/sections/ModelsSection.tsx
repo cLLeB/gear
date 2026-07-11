@@ -105,7 +105,7 @@ const LOCAL_META: Partial<Record<ProviderId, LocalMeta>> = {
   },
   openrouter: {
     urlPlaceholder: "",
-    modelPlaceholder: "anthropic/claude-sonnet-4-6",
+    modelPlaceholder: "anthropic/claude-sonnet-5",
     description:
       "Access hundreds of models via OpenRouter's unified API.",
     modelHint: (
