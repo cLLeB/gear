@@ -10,7 +10,17 @@ use super::to_canon;
 use crate::modules::workspace::{resolve_path, WorkspaceEnv};
 
 const MAX_READ_BYTES: u64 = 10 * 1024 * 1024; // 10 MB
+/// Ceiling for explicit "open anyway"; mirrored as FORCE_READ_LIMIT in useDocument.ts.
+const FORCE_MAX_READ_BYTES: u64 = 50 * 1024 * 1024;
 const BINARY_SNIFF_BYTES: usize = 8 * 1024;
+
+fn mtime_millis(meta: &std::fs::Metadata) -> u64 {
+    meta.modified()
+        .ok()
+        .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
+}
 
 #[derive(Serialize)]
 #[serde(tag = "kind", rename_all = "lowercase")]
@@ -18,6 +28,7 @@ pub enum ReadResult {
     Text {
         content: String,
         size: u64,
+        mtime: u64,
     },
     Binary {
         size: u64,
@@ -45,7 +56,11 @@ pub struct FileStat {
 }
 
 #[tauri::command]
-pub fn fs_read_file(path: String, workspace: Option<WorkspaceEnv>) -> Result<ReadResult, String> {
+pub fn fs_read_file(
+    path: String,
+    workspace: Option<WorkspaceEnv>,
+    force: Option<bool>,
+) -> Result<ReadResult, String> {
     let workspace = WorkspaceEnv::from_option(workspace);
     let p = resolve_path(&path, &workspace);
     let meta = std::fs::metadata(&p).map_err(|e| {
@@ -54,11 +69,13 @@ pub fn fs_read_file(path: String, workspace: Option<WorkspaceEnv>) -> Result<Rea
     })?;
 
     let size = meta.len();
-    if size > MAX_READ_BYTES {
-        return Ok(ReadResult::TooLarge {
-            size,
-            limit: MAX_READ_BYTES,
-        });
+    let limit = if force.unwrap_or(false) {
+        FORCE_MAX_READ_BYTES
+    } else {
+        MAX_READ_BYTES
+    };
+    if size > limit {
+        return Ok(ReadResult::TooLarge { size, limit });
     }
 
     let bytes = std::fs::read(&p).map_err(|e| {
@@ -74,7 +91,11 @@ pub fn fs_read_file(path: String, workspace: Option<WorkspaceEnv>) -> Result<Rea
     }
 
     match String::from_utf8(bytes) {
-        Ok(content) => Ok(ReadResult::Text { content, size }),
+        Ok(content) => Ok(ReadResult::Text {
+            content,
+            size,
+            mtime: mtime_millis(&meta),
+        }),
         Err(_) => Ok(ReadResult::Binary { size }),
     }
 }
@@ -108,7 +129,7 @@ pub fn fs_write_file(
     workspace_root: Option<String>,
     chronicle: tauri::State<'_, crate::modules::chronicle::ChronicleState>,
     app: tauri::AppHandle,
-) -> Result<(), String> {
+) -> Result<u64, String> {
     let workspace = WorkspaceEnv::from_option(workspace);
     let target = resolve_path(&path, &workspace);
 
@@ -120,6 +141,12 @@ pub fn fs_write_file(
         log::warn!("fs_write_file({}) failed: {e}", target.display());
         e.to_string()
     })?;
+
+    // Post-write mtime so the editor can track disk state for conflict
+    // detection without a follow-up stat.
+    let mtime = std::fs::metadata(&target)
+        .map(|m| mtime_millis(&m))
+        .unwrap_or(0);
 
     record_file_edit(
         &chronicle,
@@ -138,7 +165,7 @@ pub fn fs_write_file(
         },
     );
 
-    Ok(())
+    Ok(mtime)
 }
 
 /// Record a file edit into Chronicle: store before/after blobs and emit a

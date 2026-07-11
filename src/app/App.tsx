@@ -139,7 +139,7 @@ import {
 	WORKSPACE_INPUT_TOGGLE_EVENT,
 	WorkspaceInputBar,
 } from "./components/WorkspaceInputBar";
-import { useAppCloseGuard } from "./hooks/useAppCloseGuard";
+import { appCloseMessage, useAppCloseGuard } from "./hooks/useAppCloseGuard";
 
 type TuiWaitResult = "ready" | "gone" | "timeout";
 
@@ -1992,14 +1992,14 @@ export default function App() {
 					<RewindPanel />
 
 					<AlertDialog
-						open={pendingAppClose}
+						open={pendingAppClose !== null}
 						onOpenChange={(open) => !open && cancelAppClose()}
 					>
 						<AlertDialogContent>
 							<AlertDialogHeader>
 								<AlertDialogTitle>Quit Gear?</AlertDialogTitle>
 								<AlertDialogDescription>
-									A terminal still has a running process. Quitting will end it.
+									{pendingAppClose ? appCloseMessage(pendingAppClose) : ""}
 								</AlertDialogDescription>
 							</AlertDialogHeader>
 							<AlertDialogFooter>
