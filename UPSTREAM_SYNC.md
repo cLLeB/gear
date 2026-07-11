@@ -48,10 +48,10 @@ Legend: ✅ ported · 🔁 covered-by-equivalent (our own impl) · ⏭️ skip (
 | ✅ | 85a5653 | fix(editor): save/reload races, formatter mtime, lsp format style + preset rebinding | PORTED (applicable parts) — writeToDisk stays dirty if edited mid-write; reload re-checks dirty after the async read; close-guard counts dirty after the busy-await; `useLspExtension` rebinds on preset swap; LSP format honors tab vs space indent (`indentUnit`). N/A: formatter-mtime / `adoptDiskText` (our fork has no external-formatter infra — `externalFormat.ts` absent). |
 | 🟡 | 786ceb5 | feat(editor): markdown notes GFM, clickable tasks | review |
 | 🟡 | 7b1fae6 | feat(editor): AI autocomplete placement/quality/triggers | review |
-| 🟡 | 9ec7328 | fix(editor): resolve diff pane language before mount | want — small bugfix |
+| ✅ | 9ec7328 | fix(editor): resolve diff pane language before mount | COVERED — our AiDiffPane/GitDiffPane already seed `resolveLanguageSync(path)` before mount. |
 | 🟡 | e63ca2f | feat(editor): independent font sizing | want — small |
 | 🟡 | ae9e690 | feat(editor): dotenv syntax highlighting | want — small |
-| 🟡 | 7649926 | fix(editor): refine Kanagawa JSX colors | want — trivial theme |
+| ⏭️ | 7649926 | fix(editor): refine Kanagawa JSX colors | N/A — our fork ships no Kanagawa theme. |
 | 🟡 | 1fd11b0 | fix(editor): freeze extension singletons, autosave clamp | review — perf |
 | 🟡 | 2219adb | feat(editor): completion icons, themed lsp chrome, vim cursor | review |
 
@@ -60,8 +60,8 @@ Legend: ✅ ported · 🔁 covered-by-equivalent (our own impl) · ⏭️ skip (
 |----|--------|---------|-------|
 | 🔎 | 4d3160d | fix(tabs): scope Cmd+number to active space (#881) | review — we have spaces |
 | 🔎 | 3d1ba19 | feat(workspace): default environment for new spaces (#869) | review — we have spaces |
-| 🟡 | 3f4d680 | feat(sidebar): persist collapsed state (#903) | want — small |
-| 🟡 | a71fcfc | fix(shortcuts): move zen mode off editor redo binding | want — small |
+| ✅ | 3f4d680 | feat(sidebar): persist collapsed state (#903) | PORTED — `Gear.sidebar.collapsed` localStorage; both sidebar panels honor it on load + persist on resize. |
+| ✅ | a71fcfc | fix(shortcuts): move zen mode off editor redo binding | PORTED — zen toggle moved to Mod+Shift+' (both mac/non-mac) off CodeMirror redo. |
 
 ## Source control
 | st | commit | subject | notes |
@@ -71,8 +71,8 @@ Legend: ✅ ported · 🔁 covered-by-equivalent (our own impl) · ⏭️ skip (
 ## Explorer / Markdown / Media
 | st | commit | subject | notes |
 |----|--------|---------|-------|
-| 🟡 | 2930d8e | fix(explorer): empty file tree on rapid root change (#822) | want — bugfix |
-| 🟡 | c0a51d5 | fix(markdown): preserve HTML-wrapped code block text (#887) | want — bugfix |
+| ⏭️ | 2930d8e | fix(explorer): empty file tree on rapid root change (#822) | N/A — our `useFileTree` has no `nodesRef`/`sameDirListing` early-return; different impl, fix not applicable. |
+| ✅ | c0a51d5 | fix(markdown): preserve HTML-wrapped code block text (#887) | PORTED — recursive `markdownCodeText` extractor + test. |
 | 🔁 | cb75fae | fix(markdown): render file previews statically (#913) | review vs our media preview work |
 
 ## Chores / deps / docs / release (default ⏭️ skip unless needed)

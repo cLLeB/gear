@@ -170,6 +170,15 @@ const SIDEBAR_MIN_WIDTH = 220;
 const SIDEBAR_MAX_WIDTH = 480;
 const SIDEBAR_WIDTH_STORAGE_KEY = "Gear.sidebar.width";
 const SIDEBAR_VIEW_STORAGE_KEY = "Gear.sidebar.view";
+const SIDEBAR_COLLAPSED_STORAGE_KEY = "Gear.sidebar.collapsed";
+
+function readSidebarCollapsed(): boolean {
+	try {
+		return window.localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY) === "1";
+	} catch {
+		return false;
+	}
+}
 
 function clampSidebarWidth(width: number): number {
 	return Math.min(
@@ -330,6 +339,20 @@ export default function App() {
 		setSidebarViewState(view);
 		try {
 			window.localStorage.setItem(SIDEBAR_VIEW_STORAGE_KEY, view);
+		} catch {
+			// storage may fail in private mode
+		}
+	}, []);
+	const [initialSidebarCollapsed] = useState(readSidebarCollapsed);
+	const collapsedRef = useRef(initialSidebarCollapsed);
+	const persistSidebarCollapsed = useCallback((collapsed: boolean) => {
+		if (collapsedRef.current === collapsed) return;
+		collapsedRef.current = collapsed;
+		try {
+			window.localStorage.setItem(
+				SIDEBAR_COLLAPSED_STORAGE_KEY,
+				collapsed ? "1" : "0",
+			);
 		} catch {
 			// storage may fail in private mode
 		}
@@ -1817,13 +1840,18 @@ export default function App() {
 									<ResizablePanel
 										id="sidebar"
 										panelRef={sidebarRef}
-										defaultSize={`${sidebarWidthRef.current}px`}
+										defaultSize={
+											initialSidebarCollapsed
+												? "0px"
+												: `${sidebarWidthRef.current}px`
+										}
 										minSize={`${SIDEBAR_MIN_WIDTH}px`}
 										maxSize={`${SIDEBAR_MAX_WIDTH}px`}
 										collapsible
 										collapsedSize={0}
 										onResize={(size) => {
 											if (size.inPixels > 0) persistSidebarWidth(size.inPixels);
+											persistSidebarCollapsed(size.inPixels <= 0);
 										}}
 									>
 										<div className="flex h-full min-h-0 flex-col p-2 pr-1">
@@ -1920,13 +1948,18 @@ export default function App() {
 									<ResizablePanel
 										id="sidebar"
 										panelRef={sidebarRef}
-										defaultSize={`${sidebarWidthRef.current}px`}
+										defaultSize={
+											initialSidebarCollapsed
+												? "0px"
+												: `${sidebarWidthRef.current}px`
+										}
 										minSize={`${SIDEBAR_MIN_WIDTH}px`}
 										maxSize={`${SIDEBAR_MAX_WIDTH}px`}
 										collapsible
 										collapsedSize={0}
 										onResize={(size) => {
 											if (size.inPixels > 0) persistSidebarWidth(size.inPixels);
+											persistSidebarCollapsed(size.inPixels <= 0);
 										}}
 									>
 										<div className="flex h-full min-h-0 flex-col p-2 pl-1">
