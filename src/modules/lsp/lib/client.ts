@@ -6,6 +6,12 @@ import {
   languageServerPlugin,
   renameSymbol,
 } from "codemirror-languageserver";
+import {
+  type LocationItem,
+  locationsPanel,
+  openLocationsPanel,
+} from "./locationsPanel";
+import { fileUriToPath } from "./uri";
 
 export {
   languageServerWithTransport,
@@ -14,6 +20,7 @@ export {
 
 type LspPos = { line: number; character: number };
 type LspRange = { start: LspPos };
+type LspLocation = { uri: string; range: LspRange };
 
 function offsetOf(doc: Text, pos: LspPos): number {
   if (pos.line >= doc.lines) return doc.length;
@@ -57,8 +64,90 @@ export async function formatDocumentAndWait(
 export function lspInteractions(opts: {
   client: GearLspClient;
   documentUri: string;
+  rootPath: string;
   onExternal: (uri: string, line: number) => void;
 }): Extension {
+  const positionAt = (view: EditorView, pos: number): LspPos => {
+    const line = view.state.doc.lineAt(pos);
+    return { line: line.number - 1, character: pos - line.from };
+  };
+
+  const navigate = (view: EditorView, loc: LspLocation): void => {
+    if (loc.uri === opts.documentUri) {
+      const targetLine = Math.min(
+        loc.range.start.line + 1,
+        view.state.doc.lines,
+      );
+      const lineObj = view.state.doc.line(targetLine);
+      const target = Math.min(
+        lineObj.from + loc.range.start.character,
+        lineObj.to,
+      );
+      view.dispatch({
+        selection: { anchor: target },
+        effects: EditorView.scrollIntoView(target, { y: "center" }),
+      });
+      view.focus();
+    } else {
+      opts.onExternal(loc.uri, loc.range.start.line + 1);
+    }
+  };
+
+  const label = (loc: LspLocation): string => {
+    const path = fileUriToPath(loc.uri) ?? loc.uri;
+    const rel = path.startsWith(`${opts.rootPath}/`)
+      ? path.slice(opts.rootPath.length + 1)
+      : path;
+    return `${rel}:${loc.range.start.line + 1}`;
+  };
+
+  const showResults = (
+    view: EditorView,
+    title: string,
+    locs: LspLocation[],
+  ): void => {
+    if (locs.length === 0) return;
+    if (locs.length === 1) {
+      navigate(view, locs[0]);
+      return;
+    }
+    const byLoc = new Map<string, LspLocation>();
+    for (const loc of locs) byLoc.set(label(loc), loc);
+    const items: LocationItem[] = [...byLoc.entries()]
+      .map(([text, loc]) => ({
+        uri: loc.uri,
+        line: loc.range.start.line,
+        character: loc.range.start.character,
+        label: text,
+      }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+    openLocationsPanel(view, {
+      title,
+      items,
+      onPick: (item) =>
+        navigate(view, {
+          uri: item.uri,
+          range: { start: { line: item.line, character: item.character } },
+        }),
+    });
+  };
+
+  const findReferences = async (
+    view: EditorView,
+    pos: number,
+  ): Promise<void> => {
+    let result: LspLocation[] | null;
+    try {
+      result = await opts.client.textDocumentReferences({
+        textDocument: { uri: opts.documentUri },
+        position: positionAt(view, pos),
+        context: { includeDeclaration: true },
+      });
+    } catch {
+      return;
+    }
+    showResults(view, "References", result ?? []);
+  };
   const gotoDefinition = async (
     view: EditorView,
     pos: number,
@@ -100,12 +189,21 @@ export function lspInteractions(opts: {
   };
 
   return [
+    locationsPanel,
     keymap.of([
       {
         key: "F12",
         preventDefault: true,
         run: (view) => {
           void gotoDefinition(view, view.state.selection.main.head);
+          return true;
+        },
+      },
+      {
+        key: "Shift-F12",
+        preventDefault: true,
+        run: (view) => {
+          void findReferences(view, view.state.selection.main.head);
           return true;
         },
       },
@@ -166,6 +264,21 @@ export class GearLspClient extends LanguageServerClient {
 
   textDocumentDidSave(uri: string): void {
     void this.raw.notify("textDocument/didSave", { textDocument: { uri } });
+  }
+
+  // The bundled lib doesn't type textDocument/references; go through the raw
+  // transport (standard LSP — every server implements it).
+  async textDocumentReferences(params: {
+    textDocument: { uri: string };
+    position: LspPos;
+    context: { includeDeclaration: boolean };
+  }): Promise<LspLocation[] | null> {
+    const res = await this.raw.request(
+      "textDocument/references",
+      params,
+      8000,
+    );
+    return (res as LspLocation[] | null) ?? null;
   }
 
   async shutdownGracefully(timeoutMs = 2000): Promise<void> {

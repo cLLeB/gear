@@ -66,7 +66,11 @@ export async function acquireDocExtension(
 ): Promise<LspDocHandle | null> {
   if (currentWorkspaceEnv().kind !== "local") return null;
   const prefs = usePreferencesStore.getState();
-  const preset = serverForLanguage(langId, prefs.lspCustomServers);
+  const preset = serverForLanguage(
+    langId,
+    prefs.lspCustomServers,
+    prefs.lspActivation,
+  );
   if (!preset) return null;
   if (prefs.lspActivation[preset.id] !== "enabled") return null;
   if (!(await detectBinary(preset.command))) return null;
@@ -119,6 +123,7 @@ export async function acquireDocExtension(
     mod.lspInteractions({
       client: managed.client,
       documentUri: uri,
+      rootPath: managed.root,
       onExternal: (extUri, line) => {
         const target = fileUriToPath(extUri);
         if (target) getLspNavigator()?.openFile(target, line);
