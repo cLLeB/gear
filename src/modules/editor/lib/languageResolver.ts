@@ -125,6 +125,9 @@ const loaders: Record<string, LanguageLoader> = {
     import("@codemirror/legacy-modes/mode/stex").then((m) => m.stex),
   sty: () => import("@codemirror/legacy-modes/mode/stex").then((m) => m.stex),
   cls: () => import("@codemirror/legacy-modes/mode/stex").then((m) => m.stex),
+
+  // .env files: shell mode highlights KEY=value and $VAR references well.
+  env: () => import("@codemirror/legacy-modes/mode/shell").then((m) => m.shell),
 };
 
 const filenameOverrides: Record<string, LanguageLoader> = {
