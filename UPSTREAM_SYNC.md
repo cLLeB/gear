@@ -17,7 +17,7 @@ Legend: ✅ ported · 🔁 covered-by-equivalent (our own impl) · ⏭️ skip (
 |----|--------|---------|-------|
 | ✅ | 78a0b3d | Harden AI search tool path filtering (#960) | ported — search readability/secret filter |
 | ✅ | 882641e | fix(ai): surface provider errors safely | ported — `errors.ts` sanitize+prefix |
-| 🟡 | 9616cc8 | feat(ai): add current frontier models | **want** — keep model list current; verify our `config.ts` |
+| ✅ | 9616cc8 | feat(ai): add current frontier models | PORTED — added GPT-5.6 Sol/Terra/Luna, Claude Fable 5 + Sonnet 5, Grok 4.5; `supportsTemperature` + `modelSupportsTemperature`/`modelUsesReasoningTokens` helpers gate temperature/reasoning in autocomplete + commit-gen (fixes latent temp-on-GPT-5 bug); context limits + pricing; new `config.test.ts` (31 tests). **Dep bumps (SDK versions) + pnpm-lock deferred** — new ids work with current SDKs; covered separately by dependabot commits in-window. |
 | 🟡 | fe4e074 | feat(ai): shortcut to toggle AI chat mini window | want — small, low-risk |
 | 🔎 | 89e399a | feat(agents): notification hooks for Codex/Gemini CLI | review — depends if we ship those agents |
 | 🔎 | b23cd00 | feat(agents): per-agent notification bell + clear | review |

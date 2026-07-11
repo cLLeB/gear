@@ -6,7 +6,11 @@ import {
   type GitStatusSnapshot,
 } from "@/modules/ai/lib/native";
 import { useChatStore } from "@/modules/ai/store/chatStore";
-import { getModel, providerNeedsKey } from "@/modules/ai/config";
+import {
+  getModel,
+  modelSupportsTemperature,
+  providerNeedsKey,
+} from "@/modules/ai/config";
 import {
   invalidateDiff,
   invalidateRepoDiffs,
@@ -870,6 +874,10 @@ export function useSourceControlPanel(
       const { text: diffText, truncated } = truncateDiff(diff.diffText);
       const chatState = useChatStore.getState();
       const prefs = usePreferencesStore.getState();
+      const supportsTemperature = modelSupportsTemperature(
+        getModel(selectedModelId).provider,
+        selectedModelId,
+      );
       const model = await buildConfiguredLanguageModel(
         selectedModelId,
         chatState.apiKeys,
@@ -890,7 +898,7 @@ export function useSourceControlPanel(
         system: COMMIT_MESSAGE_SYSTEM_PROMPT,
         prompt: buildCommitMessagePrompt(stagedEntries, diffText, truncated),
         maxOutputTokens: COMMIT_MESSAGE_MAX_OUTPUT_TOKENS,
-        temperature: 0.2,
+        ...(supportsTemperature ? { temperature: 0.2 } : {}),
       });
       let message = cleanCommitMessage(result.text);
       if (!isValidCommitMessage(message)) {
@@ -899,7 +907,7 @@ export function useSourceControlPanel(
           system: COMMIT_MESSAGE_SYSTEM_PROMPT,
           prompt: buildRepairCommitMessagePrompt(message, stagedEntries),
           maxOutputTokens: COMMIT_MESSAGE_MAX_OUTPUT_TOKENS,
-          temperature: 0,
+          ...(supportsTemperature ? { temperature: 0 } : {}),
         });
         message = cleanCommitMessage(repair.text);
       }
