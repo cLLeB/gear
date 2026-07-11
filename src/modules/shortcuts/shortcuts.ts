@@ -303,9 +303,10 @@ export const SHORTCUTS: Shortcut[] = [
     id: "view.zenMode",
     label: "Toggle zen mode",
     group: "View",
+    // Not Shift+Z — that is CodeMirror's native redo in the editor.
     defaultBindings: IS_MAC
-      ? [{ meta: true, shift: true, key: "z" }]
-      : [{ ctrl: true, shift: true, key: "z" }],
+      ? [{ meta: true, shift: true, key: "'" }]
+      : [{ ctrl: true, shift: true, key: "'" }],
   },
   {
     id: "view.rewind",
