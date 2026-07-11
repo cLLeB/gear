@@ -36,7 +36,7 @@ import { initVimGlobals, vimHandlersExtension } from "./lib/vim";
 
 initVimGlobals();
 import { resolveLanguage } from "./lib/languageResolver";
-import { useDocument } from "./lib/useDocument";
+import { FORCE_READ_LIMIT, useDocument } from "./lib/useDocument";
 import { inlineCompletion } from "./lib/autocomplete/inlineExtension";
 import { getKey } from "@/modules/ai/lib/keyring";
 import { onKeysChanged } from "@/modules/settings/store";
@@ -89,7 +89,10 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
     { path, languageOverride, onDirtyChange, onSaved, onClose },
     ref,
   ) {
-    const { doc, onChange, save, reload } = useDocument({ path, onDirtyChange });
+    const { doc, onChange, save, reload, openAnyway } = useDocument({
+      path,
+      onDirtyChange,
+    });
     const reloadRef = useRef(reload);
     reloadRef.current = reload;
     const cmRef = useRef<ReactCodeMirrorRef>(null);
@@ -401,11 +404,20 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
     }
     if (doc.status === "toolarge") {
       return (
-        <div className="flex h-full flex-col items-center justify-center gap-1 px-6 text-center">
+        <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
           <div className="text-sm text-foreground">File too large</div>
           <div className="text-xs text-muted-foreground">
             {formatBytes(doc.size)} exceeds the {formatBytes(doc.limit)} limit.
           </div>
+          {doc.size <= FORCE_READ_LIMIT && (
+            <button
+              type="button"
+              onClick={openAnyway}
+              className="mt-1 rounded-md border border-border px-2.5 py-1 text-xs text-foreground/85 hover:bg-accent"
+            >
+              Open anyway
+            </button>
+          )}
         </div>
       );
     }

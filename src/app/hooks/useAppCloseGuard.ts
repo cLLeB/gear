@@ -30,8 +30,29 @@ function forceCloseWindow(): void {
 	void getCurrentWindow().destroy();
 }
 
+export type AppCloseBlocker = {
+	dirtyEditors: number;
+	busyTerminal: boolean;
+};
+
+/** Human-readable reason the quit was held, for the confirm dialog. */
+export function appCloseMessage(blocker: AppCloseBlocker): string {
+	const dirty =
+		blocker.dirtyEditors === 1
+			? "1 file has unsaved changes"
+			: `${blocker.dirtyEditors} files have unsaved changes`;
+	if (blocker.dirtyEditors > 0 && blocker.busyTerminal) {
+		return `A terminal still has a running process and ${dirty}. Quitting will end it and discard the changes.`;
+	}
+	if (blocker.dirtyEditors > 0) {
+		return `${dirty.charAt(0).toUpperCase()}${dirty.slice(1)}. Quitting will discard them.`;
+	}
+	return "A terminal still has a running process. Quitting will end it.";
+}
+
 export function useAppCloseGuard(tabsRef: RefObject<Tab[]>) {
-	const [pendingAppClose, setPendingAppClose] = useState(false);
+	const [pendingAppClose, setPendingAppClose] =
+		useState<AppCloseBlocker | null>(null);
 	const forceClose = useRef(false);
 
 	useEffect(() => {
@@ -41,8 +62,12 @@ export function useAppCloseGuard(tabsRef: RefObject<Tab[]>) {
 			.onCloseRequested(async (event) => {
 				if (forceClose.current) return;
 				event.preventDefault();
-				if (await anyTerminalBusy(tabsRef.current)) {
-					setPendingAppClose(true);
+				const dirtyEditors = tabsRef.current.filter(
+					(t) => t.kind === "editor" && t.dirty,
+				).length;
+				const busyTerminal = await anyTerminalBusy(tabsRef.current);
+				if (dirtyEditors > 0 || busyTerminal) {
+					setPendingAppClose({ dirtyEditors, busyTerminal });
 				} else {
 					forceClose.current = true;
 					forceCloseWindow();
@@ -59,12 +84,12 @@ export function useAppCloseGuard(tabsRef: RefObject<Tab[]>) {
 	}, [tabsRef]);
 
 	const confirmAppClose = useCallback(() => {
-		setPendingAppClose(false);
+		setPendingAppClose(null);
 		forceClose.current = true;
 		forceCloseWindow();
 	}, []);
 
-	const cancelAppClose = useCallback(() => setPendingAppClose(false), []);
+	const cancelAppClose = useCallback(() => setPendingAppClose(null), []);
 
 	return { pendingAppClose, confirmAppClose, cancelAppClose };
 }

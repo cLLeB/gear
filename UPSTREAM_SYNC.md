@@ -43,8 +43,8 @@ Legend: ✅ ported · 🔁 covered-by-equivalent (our own impl) · ⏭️ skip (
 | 🟡 | 653dd15 | feat(settings): dedicated editor tab | review — settings UX |
 | 🟡 | a25fb40 | feat(editor): biome+prettier format-on-save | **big** — want? verify against our editor |
 | 🟡 | 6980581 | feat(editor): find/replace panel, goto line, large file open | want — core editor UX |
-| 🟡 | 662dbbb | fix(editor): line endings, save conflicts, block quit unsaved | want — data-safety |
-| 🟡 | 40a8ef2 | feat(fs): async file commands, mtime, symlink stat | want — underpins above |
+| ✅ | 662dbbb | fix(editor): line endings, save conflicts, block quit unsaved | PORTED — `eol.ts` (+9 tests) preserves CRLF/LF; `useDocument` detects save conflicts via mtime (toast + Overwrite) and gains `openAnyway`; `useAppCloseGuard` blocks quit on unsaved editors (kept our destroy()-based close). |
+| 🟡 | 40a8ef2 | feat(fs): async file commands, mtime, symlink stat | PARTIAL — ported the **contract** our editor needs (`fs_write_file`→mtime, `fs_read_file` `force`+mtime, `FORCE_MAX_READ_BYTES`), kept commands **sync** + our chronicle logic. Deferred: async conversion, `fs_stat` symlink_metadata fix. |
 | 🟡 | 85a5653 | fix(editor): save/reload races, formatter mtime | want — data-safety |
 | 🟡 | 786ceb5 | feat(editor): markdown notes GFM, clickable tasks | review |
 | 🟡 | 7b1fae6 | feat(editor): AI autocomplete placement/quality/triggers | review |
