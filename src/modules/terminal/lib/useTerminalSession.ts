@@ -1,5 +1,6 @@
 import { ensureMonoFontsLoaded } from "@/lib/fonts";
 import { getLaunchDir } from "@/lib/launchDir";
+import { IS_WINDOWS } from "@/lib/platform";
 import { usePreferencesStore } from "@/modules/settings/preferences";
 import { invoke } from "@tauri-apps/api/core";
 import type { SearchAddon } from "@xterm/addon-search";
@@ -45,6 +46,7 @@ import {
   releaseSlot,
   setSlotFocused,
 } from "./rendererPool";
+import { isPowerShellShellPath } from "./keymap";
 
 type Callbacks = {
   onSearchReady?: (addon: SearchAddon) => void;
@@ -417,6 +419,13 @@ configureRendererPool({
   },
   isLeafVisible(leafId) {
     return sessions.get(leafId)?.visibleNow ?? false;
+  },
+  isLeafPowerShell(leafId) {
+    const s = sessions.get(leafId);
+    if (!s) return false;
+    const shell =
+      s.shellPath || usePreferencesStore.getState().terminalShell || undefined;
+    return isPowerShellShellPath(shell, IS_WINDOWS);
   },
   storeSnapshot(leafId, out) {
     const s = sessions.get(leafId);
