@@ -25,11 +25,14 @@ import { Prec } from "@codemirror/state";
 import { vim } from "@replit/codemirror-vim";
 import {
   buildSharedExtensions,
+  indentCompartment,
+  indentExtension,
   languageCompartment,
   lspCompartment,
   vimCompartment,
   wrapCompartment,
 } from "./lib/extensions";
+import { detectIndentUnit } from "./lib/indent";
 import { useLspExtension } from "@/modules/lsp";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { initVimGlobals, vimHandlersExtension } from "./lib/vim";
@@ -265,6 +268,20 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
         cancelled = true;
       };
     }, [path, doc.status, languageOverride]);
+
+    // Match the file's own indentation (tabs vs N spaces) once it loads, so
+    // edits don't fight the existing style.
+    const readyContent = doc.status === "ready" ? doc.content : null;
+    useEffect(() => {
+      if (readyContent === null) return;
+      const view = cmRef.current?.view;
+      if (!view) return;
+      view.dispatch({
+        effects: indentCompartment.reconfigure(
+          indentExtension(detectIndentUnit(readyContent)),
+        ),
+      });
+    }, [readyContent]);
 
     // Swap the LSP extension in/out as activation and readiness change.
     useEffect(() => {
