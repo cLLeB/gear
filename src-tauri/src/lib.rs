@@ -47,6 +47,24 @@ fn toggle_devtools(window: tauri::WebviewWindow, open: bool) {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Windows notify shim: Codex/Gemini hooks can't write the terminal marker
+    // themselves, so they re-invoke Gear as `Gear.exe __gear_notify <agent>
+    // <event>`. Handle it before any window/state setup and exit immediately.
+    #[cfg(windows)]
+    {
+        let args: Vec<String> = std::env::args().collect();
+        if args.get(1).map(String::as_str) == Some("__gear_notify") {
+            if let (Some(agent), Some(event)) = (args.get(2), args.get(3)) {
+                agent::emit_conout_marker(agent, event);
+            }
+            use std::io::Write;
+            let mut out = std::io::stdout();
+            let _ = out.write_all(b"{}");
+            let _ = out.flush();
+            std::process::exit(0);
+        }
+    }
+
     workspace::init_launch_cwd(parse_launch_dir().as_deref());
 
     // For Microsoft Store builds this binary is compiled with --no-default-features
@@ -180,8 +198,9 @@ pub fn run() {
             net::lm_ping,
             net::ai_http_request,
             net::ai_http_stream,
-            agent::agent_enable_claude_hooks,
-            agent::agent_claude_hooks_status,
+            agent::agent_enable_hooks,
+            agent::agent_hooks_status,
+            agent::agent_enable_present_hooks,
             chronicle::chronicle_range,
             chronicle::chronicle_restore_file,
             chronicle::chronicle_record_command,
