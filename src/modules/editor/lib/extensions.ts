@@ -1,4 +1,5 @@
 import { detectMonoFontFamily } from "@/lib/fonts";
+import { chromeTheme } from "./chromeTheme";
 import { codeFolding, indentUnit } from "@codemirror/language";
 import { lintGutter } from "@codemirror/lint";
 import { search } from "@codemirror/search";
@@ -33,6 +34,7 @@ export function buildSharedExtensions(): Extension[] {
     codeFolding(),
     search({ top: true }),
     lintGutter(),
+    chromeTheme(),
     wrapCompartment.of([]),
     rectangularSelection(),
     crosshairCursor(),
@@ -90,6 +92,7 @@ export function buildSharedExtensions(): Extension[] {
         outline:
           "1px solid color-mix(in srgb, var(--foreground) 55%, transparent) !important",
         color: "var(--foreground) !important",
+        borderRadius: "2px",
       },
       "&:not(.cm-focused) .cm-fat-cursor": {
         background: "transparent !important",

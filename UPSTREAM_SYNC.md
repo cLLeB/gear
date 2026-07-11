@@ -53,7 +53,7 @@ Legend: ✅ ported · 🔁 covered-by-equivalent (our own impl) · ⏭️ skip (
 | ✅ | ae9e690 | feat(editor): dotenv syntax highlighting | PORTED — .env/*.env use shell legacy-mode via an env loader in languageResolver. |
 | ⏭️ | 7649926 | fix(editor): refine Kanagawa JSX colors | N/A — our fork ships no Kanagawa theme. |
 | ⏭️ | 1fd11b0 | fix(editor): freeze extension singletons, autosave clamp | N/A — our `buildSharedExtensions()` is a fresh-array function, not a frozen singleton, so the freeze fix doesn't apply; `clampAutoSaveDelay` already exists. |
-| 🟡 | 2219adb | feat(editor): completion icons, themed lsp chrome, vim cursor | DEFER — broad editor polish across many diverged files; our fork already has themed `.cm-panels` and `.cm-fat-cursor` vim cursor. Completion-kind icons deferred. |
+| ✅ | 2219adb | feat(editor): completion icons, themed lsp chrome, vim cursor | PORTED — ported `chromeTheme.ts` (27 completion-kind icons as hugeicon SVG masks + group colors, lint-severity underlines, themed tooltips/scrollbars) into `buildSharedExtensions`; rounded the `.cm-fat-cursor` vim cursor. Swapped `BoxIcon`/`BracketsIcon` → `SquareIcon`/`Brackets` for our hugeicons version. |
 
 ## Tabs / Spaces / Workspace / Sidebar
 | st | commit | subject | notes |
