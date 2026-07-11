@@ -1633,7 +1633,11 @@ export default function App() {
 				useManagedAgentsStore
 					.getState()
 					.register({ leafId, tabId, sessionId, task: oneLine, cwd });
-				const hooksReady = invoke("agent_enable_claude_hooks").catch(() => {});
+				// Installs Claude hooks always, plus Codex/Gemini hooks when the
+				// user actually has those CLIs (their config dir exists).
+				const hooksReady = invoke("agent_enable_present_hooks").catch(
+					() => {},
+				);
 				void (async () => {
 					await Promise.all([whenSessionReady(leafId), hooksReady]);
 					if (!writeToSession(leafId, "claude\r")) {

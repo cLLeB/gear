@@ -5,9 +5,10 @@ const ST_FINAL: u8 = b'\\';
 
 const OSC_MAX: usize = 2048;
 
-const DEFAULT_AGENTS: &[&str] = &["claude", "codex"];
+const DEFAULT_AGENTS: &[&str] = &["claude", "codex", "gemini"];
 
-// OSC 777 marker our Claude Code hooks emit via `terminalSequence`.
+// OSC 777 marker our agent hooks emit. Legacy 3-field `notify;Gear;<event>`
+// (Claude) or 4-field `notify;Gear;<agent>;<event>` (Codex/Gemini).
 const GEAR_MARKER: &[u8] = b"notify;Gear;";
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -177,21 +178,30 @@ impl AgentDetector {
     }
 
     fn handle_osc777<F: FnMut(Transition)>(&mut self, pt: &[u8], emit: &mut F) {
-        if let Some(event) = pt.strip_prefix(GEAR_MARKER) {
+        if let Some(tail) = pt.strip_prefix(GEAR_MARKER) {
+            // 4-field `notify;Gear;<agent>;<event>` (Codex/Gemini) or legacy
+            // 3-field `notify;Gear;<event>` (Claude).
+            let (agent, event) = match tail.iter().position(|&c| c == b';') {
+                Some(i) => (
+                    std::str::from_utf8(&tail[..i]).unwrap_or("claude"),
+                    &tail[i + 1..],
+                ),
+                None => ("claude", tail),
+            };
             // Self-arms so notifications work even when no shell preexec fired
             // (bash, Windows, tmux, wrappers).
             match event {
                 b"working" => {
-                    self.ensure_armed(emit);
+                    self.ensure_armed(agent, emit);
                     self.set_working(emit);
                 }
                 b"attention" => {
-                    self.ensure_armed(emit);
+                    self.ensure_armed(agent, emit);
                     self.status = Status::Waiting;
                     emit(Transition::Attention);
                 }
                 b"finished" => {
-                    self.ensure_armed(emit);
+                    self.ensure_armed(agent, emit);
                     self.status = Status::Waiting;
                     emit(Transition::Finished);
                 }
@@ -223,12 +233,12 @@ impl AgentDetector {
         }
     }
 
-    fn ensure_armed<F: FnMut(Transition)>(&mut self, emit: &mut F) {
+    fn ensure_armed<F: FnMut(Transition)>(&mut self, agent: &str, emit: &mut F) {
         if !self.armed {
             self.armed = true;
             self.status = Status::Working;
             emit(Transition::Started {
-                agent: "claude".into(),
+                agent: agent.to_string(),
             });
         }
     }
