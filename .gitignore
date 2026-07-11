@@ -12,3 +12,5 @@ image.png
 Thumbs.db
 /landing-page
 tauri.store.conf.json
+# Local Chronicle (rewind) runtime data
+.gear/
