@@ -59,6 +59,7 @@ export * from "./slugify";
 export * from "./splitCommandChain";
 export * from "./stringWidth";
 export * from "./stripAnsi";
+export * from "./template";
 export * from "./titleCase";
 export * from "./truncateMiddle";
 export * from "./wordWrap";
