@@ -4,15 +4,22 @@
 // feature; add new ones alphabetically and keep them dependency-free.
 
 export * from "./base64";
+export * from "./collections";
+export * from "./conventionalCommit";
 export * from "./dedent";
 export * from "./escapeRegExp";
+export * from "./expandEnvVars";
 export * from "./formatBytes";
 export * from "./formatNumberCompact";
 export * from "./fuzzyScore";
+export * from "./gitRemoteUrl";
 export * from "./htmlEntities";
 export * from "./humanizeDuration";
 export * from "./levenshtein";
+export * from "./lruCache";
+export * from "./numericRange";
 export * from "./ordinal";
+export * from "./parseArgv";
 export * from "./pluralize";
 export * from "./semver";
 export * from "./slugify";
