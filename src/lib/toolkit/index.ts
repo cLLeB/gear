@@ -4,3 +4,8 @@
 // feature; add new ones alphabetically and keep them dependency-free.
 
 export * from "./formatBytes";
+export * from "./fuzzyScore";
+export * from "./humanizeDuration";
+export * from "./semver";
+export * from "./stripAnsi";
+export * from "./truncateMiddle";
