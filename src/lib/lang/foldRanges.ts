@@ -28,10 +28,10 @@ export function computeFoldRanges(source: string, languageId: string): FoldRange
   if (spec) {
     const tokens = tokenize(source, spec.lexer);
     if (spec.braceBlocks) foldBraces(tokens, positions, ranges);
-    else foldIndentation(source, positions, ranges);
+    else foldIndentation(source, ranges);
     foldComments(tokens, positions, ranges);
   } else {
-    foldIndentation(source, positions, ranges);
+    foldIndentation(source, ranges);
   }
 
   foldRegions(positions, ranges);
@@ -63,7 +63,7 @@ function foldBraces(tokens: Token[], positions: PositionMapper, out: FoldRange[]
   }
 }
 
-function foldIndentation(source: string, positions: PositionMapper, out: FoldRange[]): void {
+function foldIndentation(source: string, out: FoldRange[]): void {
   const lines = source.split("\n");
   const indentOf = (l: string) => (l.trim() === "" ? -1 : /^[ \t]*/.exec(l)![0].replace(/\t/g, "    ").length);
 
