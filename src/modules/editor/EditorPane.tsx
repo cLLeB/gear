@@ -25,6 +25,7 @@ import { Prec } from "@codemirror/state";
 import { vim } from "@replit/codemirror-vim";
 import {
   buildSharedExtensions,
+  diagnosticsCompartment,
   indentCompartment,
   indentExtension,
   languageCompartment,
@@ -32,6 +33,8 @@ import {
   vimCompartment,
   wrapCompartment,
 } from "./lib/extensions";
+import { gearLinter } from "@/modules/diagnostics/codemirror";
+import { languageFromExtension } from "@/lib/toolkit/languageFromExtension";
 import { detectIndentUnit } from "./lib/indent";
 import { lspFormatDocument, useLspExtension } from "@/modules/lsp";
 import { toast } from "sonner";
@@ -315,6 +318,16 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
       const resolveTarget = languageOverride ? `_.${languageOverride}` : path;
       languageRef.current =
         languageOverride ?? (path.split(".").pop()?.toLowerCase() ?? null);
+      // In-process diagnostics keyed by the resolved language id. Enabled
+      // immediately (no dynamic import needed) so error underlines appear even
+      // before the syntax grammar finishes loading.
+      const diagLanguageId = languageFromExtension(resolveTarget);
+      const diagView = cmRef.current?.view;
+      if (diagView) {
+        diagView.dispatch({
+          effects: diagnosticsCompartment.reconfigure(gearLinter(diagLanguageId)),
+        });
+      }
       resolveLanguage(resolveTarget).then((ext) => {
         if (cancelled) return;
         const view = cmRef.current?.view;

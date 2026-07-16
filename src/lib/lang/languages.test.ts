@@ -22,7 +22,7 @@ describe("languages", () => {
     const spec = getLanguageSpec("javascript")!;
     const t = tokenize("const x = 1 // c", spec.lexer);
     expect(t[0]).toMatchObject({ type: "keyword", value: "const" });
-    expect(t.at(-1)).toMatchObject({ type: "comment" });
+    expect(t[t.length - 1]).toMatchObject({ type: "comment" });
   });
 
   it("lists supported languages", () => {
