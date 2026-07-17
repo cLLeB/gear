@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { EventEmitter } from "./eventEmitter";
 
-interface Events {
+type Events = {
   ping: number;
   done: string;
-}
+};
 
 describe("EventEmitter", () => {
   it("delivers payloads to listeners", () => {

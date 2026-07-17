@@ -14,7 +14,7 @@ function isPlainObject(value: unknown): value is Plain {
  * Recursively merge plain objects into a new object. Later sources win.
  * Arrays and non-plain values are replaced, not merged. Inputs are not mutated.
  */
-export function deepMerge<T extends Plain>(...sources: Partial<T>[]): T {
+export function deepMerge<T extends Plain = Plain>(...sources: Plain[]): T {
   const out: Plain = {};
   for (const source of sources) {
     if (!isPlainObject(source)) continue;

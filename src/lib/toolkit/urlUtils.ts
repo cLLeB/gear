@@ -37,5 +37,5 @@ export function joinUrl(base: string, ...segments: string[]): string {
   return parts
     .join("/")
     .replace(/([^:]\/)\/+/g, "$1")
-    .replace(/\/+$/, (m, offset, str) => (str.length === 1 ? m : ""));
+    .replace(/\/+$/, (m, _offset, str) => (str.length === 1 ? m : ""));
 }
