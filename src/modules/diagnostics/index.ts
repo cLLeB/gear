@@ -8,6 +8,8 @@ import { delimiterAnalyzer } from "./analyzers/delimiters";
 import { jsonAnalyzer } from "./analyzers/json";
 import { lexicalAnalyzer } from "./analyzers/lexical";
 import { mergeConflictAnalyzer } from "./analyzers/mergeConflict";
+import { unreachableCodeAnalyzer } from "./analyzers/controlFlow";
+import { unusedSymbolsAnalyzer } from "./analyzers/unusedSymbols";
 import { createRuleAnalyzer, DEFAULT_RULES } from "./rules";
 
 export * from "./engine";
@@ -19,6 +21,8 @@ export const defaultEngine = new DiagnosticsEngine()
   .register(lexicalAnalyzer)
   .register(mergeConflictAnalyzer)
   .register(jsonAnalyzer)
+  .register(unreachableCodeAnalyzer)
+  .register(unusedSymbolsAnalyzer)
   .register(createRuleAnalyzer(DEFAULT_RULES));
 
 /** Run all built-in analyzers over a document. */
