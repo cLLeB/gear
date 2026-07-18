@@ -50,7 +50,14 @@ class Json5Parser {
       this.skipTrivia();
       if (this.peek() !== ":") throw this.error("expected ':' after object key");
       this.i += 1;
-      obj[key] = this.parseValue();
+      // Assign as an OWN property so a "__proto__" key becomes real data (as
+      // JSON.parse does) instead of silently rewriting the object's prototype.
+      Object.defineProperty(obj, key, {
+        value: this.parseValue(),
+        writable: true,
+        enumerable: true,
+        configurable: true,
+      });
       this.skipTrivia();
       const next = this.peek();
       if (next === ",") { this.i += 1; this.skipTrivia(); if (this.peek() === "}") { this.i += 1; return obj; } continue; }

@@ -124,44 +124,58 @@ export const minifyJsonCmd = (view: EditorView) => reformatJson(view, true);
 
 // --- analysis actions (report via toast) -----------------------------------
 
+/** Run an analysis, surfacing any unexpected failure as a toast rather than throwing. */
+function guardAnalysis(label: string, fn: () => void): boolean {
+  try {
+    fn();
+    return true;
+  } catch (e) {
+    toast.error(`${label} failed`, { description: e instanceof Error ? e.message : String(e) });
+    return false;
+  }
+}
+
 export function findClonesCmd(view: EditorView, languageId: string): boolean {
-  const clones = findClones(view.state.doc.toString(), languageId, { minTokens: 20 });
-  if (clones.length === 0) {
-    toast.success("No duplicate code blocks found");
-  } else {
+  return guardAnalysis("Find duplicate code", () => {
+    const clones = findClones(view.state.doc.toString(), languageId, { minTokens: 20 });
+    if (clones.length === 0) {
+      toast.success("No duplicate code blocks found");
+      return;
+    }
     const first = clones[0];
     const line = (offset: number) => view.state.doc.lineAt(offset).number;
     toast.warning(`${clones.length} duplicate block${clones.length > 1 ? "s" : ""} found`, {
       description: `Largest: lines ${line(first.a.from)} and ${line(first.b.from)} (${first.tokenLength} tokens)`,
     });
     view.dispatch({ selection: EditorSelection.range(first.a.from, first.a.to), scrollIntoView: true });
-  }
-  return true;
+  });
 }
 
 export function deadStoresCmd(view: EditorView, languageId: string): boolean {
-  const stores = deadStores(view.state.doc.toString(), languageId);
-  if (stores.length === 0) {
-    toast.success("No dead stores found");
-  } else {
+  return guardAnalysis("Detect dead stores", () => {
+    const stores = deadStores(view.state.doc.toString(), languageId);
+    if (stores.length === 0) {
+      toast.success("No dead stores found");
+      return;
+    }
     const names = [...new Set(stores.map((s) => s.name))].slice(0, 5).join(", ");
     toast.warning(`${stores.length} dead store${stores.length > 1 ? "s" : ""}`, {
       description: `Assigned but never read: ${names}`,
     });
     view.dispatch({ selection: EditorSelection.range(stores[0].from, stores[0].to), scrollIntoView: true });
-  }
-  return true;
+  });
 }
 
 export function codeMetricsCmd(view: EditorView, languageId: string): boolean {
-  const report = analyzeComplexity(view.state.doc.toString(), languageId);
-  const worst = [...report.functions].sort((a, b) => b.complexity - a.complexity)[0];
-  toast.info(`Complexity ${report.fileComplexity} · ${report.metrics.sloc} SLOC`, {
-    description: worst
-      ? `Most complex: ${worst.name} (${worst.complexity}) · comment ratio ${(report.metrics.commentRatio * 100).toFixed(0)}%`
-      : `Max nesting depth ${report.metrics.maxDepth}`,
+  return guardAnalysis("Show code metrics", () => {
+    const report = analyzeComplexity(view.state.doc.toString(), languageId);
+    const worst = [...report.functions].sort((a, b) => b.complexity - a.complexity)[0];
+    toast.info(`Complexity ${report.fileComplexity} · ${report.metrics.sloc} SLOC`, {
+      description: worst
+        ? `Most complex: ${worst.name} (${worst.complexity}) · comment ratio ${(report.metrics.commentRatio * 100).toFixed(0)}%`
+        : `Max nesting depth ${report.metrics.maxDepth}`,
+    });
   });
-  return true;
 }
 
 // --- palette-facing catalog ------------------------------------------------

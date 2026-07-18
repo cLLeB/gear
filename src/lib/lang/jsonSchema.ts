@@ -30,7 +30,22 @@ export function isValid(schema: Schema, value: unknown): boolean {
   return validate(schema, value).length === 0;
 }
 
-function validateNode(schema: Schema, value: unknown, path: string, root: Schema, errors: ValidationError[]): void {
+// Bounds recursion so a cyclic `$ref` (a -> b -> a) or absurd nesting reports a
+// schema error instead of overflowing the stack.
+const MAX_DEPTH = 512;
+
+function validateNode(
+  schema: Schema,
+  value: unknown,
+  path: string,
+  root: Schema,
+  errors: ValidationError[],
+  depth = 0,
+): void {
+  if (depth > MAX_DEPTH) {
+    errors.push({ path, keyword: "recursion", message: "schema is too deeply nested or has a cyclic $ref" });
+    return;
+  }
   if (schema === true) return;
   if (schema === false) { errors.push({ path, keyword: "false", message: "no value is allowed here" }); return; }
 
@@ -38,7 +53,7 @@ function validateNode(schema: Schema, value: unknown, path: string, root: Schema
 
   if (typeof s.$ref === "string") {
     const resolved = resolveRef(s.$ref, root);
-    if (resolved !== undefined) validateNode(resolved, value, path, root, errors);
+    if (resolved !== undefined) validateNode(resolved, value, path, root, errors, depth + 1);
     return;
   }
 
@@ -56,10 +71,10 @@ function validateNode(schema: Schema, value: unknown, path: string, root: Schema
 
   if (typeof value === "number") validateNumber(s, value, path, errors);
   if (typeof value === "string") validateString(s, value, path, errors);
-  if (Array.isArray(value)) validateArray(s, value, path, root, errors);
-  if (isPlainObject(value)) validateObject(s, value, path, root, errors);
+  if (Array.isArray(value)) validateArray(s, value, path, root, errors, depth);
+  if (isPlainObject(value)) validateObject(s, value, path, root, errors, depth);
 
-  validateCombinators(s, value, path, root, errors);
+  validateCombinators(s, value, path, root, errors, depth);
 }
 
 function validateNumber(s: Record<string, unknown>, value: number, path: string, errors: ValidationError[]): void {
@@ -74,11 +89,19 @@ function validateString(s: Record<string, unknown>, value: string, path: string,
   const len = [...value].length;
   if (typeof s.minLength === "number" && len < s.minLength) push(errors, path, "minLength", `must be at least ${s.minLength} characters`);
   if (typeof s.maxLength === "number" && len > s.maxLength) push(errors, path, "maxLength", `must be at most ${s.maxLength} characters`);
-  if (typeof s.pattern === "string" && !new RegExp(s.pattern).test(value)) push(errors, path, "pattern", `must match /${s.pattern}/`);
+  if (typeof s.pattern === "string") {
+    let re: RegExp | null = null;
+    try {
+      re = new RegExp(s.pattern);
+    } catch {
+      push(errors, path, "pattern", `schema has an invalid pattern /${s.pattern}/`);
+    }
+    if (re && !re.test(value)) push(errors, path, "pattern", `must match /${s.pattern}/`);
+  }
   if (s.format === "email" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) push(errors, path, "format", "must be a valid email address");
 }
 
-function validateArray(s: Record<string, unknown>, value: unknown[], path: string, root: Schema, errors: ValidationError[]): void {
+function validateArray(s: Record<string, unknown>, value: unknown[], path: string, root: Schema, errors: ValidationError[], depth: number): void {
   if (typeof s.minItems === "number" && value.length < s.minItems) push(errors, path, "minItems", `must have at least ${s.minItems} items`);
   if (typeof s.maxItems === "number" && value.length > s.maxItems) push(errors, path, "maxItems", `must have at most ${s.maxItems} items`);
   if (s.uniqueItems === true && hasDuplicates(value)) push(errors, path, "uniqueItems", "items must be unique");
@@ -86,14 +109,14 @@ function validateArray(s: Record<string, unknown>, value: unknown[], path: strin
   if (Array.isArray(s.items)) {
     // Tuple validation: each schema applies to the item at its index.
     s.items.forEach((itemSchema, i) => {
-      if (i < value.length) validateNode(itemSchema as Schema, value[i], `${path}/${i}`, root, errors);
+      if (i < value.length) validateNode(itemSchema as Schema, value[i], `${path}/${i}`, root, errors, depth + 1);
     });
   } else if (s.items !== undefined) {
-    value.forEach((item, i) => validateNode(s.items as Schema, item, `${path}/${i}`, root, errors));
+    value.forEach((item, i) => validateNode(s.items as Schema, item, `${path}/${i}`, root, errors, depth + 1));
   }
 }
 
-function validateObject(s: Record<string, unknown>, value: Record<string, unknown>, path: string, root: Schema, errors: ValidationError[]): void {
+function validateObject(s: Record<string, unknown>, value: Record<string, unknown>, path: string, root: Schema, errors: ValidationError[], depth: number): void {
   const properties = (s.properties as Record<string, Schema>) ?? {};
   const keys = Object.keys(value);
 
@@ -108,35 +131,35 @@ function validateObject(s: Record<string, unknown>, value: Record<string, unknow
   for (const key of keys) {
     const encoded = `${path}/${key.replace(/~/g, "~0").replace(/\//g, "~1")}`;
     if (key in properties) {
-      validateNode(properties[key], value[key], encoded, root, errors);
+      validateNode(properties[key], value[key], encoded, root, errors, depth + 1);
     } else if (s.additionalProperties === false) {
       push(errors, encoded, "additionalProperties", `unexpected property "${key}"`);
     } else if (typeof s.additionalProperties === "object" && s.additionalProperties !== null) {
-      validateNode(s.additionalProperties as Schema, value[key], encoded, root, errors);
+      validateNode(s.additionalProperties as Schema, value[key], encoded, root, errors, depth + 1);
     }
   }
 }
 
-function validateCombinators(s: Record<string, unknown>, value: unknown, path: string, root: Schema, errors: ValidationError[]): void {
+function validateCombinators(s: Record<string, unknown>, value: unknown, path: string, root: Schema, errors: ValidationError[], depth: number): void {
   if (Array.isArray(s.allOf)) {
-    for (const sub of s.allOf) validateNode(sub as Schema, value, path, root, errors);
+    for (const sub of s.allOf) validateNode(sub as Schema, value, path, root, errors, depth + 1);
   }
   if (Array.isArray(s.anyOf)) {
-    const ok = s.anyOf.some((sub) => validateSubtree(sub as Schema, value, path, root).length === 0);
+    const ok = s.anyOf.some((sub) => validateSubtree(sub as Schema, value, path, root, depth + 1).length === 0);
     if (!ok) push(errors, path, "anyOf", "value does not match any of the allowed schemas");
   }
   if (Array.isArray(s.oneOf)) {
-    const matches = s.oneOf.filter((sub) => validateSubtree(sub as Schema, value, path, root).length === 0).length;
+    const matches = s.oneOf.filter((sub) => validateSubtree(sub as Schema, value, path, root, depth + 1).length === 0).length;
     if (matches !== 1) push(errors, path, "oneOf", `value must match exactly one schema (matched ${matches})`);
   }
-  if (s.not !== undefined && validateSubtree(s.not as Schema, value, path, root).length === 0) {
+  if (s.not !== undefined && validateSubtree(s.not as Schema, value, path, root, depth + 1).length === 0) {
     push(errors, path, "not", "value must not match the schema");
   }
 }
 
-function validateSubtree(schema: Schema, value: unknown, path: string, root: Schema): ValidationError[] {
+function validateSubtree(schema: Schema, value: unknown, path: string, root: Schema, depth = 0): ValidationError[] {
   const errors: ValidationError[] = [];
-  validateNode(schema, value, path, root, errors);
+  validateNode(schema, value, path, root, errors, depth);
   return errors;
 }
 

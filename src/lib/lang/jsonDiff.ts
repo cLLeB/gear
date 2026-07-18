@@ -147,27 +147,51 @@ function applyOne(holder: { value: Json }, op: Operation): void {
   }
 }
 
+// Read only an OWN property so navigation can never step into the prototype
+// chain (e.g. a `/__proto__/...` or `/constructor/...` pointer resolves to
+// undefined instead of the real Object.prototype).
+function ownGet(node: Json, key: string): Json {
+  if (node !== null && typeof node === "object" && Object.prototype.hasOwnProperty.call(node, key)) {
+    return (node as Record<string, Json>)[key];
+  }
+  return undefined as unknown as Json;
+}
+
+// Assign an OWN property via defineProperty so a key of "__proto__" (or any
+// other name) sets a real data property instead of invoking the prototype
+// setter — this is what neutralizes JSON-Patch prototype pollution.
+function ownSet(container: Record<string, Json>, key: string, value: Json): void {
+  Object.defineProperty(container, key, { value, writable: true, enumerable: true, configurable: true });
+}
+
 function getAt(holder: { value: Json }, tokens: string[]): Json {
   let node: Json = holder.value;
-  for (const t of tokens) node = (node as Record<string, Json>)[t] as Json;
+  for (const t of tokens) node = ownGet(node, t);
   return node;
 }
 
 function parentOf(holder: { value: Json }, tokens: string[]): { container: Record<string, Json> | Json[] | { value: Json }; key: string } {
   if (tokens.length === 0) return { container: holder, key: "value" };
   let node: Json = holder.value;
-  for (let i = 0; i < tokens.length - 1; i++) node = (node as Record<string, Json>)[tokens[i]] as Json;
+  for (let i = 0; i < tokens.length - 1; i++) node = ownGet(node, tokens[i]);
   return { container: node as Record<string, Json> | Json[], key: tokens[tokens.length - 1] };
 }
 
 function setAt(holder: { value: Json }, tokens: string[], value: Json, mode: "add" | "replace"): void {
   const { container, key } = parentOf(holder, tokens);
+  if (container === holder) {
+    holder.value = value; // root replacement through our own wrapper
+    return;
+  }
+  if (container === null || typeof container !== "object") {
+    throw new Error("cannot apply patch: path does not resolve to a container");
+  }
   if (Array.isArray(container)) {
     const idx = key === "-" ? container.length : Number(key);
     if (mode === "add") container.splice(idx, 0, value);
     else container[idx] = value;
   } else {
-    (container as Record<string, Json>)[key] = value;
+    ownSet(container as Record<string, Json>, key, value);
   }
 }
 

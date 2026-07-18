@@ -31,6 +31,15 @@ describe("structuralSearch", () => {
   it("returns no matches when the pattern is absent", () => {
     expect(structuralSearch("const x = 1;", "javascript", "await $P")).toEqual([]);
   });
+
+  it("stays responsive (bounded backtracking) on a pathological input", () => {
+    // Many metavariables against a long repetitive source would blow up without
+    // the step budget; assert it returns promptly instead of hanging.
+    const source = "f(" + "a, ".repeat(400) + "a)";
+    const start = Date.now();
+    structuralSearch(source, "javascript", "f($A, $B, $C, $D, $E)");
+    expect(Date.now() - start).toBeLessThan(3000);
+  });
 });
 
 describe("structuralReplace", () => {

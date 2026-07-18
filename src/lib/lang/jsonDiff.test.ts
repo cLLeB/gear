@@ -69,6 +69,39 @@ describe("JSON Pointer escaping", () => {
   });
 });
 
+describe("prototype pollution defense", () => {
+  it("does not pollute Object.prototype via a __proto__ pointer", () => {
+    const polluted = {} as Record<string, unknown>;
+    expect(polluted.isAdmin).toBeUndefined();
+    // Attempt the canonical JSON-Patch pollution payload.
+    try {
+      applyPatch({}, [{ op: "add", path: "/__proto__/isAdmin", value: true }]);
+    } catch {
+      /* rejecting is an acceptable outcome; the invariant is no pollution */
+    }
+    expect(({} as Record<string, unknown>).isAdmin).toBeUndefined();
+    expect(Object.prototype).not.toHaveProperty("isAdmin");
+  });
+
+  it("does not pollute via a nested constructor/prototype pointer", () => {
+    try {
+      applyPatch({ a: {} }, [{ op: "add", path: "/a/constructor/prototype/x", value: 1 }]);
+    } catch {
+      /* ignore */
+    }
+    expect(({} as Record<string, unknown>).x).toBeUndefined();
+  });
+
+  it("treats __proto__ as an ordinary own data key, not the prototype", () => {
+    const result = applyPatch({ a: {} }, [{ op: "add", path: "/a/__proto__", value: { safe: 1 } }]) as {
+      a: Record<string, unknown>;
+    };
+    // It becomes an OWN property; the object's real prototype is unchanged.
+    expect(Object.prototype.hasOwnProperty.call(result.a, "__proto__")).toBe(true);
+    expect(Object.getPrototypeOf(result.a)).toBe(Object.prototype);
+  });
+});
+
 describe("type changes", () => {
   it("replaces when the value type changes", () => {
     const a = { v: [1, 2] };

@@ -14,6 +14,23 @@
 // the root, a trailing `/` restricts a rule to directories, and matching a
 // directory ignores everything beneath it.
 
+export class GlobError extends Error {}
+
+// Guards against pathological patterns that would hang or exhaust memory:
+// brace expansion is a Cartesian product (can blow up combinatorially) and
+// chained `**` compiles to nested quantifiers (catastrophic backtracking).
+const MAX_BRACE_EXPANSION = 4096;
+const MAX_WILDCARDS = 32;
+
+/** Reject patterns whose regex would be prone to catastrophic backtracking. */
+function assertSafePattern(pattern: string): void {
+  let wildcards = 0;
+  for (let i = 0; i < pattern.length; i++) if (pattern[i] === "*" || pattern[i] === "?") wildcards++;
+  if (wildcards > MAX_WILDCARDS) {
+    throw new GlobError(`glob pattern has too many wildcards (${wildcards} > ${MAX_WILDCARDS})`);
+  }
+}
+
 /** Expand `{a,b}` alternation into the list of concrete patterns it denotes. */
 export function expandBraces(pattern: string): string[] {
   const open = pattern.indexOf("{");
@@ -35,7 +52,12 @@ export function expandBraces(pattern: string): string[] {
   const results: string[] = [];
   for (const opt of options) {
     for (const tail of expandBraces(suffix)) {
-      for (const head of expandBraces(prefix + opt)) results.push(head + tail);
+      for (const head of expandBraces(prefix + opt)) {
+        results.push(head + tail);
+        if (results.length > MAX_BRACE_EXPANSION) {
+          throw new GlobError(`glob brace expansion exceeds ${MAX_BRACE_EXPANSION} combinations`);
+        }
+      }
     }
   }
   return results;
@@ -95,6 +117,7 @@ function charClass(pattern: string, start: number): [string, number] {
 
 /** Compile a glob to a RegExp that fully matches a whole path. */
 export function globToRegExp(pattern: string): RegExp {
+  assertSafePattern(pattern);
   const alts = expandBraces(pattern).map(translate);
   return new RegExp(`^(?:${alts.join("|")})$`);
 }
@@ -142,8 +165,13 @@ export class GitignoreMatcher {
 export function parseGitignore(text: string): GitignoreMatcher {
   const rules: Rule[] = [];
   for (const rawLine of text.split(/\r?\n/)) {
-    const rule = parseRule(rawLine);
-    if (rule) rules.push(rule);
+    // A single pathological line must not throw the whole parse; skip it.
+    try {
+      const rule = parseRule(rawLine);
+      if (rule) rules.push(rule);
+    } catch (e) {
+      if (!(e instanceof GlobError)) throw e;
+    }
   }
   return new GitignoreMatcher(rules);
 }
@@ -165,6 +193,7 @@ function parseRule(rawLine: string): Rule | null {
   const anchored = line.startsWith("/");
   if (anchored) line = line.slice(1);
   const hasInteriorSlash = line.includes("/");
+  assertSafePattern(line);
 
   const body = translate(line);
   const prefix = anchored || hasInteriorSlash ? "^" : "(?:^|.*/)";

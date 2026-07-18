@@ -52,6 +52,15 @@ describe("parseJson5", () => {
     });
   });
 
+  it("treats a __proto__ key as safe own data, not the prototype", () => {
+    const result = parseJson5('{"__proto__": {"polluted": true}, "safe": 1}') as Record<string, unknown>;
+    expect(Object.prototype.hasOwnProperty.call(result, "__proto__")).toBe(true);
+    expect(Object.getPrototypeOf(result)).toBe(Object.prototype);
+    expect((result as { safe: number }).safe).toBe(1);
+    // Global prototype is untouched.
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined();
+  });
+
   it("throws a positioned error on malformed input", () => {
     expect(() => parseJson5("{ a: }")).toThrow(Json5Error);
     try {

@@ -37,10 +37,15 @@ export function structuralSearch(source: string, languageId: string, pattern: st
   const pat = tokenize(pattern, spec.lexer).filter((t) => t.type !== "comment");
   if (pat.length === 0) return [];
 
+  // Bound total backtracking work so a pathological pattern/file cannot hang the
+  // (synchronous, main-thread) search. On exhaustion we stop and return matches
+  // found so far.
+  const budget: Budget = { steps: 5_000_000 };
   const matches: StructuralMatch[] = [];
   let si = 0;
   while (si < src.length) {
-    const result = matchAt(src, source, pat, si);
+    if (budget.steps <= 0) break;
+    const result = matchAt(src, source, pat, si, budget);
     if (result) {
       matches.push(result.match);
       si = Math.max(result.end, si + 1); // non-overlapping
@@ -56,10 +61,14 @@ interface MatchResult {
   end: number;
 }
 
+interface Budget {
+  steps: number;
+}
+
 /** Attempt to match the whole pattern anchored at source index `si`. */
-function matchAt(src: Token[], source: string, pat: Token[], si: number): MatchResult | null {
+function matchAt(src: Token[], source: string, pat: Token[], si: number, budget: Budget): MatchResult | null {
   const bindings = new Map<string, Binding>();
-  const end = matchFrom(src, source, pat, 0, si, bindings);
+  const end = matchFrom(src, source, pat, 0, si, bindings, budget);
   if (end === null) return null;
   const from = src[si]?.start ?? 0;
   const to = end > si ? src[end - 1].end : from;
@@ -78,7 +87,9 @@ function matchFrom(
   pi: number,
   si: number,
   bindings: Map<string, Binding>,
+  budget: Budget,
 ): number | null {
+  if (--budget.steps <= 0) return null; // step limit exceeded — abort this attempt
   if (pi >= pat.length) return si;
 
   const pt = pat[pi];
@@ -101,7 +112,7 @@ function matchFrom(
       const created = !prior;
       if (created) bindings.set(name, { text, from: src[si].start, to: src[end - 1].end });
 
-      const rest = matchFrom(src, source, pat, pi + 1, end, bindings);
+      const rest = matchFrom(src, source, pat, pi + 1, end, bindings, budget);
       if (rest !== null) return rest;
 
       if (created) bindings.delete(name);
@@ -111,7 +122,7 @@ function matchFrom(
 
   // Literal token: must match value exactly.
   if (si < src.length && src[si].value === pt.value) {
-    return matchFrom(src, source, pat, pi + 1, si + 1, bindings);
+    return matchFrom(src, source, pat, pi + 1, si + 1, bindings, budget);
   }
   return null;
 }
