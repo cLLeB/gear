@@ -6,6 +6,7 @@ import {
   ArrowLeft01Icon,
   ArrowRight01Icon,
   Cancel01Icon,
+  CodeIcon,
   FileEditIcon,
   Globe02Icon,
   IncognitoIcon,
@@ -18,6 +19,7 @@ import {
   SparklesIcon,
   TerminalIcon,
 } from "@hugeicons/core-free-icons";
+import { CODE_ACTIONS, runCodeActionOnActiveEditor } from "@/modules/editor/lib/codeActions";
 
 type CommandIcon = typeof TerminalIcon;
 
@@ -27,6 +29,7 @@ export type CommandPaletteActionGroup =
   | "Panes"
   | "View"
   | "Search"
+  | "Code"
   | "AI";
 
 export type CommandPaletteAction = {
@@ -42,7 +45,7 @@ export type CommandPaletteAction = {
 };
 
 export const COMMAND_PALETTE_ACTION_GROUPS: readonly CommandPaletteActionGroup[] =
-  ["General", "Tabs", "Panes", "View", "Search", "AI"] as const;
+  ["General", "Tabs", "Panes", "View", "Search", "Code", "AI"] as const;
 
 export type CommandPaletteActionContext = {
   tabs: Tab[];
@@ -271,5 +274,16 @@ export function createCommandPaletteActions(
       shortcutId: "ai.askSelection",
       run: ctx.askAiSelection,
     },
+    // Code-intelligence actions from the in-process toolkit (src/lib/lang).
+    // They operate on the last-focused editor; each reports or edits in place.
+    ...CODE_ACTIONS.map((action): CommandPaletteAction => ({
+      id: action.id,
+      label: action.label,
+      group: "Code",
+      keywords: action.keywords,
+      icon: CodeIcon,
+      run: () => runCodeActionOnActiveEditor(action),
+      deferRun: true,
+    })),
   ];
 }
