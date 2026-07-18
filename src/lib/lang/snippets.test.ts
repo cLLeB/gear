@@ -64,6 +64,15 @@ describe("applyTransform / variable transforms", () => {
   });
 });
 
+describe("robustness", () => {
+  it("does not throw on a malformed transform regex; leaves the value unchanged", () => {
+    // `(` is an unterminated group — new RegExp would throw without the guard.
+    expect(() => expandSnippet("${TM_FILENAME/(/x/}", { variables: { TM_FILENAME: "a.ts" } })).not.toThrow();
+    const { text } = expandSnippet("${TM_FILENAME/(/x/}", { variables: { TM_FILENAME: "a.ts" } });
+    expect(text).toBe("a.ts");
+  });
+});
+
 describe("parseSnippet", () => {
   it("produces a node tree with nested placeholder content", () => {
     const nodes = parseSnippet("${1:${2:inner}}");

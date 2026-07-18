@@ -84,6 +84,22 @@ describe("validate / combinators and $ref", () => {
     expect(isValid(schema, -2)).toBe(true);
   });
 
+  it("does not throw on an invalid pattern; reports it as an error", () => {
+    const schema: Schema = { type: "string", pattern: "(" }; // unbalanced group
+    expect(() => validate(schema, "x")).not.toThrow();
+    expect(validate(schema, "x")[0].keyword).toBe("pattern");
+  });
+
+  it("reports a cyclic $ref instead of overflowing the stack", () => {
+    const schema: Schema = {
+      definitions: { a: { $ref: "#/definitions/b" }, b: { $ref: "#/definitions/a" } },
+      $ref: "#/definitions/a",
+    };
+    let result: ReturnType<typeof validate> = [];
+    expect(() => { result = validate(schema, 123); }).not.toThrow();
+    expect(result.some((e) => e.keyword === "recursion")).toBe(true);
+  });
+
   it("resolves local $ref", () => {
     const schema: Schema = {
       definitions: { positiveInt: { type: "integer", minimum: 1 } },

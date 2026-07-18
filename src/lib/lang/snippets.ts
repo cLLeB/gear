@@ -143,7 +143,15 @@ class SnippetParser {
     this.i += 1; // consume closing '/'
     let flags = "";
     while (this.i < this.src.length && this.src[this.i] !== "}") flags += this.src[this.i++];
-    return { regex: new RegExp(pattern, flags), format };
+    // A malformed transform regex must not throw while parsing a snippet; fall
+    // back to a pattern that never matches, so the transform is a no-op.
+    let regex: RegExp;
+    try {
+      regex = new RegExp(pattern, flags);
+    } catch {
+      regex = /(?!)/;
+    }
+    return { regex, format };
   }
 
   private readChoices(): string[] {

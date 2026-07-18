@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { expandEmmet } from "./emmet";
+import { EmmetError, expandEmmet } from "./emmet";
 
 describe("expandEmmet", () => {
   it("expands a class into a div with that class", () => {
@@ -52,6 +52,18 @@ describe("expandEmmet", () => {
     expect(expandEmmet("(p>span)*2")).toBe(
       ["<p>", "  <span></span>", "</p>", "<p>", "  <span></span>", "</p>"].join("\n"),
     );
+  });
+
+  it("clamps a huge multiplier to a bounded output instead of hanging", () => {
+    const start = Date.now();
+    const out = expandEmmet("div*999999999");
+    expect(Date.now() - start).toBeLessThan(1000); // fails fast
+    // Clamped to the max multiplier — one line per element, not a billion.
+    expect(out.split("\n").length).toBe(10000);
+  });
+
+  it("throws when a nested-group expansion exceeds the total budget", () => {
+    expect(() => expandEmmet("(div*10000)*10000")).toThrow(EmmetError);
   });
 
   it("keeps siblings under a descended parent", () => {

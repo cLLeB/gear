@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { expandBraces, matchGlob, parseGitignore } from "./glob";
+import { expandBraces, GlobError, globToRegExp, matchGlob, parseGitignore } from "./glob";
 
 describe("matchGlob", () => {
   it("matches * within a single path segment only", () => {
@@ -35,6 +35,26 @@ describe("expandBraces", () => {
   it("expands multiple and nested groups", () => {
     expect(expandBraces("a{1,2}b").sort()).toEqual(["a1b", "a2b"]);
     expect(expandBraces("{a,b}{1,2}").sort()).toEqual(["a1", "a2", "b1", "b2"]);
+  });
+});
+
+describe("resource-exhaustion guards", () => {
+  it("rejects a pattern with too many wildcards (ReDoS guard) quickly", () => {
+    const evil = "**/".repeat(20) + "x";
+    const start = Date.now();
+    expect(() => globToRegExp(evil)).toThrow(GlobError);
+    expect(Date.now() - start).toBeLessThan(200); // fails fast, does not hang
+  });
+
+  it("rejects a brace-expansion bomb", () => {
+    const bomb = "{a,b,c,d,e,f,g,h,i,j}".repeat(8);
+    expect(() => globToRegExp(bomb)).toThrow(GlobError);
+  });
+
+  it("skips a pathological .gitignore line instead of throwing", () => {
+    const gi = parseGitignore(`*.log\n${"**/".repeat(40)}x\nbuild/\n`);
+    expect(gi.ignores("app.log")).toBe(true); // good rules still apply
+    expect(gi.ignores("build", true)).toBe(true);
   });
 });
 

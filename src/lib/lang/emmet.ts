@@ -26,6 +26,13 @@ interface GroupNode {
 
 type Node = ElementNode | GroupNode;
 
+export class EmmetError extends Error {}
+
+// Guards against a tiny abbreviation requesting a huge expansion, e.g.
+// `div*999999999` or nested `(x*10000)*10000`.
+const MAX_MULTIPLIER = 10000;
+const MAX_TOTAL_ELEMENTS = 100000;
+
 const VOID_ELEMENTS = new Set([
   "area", "base", "br", "col", "embed", "hr", "img", "input",
   "link", "meta", "param", "source", "track", "wbr",
@@ -68,7 +75,7 @@ class EmmetParser {
     }
     if (this.peek() === "*") {
       this.i += 1;
-      node.multiplier = this.readInt();
+      node.multiplier = Math.min(this.readInt(), MAX_MULTIPLIER);
     }
     return node;
   }
@@ -161,28 +168,33 @@ function indentOf(level: number): string {
   return "  ".repeat(level);
 }
 
-function renderForest(nodes: Node[], level: number, index: number): string[] {
+interface Budget {
+  remaining: number;
+}
+
+function renderForest(nodes: Node[], level: number, index: number, budget: Budget): string[] {
   const lines: string[] = [];
-  for (const node of nodes) lines.push(...renderNode(node, level, index));
+  for (const node of nodes) lines.push(...renderNode(node, level, index, budget));
   return lines;
 }
 
-function renderNode(node: Node, level: number, inheritedIndex: number): string[] {
+function renderNode(node: Node, level: number, inheritedIndex: number, budget: Budget): string[] {
   const lines: string[] = [];
   const count = Math.max(1, node.multiplier);
   for (let i = 1; i <= count; i++) {
     const index = count > 1 ? i : inheritedIndex;
     if (node.kind === "group") {
-      lines.push(...renderForest(node.items, level, index));
-      lines.push(...renderForest(node.children, level, index));
+      lines.push(...renderForest(node.items, level, index, budget));
+      lines.push(...renderForest(node.children, level, index, budget));
     } else {
-      lines.push(...renderElement(node, level, index));
+      if (--budget.remaining < 0) throw new EmmetError("Emmet expansion is too large");
+      lines.push(...renderElement(node, level, index, budget));
     }
   }
   return lines;
 }
 
-function renderElement(node: ElementNode, level: number, index: number): string[] {
+function renderElement(node: ElementNode, level: number, index: number, budget: Budget): string[] {
   const pad = indentOf(level);
   const tag = numbering(node.tag, index);
   const attrParts: string[] = [];
@@ -198,7 +210,7 @@ function renderElement(node: ElementNode, level: number, index: number): string[
     return [`${pad}${open}>${text}</${tag}>`];
   }
 
-  const inner = renderForest(node.children, level + 1, index);
+  const inner = renderForest(node.children, level + 1, index, budget);
   const lines: string[] = [`${pad}${open}>`];
   if (text) lines.push(`${indentOf(level + 1)}${text}`);
   lines.push(...inner);
@@ -211,5 +223,5 @@ export function expandEmmet(abbreviation: string): string {
   const trimmed = abbreviation.trim();
   if (trimmed === "") return "";
   const forest = new EmmetParser(trimmed).parseSiblings();
-  return renderForest(forest, 0, 1).join("\n");
+  return renderForest(forest, 0, 1, { remaining: MAX_TOTAL_ELEMENTS }).join("\n");
 }
