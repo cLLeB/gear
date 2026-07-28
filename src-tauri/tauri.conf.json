@@ -49,6 +49,7 @@
     "fileAssociations": [
       {
         "name": "Gear Document",
+        "description": "Gear Document",
         "role": "Editor",
         "mimeType": "text/plain",
         "ext": [
