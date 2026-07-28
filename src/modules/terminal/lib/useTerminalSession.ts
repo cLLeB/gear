@@ -19,6 +19,7 @@ import {
   registerPromptTracker,
 } from "./osc-handlers";
 import { openPty, type PtySession } from "./pty-bridge";
+import { useTerminalFont } from "./useTerminalFont";
 import "../block/block.css";
 import { ensureAgentActivityListener, isAgentActivePty } from "./agentActivity";
 import {
@@ -293,6 +294,11 @@ export function leafIdForPty(ptyId: number): number | null {
     if (s.pty?.id === ptyId) return leafId;
   }
   return null;
+}
+
+/** The pty backing `leafId`, or null when the pane has no live session yet. */
+export function ptyIdForLeaf(leafId: number): number | null {
+  return sessions.get(leafId)?.pty?.id ?? null;
 }
 
 function leafBusy(s: Session): boolean {
@@ -919,18 +925,17 @@ export function useTerminalSession({
     };
   }, [leafId, blocks]);
 
-  const fontSize = usePreferencesStore((p) => p.terminalFontSize);
+  // Preferences merged with any font the active theme pins (see useTerminalFont).
+  const { fontFamily, fontWeight, fontSize } = useTerminalFont();
   const zoomLevel = usePreferencesStore((p) => p.zoomLevel);
   useEffect(() => {
     applyFontSize(Math.max(4, Math.round(fontSize * zoomLevel)));
   }, [fontSize, zoomLevel]);
 
-  const fontFamily = usePreferencesStore((p) => p.terminalFontFamily);
   useEffect(() => {
     applyFontFamily(fontFamily);
   }, [fontFamily]);
 
-  const fontWeight = usePreferencesStore((p) => p.terminalFontWeight);
   useEffect(() => {
     applyFontWeight(fontWeight);
   }, [fontWeight]);

@@ -83,3 +83,18 @@ export function terminalDeleteSequence(
   if (event.ctrlKey && !event.altKey && !event.metaKey) return "\x17";
   return null;
 }
+
+/** The readline-style remaps above are only correct on the *normal* screen.
+ * Full-screen apps (vim, tmux, less, htop) run on the alternate screen and
+ * bind these combos themselves, so remapping there would steal their input. */
+export function terminalReadlineSequence(
+  event: TerminalKeyEvent,
+  opts: PlatformOpts & { isAlternateScreen: boolean },
+): string | null {
+  if (opts.isAlternateScreen) return null;
+  return (
+    terminalLineNavigationSequence(event, opts) ??
+    terminalWordNavigationSequence(event) ??
+    terminalDeleteSequence(event, opts)
+  );
+}

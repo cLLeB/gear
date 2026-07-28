@@ -97,7 +97,6 @@ jobs:
           set -euo pipefail
           APPIMAGE=$(ls src-tauri/target/release/bundle/appimage/*.AppImage | head -n1)
           BASENAME=$(basename "$APPIMAGE")
-          LATEST=src-tauri/target/release/bundle/latest.json
           echo "Patching: $APPIMAGE"
           WORK=$(mktemp -d)
           cp "$APPIMAGE" "$WORK/"
@@ -115,10 +114,51 @@ jobs:
           cp "$WORK/$BASENAME" "$APPIMAGE"
           rm -f "$APPIMAGE.sig"
           pnpm tauri signer sign "$APPIMAGE"
-          if [ -f "$LATEST" ]; then
-            NEW_SIG=$(cat "$APPIMAGE.sig")
-            jq --arg sig "$NEW_SIG" '.platforms["linux-x86_64"].signature = $sig' "$LATEST" > "$LATEST.tmp"
-            mv "$LATEST.tmp" "$LATEST"
-          fi
+          # latest.json is NOT patched here. tauri-action uploads its own copy
+          # from every matrix job, so a local edit would be overwritten by
+          # whichever platform finishes last. The patch-updater-manifest job
+          # below runs after all of them and fixes the published manifest.
           gh release upload "${GITHUB_REF_NAME}" "$APPIMAGE" "$APPIMAGE.sig" \
             --clobber --repo "$GITHUB_REPOSITORY"
+
+  patch-updater-manifest:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      # The AppImage is rebuilt and re-signed above, so the manifest tauri-action
+      # published carries the pre-re-sign signature. Re-uploading with --clobber
+      # also deletes and recreates the asset under a new id, which invalidates the
+      # asset-id API url tauri-action baked into latest.json. Fix both: substitute
+      # the regenerated signature and point the url at the tag+filename download
+      # url, which is stable across clobbers.
+      - name: Patch latest.json with the re-signed AppImage
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" \
+            --pattern "latest.json" \
+            --pattern "*_amd64.AppImage.sig" --clobber
+
+          APP_SIG=$(cat ./*_amd64.AppImage.sig)
+          APP_FILE=$(basename "$(ls ./*_amd64.AppImage.sig)" .sig)
+          DL="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}"
+
+          jq -e 'has("platforms") and (.platforms | has("linux-x86_64"))' \
+            latest.json >/dev/null \
+            || { echo "latest.json missing the linux-x86_64 platform key"; exit 1; }
+
+          jq --arg app "$APP_SIG" --arg appurl "$DL/$APP_FILE" '
+            .platforms["linux-x86_64"] += {signature: $app, url: $appurl}
+            | (if .platforms["linux-x86_64-appimage"]
+               then .platforms["linux-x86_64-appimage"] += {signature: $app, url: $appurl}
+               else . end)
+          ' latest.json > latest.json.tmp
+          mv latest.json.tmp latest.json
+
+          gh release upload "$TAG" latest.json --clobber --repo "$GITHUB_REPOSITORY"

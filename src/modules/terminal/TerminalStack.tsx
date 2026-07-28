@@ -87,6 +87,8 @@ export function TerminalStack({
         return (
           <div
             key={t.id}
+            // Scopes pane-bounds measurement to this tab (see livePaneBounds).
+            data-terminal-tab={t.id}
             className="absolute inset-0"
             style={{
               visibility: tabVisible ? "visible" : "hidden",

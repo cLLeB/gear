@@ -22,6 +22,10 @@ export type ShortcutId =
   | "pane.close"
   | "pane.focusNext"
   | "pane.focusPrev"
+  | "pane.swapLeft"
+  | "pane.swapRight"
+  | "pane.swapUp"
+  | "pane.swapDown"
   | "pane.source"
   | "search.focus"
   | "explorer.search"
@@ -163,7 +167,31 @@ export const SHORTCUTS: Shortcut[] = [
     label: "Focus previous pane",
     group: "Panes",
     defaultBindings: [{ [MOD_PROP]: true, key: "[" }],
-  },  
+  },
+  {
+    id: "pane.swapLeft",
+    label: "Swap pane left",
+    group: "Panes",
+    defaultBindings: [{ [MOD_PROP]: true, alt: true, key: "ArrowLeft" }],
+  },
+  {
+    id: "pane.swapRight",
+    label: "Swap pane right",
+    group: "Panes",
+    defaultBindings: [{ [MOD_PROP]: true, alt: true, key: "ArrowRight" }],
+  },
+  {
+    id: "pane.swapUp",
+    label: "Swap pane up",
+    group: "Panes",
+    defaultBindings: [{ [MOD_PROP]: true, alt: true, key: "ArrowUp" }],
+  },
+  {
+    id: "pane.swapDown",
+    label: "Swap pane down",
+    group: "Panes",
+    defaultBindings: [{ [MOD_PROP]: true, alt: true, key: "ArrowDown" }],
+  },
   {
     id: "pane.source",
     label: "Toggle source panel",
@@ -420,6 +448,29 @@ export function shortcutDisplay(id: ShortcutId): string {
 /**
  * Matching logic: checks if a KeyboardEvent matches a KeyBinding.
  */
+const CODE_TO_KEY: Record<string, string> = {
+  Backslash: "\\",
+  Slash: "/",
+  BracketLeft: "[",
+  BracketRight: "]",
+  Semicolon: ";",
+  Quote: "'",
+  Comma: ",",
+  Period: ".",
+  Backquote: "`",
+  Minus: "-",
+  Equal: "=",
+  Space: " ",
+};
+
+// Alt/Option combinations rewrite e.key ("ç", "«", "…", dead keys) on macOS and
+// many non-US layouts; the physical key survives in e.code.
+function keyFromCode(code: string): string | null {
+  if (code.startsWith("Key")) return code.slice(3).toLowerCase();
+  if (code.startsWith("Digit")) return code.slice(5);
+  return CODE_TO_KEY[code] ?? null;
+}
+
 export function matchBinding(
   e: KeyboardEvent,
   binding: KeyBinding,
@@ -432,7 +483,9 @@ export function matchBinding(
   if (id === "tab.selectByIndex") {
     if (!/^[1-9]$/.test(e.key)) return false;
   } else if (eventKey !== bindingKey) {
-    return false;
+    // Only alt bindings fall back to the physical key — without this an alt
+    // shortcut is unreachable on any layout where Option rewrites the char.
+    if (!binding.alt || keyFromCode(e.code) !== bindingKey) return false;
   }
 
   return (

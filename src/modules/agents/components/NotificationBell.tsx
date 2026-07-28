@@ -6,10 +6,11 @@ import {
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import {
+  ArrowDown01Icon,
+  ArrowUp01Icon,
   CheckmarkCircle02Icon,
   Loading03Icon,
   Notification01Icon,
-  Notification03Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { invoke } from "@tauri-apps/api/core";
@@ -115,10 +116,76 @@ function NotificationRow({
   );
 }
 
+/** CLI agents whose notification hooks the Rust side knows how to install.
+ * Must stay in sync with AGENTS in src-tauri/src/modules/agent.rs. */
+const HOOK_AGENTS = ["claude", "codex", "gemini", "pi"] as const;
+
+const HOOK_AGENT_LABELS: Record<(typeof HOOK_AGENTS)[number], string> = {
+  claude: "Claude Code",
+  codex: "Codex CLI",
+  gemini: "Gemini CLI",
+  pi: "Pi",
+};
+
+function HookAgentRow({
+  id,
+  label,
+  ready,
+  installing,
+  onEnable,
+}: {
+  id: string;
+  label: string;
+  ready: boolean;
+  installing: boolean;
+  onEnable: () => void;
+}) {
+  return (
+    <div className="flex items-center gap-2 px-2 py-1">
+      <AgentIcon
+        agent={id}
+        size={14}
+        className="shrink-0 text-muted-foreground"
+      />
+      <span className="flex-1 truncate text-[12px] text-muted-foreground">
+        {label}
+      </span>
+      {ready ? (
+        <span className="flex items-center gap-1 text-[11px] font-medium text-primary">
+          <HugeiconsIcon
+            icon={CheckmarkCircle02Icon}
+            size={13}
+            strokeWidth={1.75}
+          />
+          enabled
+        </span>
+      ) : (
+        <button
+          type="button"
+          onClick={onEnable}
+          disabled={installing}
+          className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-60"
+        >
+          {installing ? (
+            <HugeiconsIcon
+              icon={Loading03Icon}
+              size={12}
+              strokeWidth={1.75}
+              className="animate-spin"
+            />
+          ) : null}
+          {installing ? "Enabling" : "Enable"}
+        </button>
+      )}
+    </div>
+  );
+}
+
 export function NotificationBell({ onActivate, onActivateLocal }: Props) {
   const [open, setOpen] = useState(false);
-  const [hooksReady, setHooksReady] = useState<boolean | null>(null);
-  const [installing, setInstalling] = useState(false);
+  const [hooks, setHooks] = useState<Record<string, boolean>>({});
+  const [installing, setInstalling] = useState<string | null>(null);
+  const [alertsOpen, setAlertsOpen] = useState(false);
   const sessions = useAgentStore((s) => s.sessions);
   const localAgent = useAgentStore((s) => s.localAgent);
   const notifications = useAgentStore((s) => s.notifications);
@@ -136,10 +203,14 @@ export function NotificationBell({ onActivate, onActivateLocal }: Props) {
   ).length;
   const badge = waitingCount + unreadDone;
 
+  const enabledCount = HOOK_AGENTS.filter((id) => hooks[id] === true).length;
+
   const refreshHooks = () => {
-    invoke<boolean>("agent_hooks_status", { agent: "claude" })
-      .then(setHooksReady)
-      .catch(() => setHooksReady(null));
+    for (const id of HOOK_AGENTS) {
+      invoke<boolean>("agent_hooks_status", { agent: id })
+        .then((ok) => setHooks((h) => ({ ...h, [id]: ok })))
+        .catch(() => setHooks((h) => ({ ...h, [id]: false })));
+    }
   };
 
   const onOpenChange = (next: boolean) => {
@@ -150,15 +221,15 @@ export function NotificationBell({ onActivate, onActivateLocal }: Props) {
     }
   };
 
-  const enableClaudeHooks = async () => {
-    setInstalling(true);
+  const enableHooks = async (id: string) => {
+    setInstalling(id);
     try {
-      await invoke("agent_enable_hooks", { agent: "claude" });
-      setHooksReady(true);
+      await invoke("agent_enable_hooks", { agent: id });
+      setHooks((h) => ({ ...h, [id]: true }));
     } catch {
-      setHooksReady(false);
+      setHooks((h) => ({ ...h, [id]: false }));
     } finally {
-      setInstalling(false);
+      setInstalling(null);
     }
   };
 
@@ -252,38 +323,39 @@ export function NotificationBell({ onActivate, onActivateLocal }: Props) {
           </div>
         )}
 
-        <div className="border-t flex justify-center border-border/60 p-1">
-          {hooksReady ? (
-            <div className="flex items-center gap-2 px-2 py-1.5 text-[11px] text-muted-foreground">
+        <div className="border-t border-border/60 p-1">
+          <button
+            type="button"
+            onClick={() => setAlertsOpen((v) => !v)}
+            aria-expanded={alertsOpen}
+            className="flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground/70 transition-colors hover:text-foreground"
+          >
+            Agent alerts
+            <span className="ml-auto flex items-center gap-1.5 normal-case tracking-normal">
+              {enabledCount > 0 ? (
+                <span className="text-[10px] text-muted-foreground/60">
+                  {enabledCount} on
+                </span>
+              ) : null}
               <HugeiconsIcon
-                icon={CheckmarkCircle02Icon}
+                icon={alertsOpen ? ArrowUp01Icon : ArrowDown01Icon}
                 size={13}
-                strokeWidth={1.75}
-                className="text-primary"
+                strokeWidth={2}
               />
-              Claude Code alerts enabled
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={enableClaudeHooks}
-              disabled={installing}
-              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-[12px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-60"
-            >
-              <HugeiconsIcon
-                icon={installing ? Loading03Icon : Notification03Icon}
-                size={14}
-                strokeWidth={1.75}
-                className={cn(installing && "animate-spin")}
-              />
-              {installing ? "Enabling..." : "Enable Claude Code alerts"}
-            </button>
-          )}
-          {hooksReady === false && !installing ? (
-            <p className="px-2 pt-1 text-[11px] text-destructive">
-              Could not update Claude Code config.
-            </p>
-          ) : null}
+            </span>
+          </button>
+          {alertsOpen
+            ? HOOK_AGENTS.map((id) => (
+                <HookAgentRow
+                  key={id}
+                  id={id}
+                  label={HOOK_AGENT_LABELS[id]}
+                  ready={hooks[id] === true}
+                  installing={installing === id}
+                  onEnable={() => enableHooks(id)}
+                />
+              ))
+            : null}
         </div>
       </PopoverContent>
     </Popover>

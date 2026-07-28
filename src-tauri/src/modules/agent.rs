@@ -17,6 +17,9 @@ struct AgentSpec {
     file: &'static str,
     events: &'static [(&'static str, &'static str)],
     matcher: bool,
+    // Only read on Unix: every agent's Windows delivery re-invokes Gear
+    // (see hook_command/status_needle), so this field goes unused there.
+    #[cfg_attr(windows, allow(dead_code))]
     delivery: Delivery,
 }
 
@@ -74,13 +77,24 @@ fn find(agent: &str) -> Result<&'static AgentSpec, String> {
 
 // Gated on GEAR_TERMINAL; no-op outside Gear.
 fn hook_command(spec: &AgentSpec, event: &str) -> String {
-    match spec.delivery {
-        // Claude reads the `terminalSequence` field and emits it in-band; it
-        // lost /dev/tty access in v2.1.139.
-        Delivery::TerminalSequence => format!(
-            r#"[ -n "$GEAR_TERMINAL" ] && printf '{{"terminalSequence":"\\^[]777;notify;Gear;{event}\\^G"}}' || true"#
-        ),
-        Delivery::Osc => osc_command(spec.agent, event),
+    // Windows has no POSIX shell to run the `[ -n ... ]` test (Claude Code
+    // invokes hooks via cmd.exe there), so every agent's Windows delivery
+    // re-invokes Gear, which writes the marker directly into the parent
+    // ConPTY console instead (see emit_conout_marker + lib.rs).
+    #[cfg(windows)]
+    {
+        osc_command(spec.agent, event)
+    }
+    #[cfg(unix)]
+    {
+        match spec.delivery {
+            // Claude reads the `terminalSequence` field and emits it in-band;
+            // it lost /dev/tty access in v2.1.139.
+            Delivery::TerminalSequence => format!(
+                r#"[ -n "$GEAR_TERMINAL" ] && printf '{{"terminalSequence":"\\^[]777;notify;Gear;{event}\\^G"}}' || true"#
+            ),
+            Delivery::Osc => osc_command(spec.agent, event),
+        }
     }
 }
 
@@ -105,17 +119,15 @@ fn osc_command(agent: &str, event: &str) -> String {
 // The stable substring proving a given (agent, event) hook is installed.
 // Kept in sync with hook_command so status reflects what enable writes.
 fn status_needle(spec: &AgentSpec, event: &str) -> String {
-    match spec.delivery {
-        Delivery::TerminalSequence => format!("notify;Gear;{event}"),
-        Delivery::Osc => {
-            #[cfg(unix)]
-            {
-                format!("notify;Gear;{};{event}", spec.agent)
-            }
-            #[cfg(windows)]
-            {
-                format!("__gear_notify {} {event}", spec.agent)
-            }
+    #[cfg(windows)]
+    {
+        format!("__gear_notify {} {event}", spec.agent)
+    }
+    #[cfg(unix)]
+    {
+        match spec.delivery {
+            Delivery::TerminalSequence => format!("notify;Gear;{event}"),
+            Delivery::Osc => format!("notify;Gear;{};{event}", spec.agent),
         }
     }
 }
@@ -183,11 +195,102 @@ fn existing_config(contents: Option<&str>, path: &std::path::Path) -> Result<Val
     }
 }
 
-fn settings_path(spec: &AgentSpec) -> Result<std::path::PathBuf, String> {
+fn home_path(dir: &str, file: &str) -> Result<std::path::PathBuf, String> {
     Ok(dirs::home_dir()
         .ok_or_else(|| "could not resolve home dir".to_string())?
-        .join(spec.dir)
-        .join(spec.file))
+        .join(dir)
+        .join(file))
+}
+
+fn settings_path(spec: &AgentSpec) -> Result<std::path::PathBuf, String> {
+    home_path(spec.dir, spec.file)
+}
+
+// Pi has no JSON hook config — it loads TypeScript extensions from a directory,
+// so its integration is a source file rather than a merged settings block. That
+// keeps it off the AgentSpec table and on its own path below.
+const PI_EXTENSION_DIR: &str = ".pi/agent/extensions";
+const PI_EXTENSION_FILE: &str = "gear-notifications.ts";
+const PI_EXTENSION_MARKER: &str = "gear-pi-notifications-v1";
+const PI_STATUS_NEEDLES: [&str; 6] = [
+    PI_EXTENSION_MARKER,
+    "agent_start",
+    "agent_settled",
+    "notify;Gear;pi;${event}",
+    "emit(\"working\")",
+    "emit(\"finished\")",
+];
+const PI_EXTENSION: &str = r#"// gear-pi-notifications-v1
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+
+export default function (pi: ExtensionAPI) {
+  const emit = (event: "working" | "finished") => {
+    if (process.env.GEAR_TERMINAL) {
+      process.stdout.write(`\u001b]777;notify;Gear;pi;${event}\u0007`);
+    }
+  };
+
+  pi.on("agent_start", () => emit("working"));
+  pi.on("agent_settled", () => emit("finished"));
+}
+"#;
+
+fn pi_extension_path() -> Result<std::path::PathBuf, String> {
+    home_path(PI_EXTENSION_DIR, PI_EXTENSION_FILE)
+}
+
+/// Refuse to clobber a same-named file we didn't write — the extensions dir is
+/// the user's, and only our marker proves the file is ours to replace.
+fn pi_extension_contents(
+    existing: Option<&str>,
+    path: &std::path::Path,
+) -> Result<&'static str, String> {
+    if existing.is_some_and(|s| !s.trim().is_empty() && !s.contains(PI_EXTENSION_MARKER)) {
+        return Err(format!(
+            "{} is not managed by Gear; refusing to overwrite",
+            path.display()
+        ));
+    }
+    Ok(PI_EXTENSION)
+}
+
+fn write_atomic(path: &std::path::Path, contents: &str) -> Result<(), String> {
+    let tmp = path.with_extension("gear-tmp");
+    std::fs::write(&tmp, contents).map_err(|e| format!("write {}: {e}", tmp.display()))?;
+    std::fs::rename(&tmp, path).map_err(|e| {
+        let _ = std::fs::remove_file(&tmp);
+        format!("rename into {}: {e}", path.display())
+    })
+}
+
+// Writing through a symlink would replace the link itself with a regular file,
+// so resolve it and write to the real target instead.
+fn pi_extension_write_path(path: &std::path::Path) -> Result<std::path::PathBuf, String> {
+    match std::fs::symlink_metadata(path) {
+        Ok(metadata) if metadata.file_type().is_symlink() => {
+            std::fs::canonicalize(path).map_err(|e| format!("resolve {}: {e}", path.display()))
+        }
+        Ok(_) => Ok(path.to_path_buf()),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(path.to_path_buf()),
+        Err(e) => Err(format!("inspect {}: {e}", path.display())),
+    }
+}
+
+fn enable_pi_extension_at(path: &std::path::Path) -> Result<(), String> {
+    let dir = path.parent().unwrap();
+    std::fs::create_dir_all(dir).map_err(|e| format!("create {}: {e}", dir.display()))?;
+    let existing = match std::fs::read_to_string(path) {
+        Ok(s) if s == PI_EXTENSION => return Ok(()),
+        Ok(s) => Some(s),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
+        Err(e) => return Err(format!("read {}: {e}", path.display())),
+    };
+    let contents = pi_extension_contents(existing.as_deref(), path)?;
+    write_atomic(&pi_extension_write_path(path)?, contents)
+}
+
+fn enable_pi_extension() -> Result<(), String> {
+    enable_pi_extension_at(&pi_extension_path()?)
 }
 
 fn write_hooks(spec: &AgentSpec) -> Result<(), String> {
@@ -217,11 +320,24 @@ fn write_hooks(spec: &AgentSpec) -> Result<(), String> {
 
 #[tauri::command]
 pub fn agent_enable_hooks(agent: String) -> Result<(), String> {
+    if agent == "pi" {
+        return enable_pi_extension();
+    }
     write_hooks(find(&agent)?)
 }
 
 #[tauri::command]
 pub fn agent_hooks_status(agent: String) -> bool {
+    if agent == "pi" {
+        return pi_extension_path()
+            .ok()
+            .and_then(|p| std::fs::read_to_string(p).ok())
+            .is_some_and(|content| {
+                PI_STATUS_NEEDLES
+                    .iter()
+                    .all(|needle| content.contains(needle))
+            });
+    }
     let Ok(spec) = find(&agent) else {
         return false;
     };
@@ -282,6 +398,51 @@ pub fn emit_conout_marker(agent: &str, event: &str) {
 mod tests {
     use super::*;
 
+    #[test]
+    fn pi_extension_emits_named_working_and_finished_markers() {
+        let path = std::path::Path::new("/x/gear-notifications.ts");
+        let extension = pi_extension_contents(None, path).unwrap();
+        for needle in PI_STATUS_NEEDLES {
+            assert!(extension.contains(needle), "missing {needle}");
+        }
+        assert!(extension.contains("process.env.GEAR_TERMINAL"));
+        assert!(extension.contains("process.stdout.write"));
+        // The marker must reach the file as TypeScript escapes, not raw bytes.
+        assert!(extension.contains(r"\u001b"));
+        assert!(extension.contains(r"\u0007"));
+        assert!(!extension.contains('\u{1b}'));
+        assert!(!extension.contains('\u{7}'));
+        // Never leak the upstream brand into a file we write to the user's home.
+        assert!(!extension.to_lowercase().contains("terax"));
+    }
+
+    #[test]
+    fn pi_extension_only_replaces_gear_owned_file() {
+        let path = std::path::Path::new("/x/gear-notifications.ts");
+        assert!(pi_extension_contents(Some("export const mine = true;"), path).is_err());
+        assert!(pi_extension_contents(Some(PI_EXTENSION), path).is_ok());
+        assert!(pi_extension_contents(Some("  \n"), path).is_ok());
+    }
+
+    #[test]
+    fn pi_extension_install_is_atomic_idempotent_and_preserves_foreign_files() {
+        let dir = std::env::temp_dir().join(format!("gear-pi-extension-{}", std::process::id()));
+        let path = dir.join(PI_EXTENSION_FILE);
+        let _ = std::fs::remove_dir_all(&dir);
+
+        enable_pi_extension_at(&path).unwrap();
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), PI_EXTENSION);
+        enable_pi_extension_at(&path).unwrap();
+
+        std::fs::write(&path, "export const mine = true;").unwrap();
+        assert!(enable_pi_extension_at(&path).is_err());
+        assert_eq!(
+            std::fs::read_to_string(&path).unwrap(),
+            "export const mine = true;"
+        );
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
     fn spec(agent: &str) -> &'static AgentSpec {
         find(agent).unwrap()
     }
@@ -297,6 +458,7 @@ mod tests {
             .to_string()
     }
 
+    #[cfg(unix)]
     #[test]
     fn claude_adds_all_event_hooks_to_empty_config() {
         let out = merge_hooks(json!({}), spec("claude"));
@@ -308,6 +470,23 @@ mod tests {
         assert!(command(&out, "UserPromptSubmit", 0).contains("notify;Gear;working"));
         assert!(command(&out, "Stop", 0).contains("terminalSequence"));
         assert!(!command(&out, "Stop", 0).contains("/dev/tty"));
+    }
+
+    // Windows has no POSIX shell for the `[ -n ... ]` test, so Claude's hook
+    // must re-invoke Gear the same way Codex/Gemini already do there, not
+    // emit the printf/terminalSequence command from the Unix branch.
+    #[cfg(windows)]
+    #[test]
+    fn claude_reinvokes_gear_on_windows() {
+        let out = merge_hooks(json!({}), spec("claude"));
+        assert_eq!(hook_count(&out, "UserPromptSubmit"), 1);
+        assert_eq!(hook_count(&out, "Notification"), 1);
+        assert_eq!(hook_count(&out, "Stop"), 1);
+        assert!(command(&out, "Notification", 0).contains("__gear_notify claude attention"));
+        assert!(command(&out, "Stop", 0).contains("__gear_notify claude finished"));
+        assert!(command(&out, "UserPromptSubmit", 0).contains("__gear_notify claude working"));
+        assert!(!command(&out, "Stop", 0).contains("terminalSequence"));
+        assert!(!command(&out, "Stop", 0).contains("[ -n"));
     }
 
     #[test]
@@ -344,6 +523,7 @@ mod tests {
         assert!(command(&out, "Notification", 0).contains("notify;Gear;gemini;attention"));
     }
 
+    #[cfg(unix)]
     #[test]
     fn migrates_legacy_dev_tty_hook() {
         let legacy = json!({
@@ -396,7 +576,7 @@ mod tests {
         });
         let out = merge_hooks(input, spec("claude"));
         assert_eq!(hook_count(&out, "Notification"), 1);
-        assert!(command(&out, "Notification", 0).contains("notify;Gear;attention"));
+        assert!(command(&out, "Notification", 0).contains(&status_needle(spec("claude"), "attention")));
     }
 
     #[test]

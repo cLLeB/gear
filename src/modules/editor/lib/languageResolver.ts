@@ -99,6 +99,10 @@ const loaders: Record<string, LanguageLoader> = {
 
   html: () => import("@codemirror/lang-html").then((m) => m.html()),
   htm: () => import("@codemirror/lang-html").then((m) => m.html()),
+  // Svelte has a real grammar (script/style blocks + template directives),
+  // so it gets its own mode rather than falling back to HTML like vue/twig.
+  svelte: () =>
+    import("@replit/codemirror-lang-svelte").then((m) => m.svelte()),
   astro: () =>
     import("@codemirror/lang-html").then((m) =>
       m.html({ selfClosingTags: true }),

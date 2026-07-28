@@ -23,11 +23,16 @@ import {
 } from "@/components/ui/resizable";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { getLaunchDir } from "@/lib/launchDir";
+import { consumeLaunchFiles, getLaunchDir } from "@/lib/launchDir";
 import { quoteShellArg } from "@/lib/shellQuote";
 import { useZoom } from "@/lib/useZoom";
 import { cn } from "@/lib/utils";
 import { AgentNotificationsBridge } from "@/modules/agents";
+import {
+	type AgentLaunchRequest,
+	findAgentLauncher,
+	validateAgentLaunchCommand,
+} from "@/modules/agents/lib/launcher";
 import { firePendingReviewForSession } from "@/modules/agents/lib/review";
 import { useManagedAgentsStore } from "@/modules/agents/store/managedAgentsStore";
 import {
@@ -90,6 +95,7 @@ import {
 	type ShortcutHandlers,
 	type ShortcutId,
 	ShortcutsDialog,
+	shouldDisablePaneSwapShortcut,
 	useGlobalShortcuts,
 } from "@/modules/shortcuts";
 import { SidebarRail, type SidebarViewId } from "@/modules/sidebar";
@@ -112,6 +118,8 @@ import {
 	hasLeaf,
 	leafHasForegroundProcess,
 	leafIds,
+	type PaneBounds,
+	type PaneDirection,
 	respawnSession,
 	type TerminalPaneHandle,
 	TerminalStack,
@@ -231,6 +239,7 @@ export default function App() {
 		reassignSpaceTabs,
 		setTabLanguage,
 		newAgentTab,
+		newAgentGroupTab,
 		newPrivateTab,
 		openFileTab,
 		pinTab,
@@ -250,6 +259,7 @@ export default function App() {
 		focusPane,
 		focusNextPaneInTab,
 		splitActivePane,
+		swapActivePaneInDirection,
 		closeActivePane,
 		closeOtherTabs,
 		closeTabs,
@@ -1068,6 +1078,48 @@ export default function App() {
 		newPrivateTab(inheritedCwdForNewTab());
 	}, [newPrivateTab, inheritedCwdForNewTab]);
 
+	/** Open a tab pre-split into N panes and start the agent in each one. */
+	const launchAgentGroup = useCallback(
+		(request: AgentLaunchRequest) => {
+			const command = validateAgentLaunchCommand(request.command);
+			if (!command.ok) return;
+			const launcher = findAgentLauncher(request.agent);
+			const title =
+				request.instances === 1
+					? launcher.label
+					: `${launcher.label} × ${request.instances}`;
+			const { leafIds: agentLeafIds } = newAgentGroupTab(
+				inheritedCwdForNewTab(),
+				title,
+				request.instances,
+			);
+			// Installed once for the whole group, and awaited before the first
+			// command so the agent picks the hooks up on startup.
+			const hooksReady = launcher.supportsHooks
+				? invoke("agent_enable_hooks", { agent: request.agent }).catch(
+						(error) => {
+							console.warn(
+								`[gear] could not enable ${request.agent} notifications:`,
+								error,
+							);
+						},
+					)
+				: Promise.resolve();
+
+			for (const leafId of agentLeafIds) {
+				void (async () => {
+					await Promise.all([whenSessionReady(leafId), hooksReady]);
+					if (!writeToSession(leafId, `${command.command}\r`)) {
+						console.error(
+							`[gear] agent terminal ${leafId} closed before launch`,
+						);
+					}
+				})();
+			}
+		},
+		[inheritedCwdForNewTab, newAgentGroupTab],
+	);
+
 	const openBlockTab = useCallback(
 		(shellPath?: string) => {
 			newBlockTab(inheritedCwdForNewTab(), shellPath);
@@ -1117,6 +1169,20 @@ export default function App() {
 		},
 		[openFileTab, newMarkdownTab],
 	);
+
+	// Files handed to Gear by the OS "Open With" action, drained once on mount.
+	// The backend already authorized each file's parent as the workspace, and
+	// openFileTab dedupes by path, so a repeat drain can't double-open a tab.
+	useEffect(() => {
+		let cancelled = false;
+		void consumeLaunchFiles().then((paths) => {
+			if (cancelled) return;
+			for (const path of paths) handleOpenFile(path, true);
+		});
+		return () => {
+			cancelled = true;
+		};
+	}, [handleOpenFile]);
 
 	const handlePathRenamed = useCallback(
 		(from: string, to: string) => {
@@ -1287,6 +1353,33 @@ export default function App() {
 		[activeId, splitActivePane],
 	);
 
+	/** Measure the on-screen rect of every pane in a terminal tab, so a swap
+	 * targets the layout the user actually sees rather than the idealised
+	 * even-split geometry the tree implies. */
+	const livePaneBounds = useCallback((tabId: number): PaneBounds[] => {
+		const tab = document.querySelector<HTMLElement>(
+			`[data-terminal-tab="${tabId}"]`,
+		);
+		if (!tab) return [];
+		return [...tab.querySelectorAll<HTMLElement>("[data-pane-leaf]")].flatMap(
+			(element) => {
+				const id = Number(element.dataset.paneLeaf);
+				if (!Number.isFinite(id)) return [];
+				const { left, right, top, bottom } = element.getBoundingClientRect();
+				return [{ id, left, right, top, bottom }];
+			},
+		);
+	}, []);
+
+	const swapActivePane = useCallback(
+		(direction: PaneDirection) => {
+			const t = tabsRef.current.find((x) => x.id === activeId);
+			if (!t || t.kind !== "terminal") return;
+			swapActivePaneInDirection(activeId, direction, livePaneBounds(activeId));
+		},
+		[activeId, livePaneBounds, swapActivePaneInDirection],
+	);
+
 	const handleCloseTabOrPane = useCallback(() => {
 		const t = tabsRef.current.find((x) => x.id === activeId);
 		if (t?.kind === "terminal" && leafIds(t.paneTree).length > 1) {
@@ -1320,6 +1413,10 @@ export default function App() {
 			},
 			"pane.focusNext": () => focusNextPaneInTab(activeId, 1),
 			"pane.focusPrev": () => focusNextPaneInTab(activeId, -1),
+			"pane.swapLeft": () => swapActivePane("left"),
+			"pane.swapRight": () => swapActivePane("right"),
+			"pane.swapUp": () => swapActivePane("up"),
+			"pane.swapDown": () => swapActivePane("down"),
 			"pane.source": toggleSourceControl,
 			"search.focus": () => searchInlineRef.current?.focus(),
 			"ai.toggle": togglePanelAndFocus,
@@ -1363,6 +1460,7 @@ export default function App() {
 			activeSpaceId,
 			selectByIndex,
 			splitActivePaneInActiveTab,
+			swapActivePane,
 			focusNextPaneInTab,
 			toggleSourceControl,
 			togglePanelAndFocus,
@@ -1388,6 +1486,13 @@ export default function App() {
 			) {
 				return activeTab?.kind !== "editor";
 			}
+			// Mod+Alt+Arrow doubles as terminal/editor word navigation, so the
+			// swap bindings only claim the key when there is something to swap.
+			const terminalPaneCount =
+				activeTab?.kind === "terminal"
+					? leafIds(activeTab.paneTree).length
+					: null;
+			if (shouldDisablePaneSwapShortcut(id, terminalPaneCount)) return true;
 			if (id === "ai.askSelection") {
 				const target =
 					(e.target as HTMLElement | null) ?? document.activeElement;
@@ -1824,6 +1929,7 @@ export default function App() {
 							onNewPreview={() => openPreviewTab("")}
 							onNewEditor={() => setNewEditorOpen(true)}
 							onNewGitGraph={openGitGraphFromContext}
+							onLaunchAgents={launchAgentGroup}
 							onClose={handleClose}
 							onPin={pinTab}
 							onRename={handleRenameTab}

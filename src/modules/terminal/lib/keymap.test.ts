@@ -5,6 +5,7 @@ import {
   terminalClipboardIntent,
   terminalDeleteSequence,
   terminalLineNavigationSequence,
+  terminalReadlineSequence,
   terminalWordNavigationSequence,
   type TerminalKeyEvent,
 } from "./keymap";
@@ -230,5 +231,62 @@ describe("terminalClipboardIntent", () => {
         powerShell: true,
       }),
     ).toBeNull();
+  });
+});
+
+describe("terminalReadlineSequence", () => {
+  const remaps = [
+    [
+      "line navigation",
+      evt({ metaKey: true, key: "ArrowLeft", code: "ArrowLeft" }),
+      "\x01",
+    ],
+    [
+      "word navigation",
+      evt({ altKey: true, key: "ArrowRight", code: "ArrowRight" }),
+      "\x1bf",
+    ],
+    [
+      "deletion",
+      evt({ metaKey: true, key: "Backspace", code: "Backspace" }),
+      "\x15",
+    ],
+  ] as const;
+
+  it.each(remaps)("applies %s on the normal screen", (_name, event, sequence) => {
+    expect(
+      terminalReadlineSequence(event, {
+        isMac: true,
+        isAlternateScreen: false,
+      }),
+    ).toBe(sequence);
+  });
+
+  it.each(remaps)("suppresses %s on the alternate screen", (_name, event) => {
+    expect(
+      terminalReadlineSequence(event, {
+        isMac: true,
+        isAlternateScreen: true,
+      }),
+    ).toBeNull();
+  });
+
+  it("leaves unrelated keys alone on both screens", () => {
+    const plain = evt({ key: "a", code: "KeyA" });
+    expect(
+      terminalReadlineSequence(plain, { isMac: true, isAlternateScreen: false }),
+    ).toBeNull();
+    expect(
+      terminalReadlineSequence(plain, { isMac: true, isAlternateScreen: true }),
+    ).toBeNull();
+  });
+
+  it("still maps Ctrl+Backspace on non-mac normal screen", () => {
+    expect(
+      terminalReadlineSequence(
+        evt({ ctrlKey: true, key: "Backspace", code: "Backspace" }),
+        { isMac: false, isAlternateScreen: false },
+      ),
+    ).toBe("\x17");
   });
 });

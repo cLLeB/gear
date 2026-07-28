@@ -17,6 +17,7 @@ import {
 import type { Tab } from "@/modules/tabs";
 import { TabBar } from "@/modules/tabs";
 import { NotificationBell } from "@/modules/agents";
+import type { AgentLaunchRequest } from "@/modules/agents/lib/launcher";
 import {
   Cancel01Icon,
   GridViewIcon,
@@ -45,6 +46,7 @@ type Props = {
   onNewPreview: () => void;
   onNewEditor: () => void;
   onNewGitGraph: () => void;
+  onLaunchAgents: (request: AgentLaunchRequest) => void;
   onClose: (id: number) => void;
   /** Promote a preview (transient) tab to persistent. */
   onPin: (id: number) => void;
@@ -79,6 +81,7 @@ export function Header({
   onNewPreview,
   onNewEditor,
   onNewGitGraph,
+  onLaunchAgents,
   onClose,
   onPin,
   onRename,
@@ -231,6 +234,7 @@ export function Header({
           onNewPreview={onNewPreview}
           onNewEditor={onNewEditor}
           onNewGitGraph={onNewGitGraph}
+          onLaunchAgents={onLaunchAgents}
           onClose={onClose}
           onPin={onPin}
           onRename={onRename}

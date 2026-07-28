@@ -4,6 +4,8 @@ import {
 	hasLeaf,
 	leafIds,
 	nextLeafId,
+	type PaneBounds,
+	type PaneDirection,
 	type PaneNode,
 	removeLeaf,
 	type SplitDir,
@@ -11,8 +13,17 @@ import {
 	setLeafName as setLeafNameInTree,
 	siblingLeafOf,
 	splitLeaf,
+	swapLeafInDirection,
 } from "@/modules/terminal/lib/panes";
 import { disposeSession } from "@/modules/terminal/lib/useTerminalSession";
+import {
+	type AgentInstanceCount,
+	createAgentPanePlan,
+} from "@/modules/agents/lib/launcher";
+import {
+	type GitDiffOpenInput,
+	planGitDiffOpen,
+} from "./planGitDiffOpen";
 
 // Matches the renderer slot pool size — over this we'd evict an active leaf.
 export const MAX_PANES_PER_TAB = 4;
@@ -97,6 +108,9 @@ export type GitDiffTab = {
 	repoRoot: string;
 	mode: "-" | "+";
 	originalPath: string | null;
+	/** Transient preview slot, same semantics as EditorTab.preview — a
+	 * single-click open reuses it, a pin promotes it to a persistent tab. */
+	preview: boolean;
 };
 
 export type GitHistoryTab = {
@@ -307,24 +321,45 @@ export function useTabs() {
 		);
 	}, []);
 
-	const newAgentTab = useCallback((cwd: string | undefined, title: string) => {
-		const tabId = nextIdRef.current++;
-		const leafId = nextIdRef.current++;
-		setTabs((t) => [
-			...t,
-			{
-				id: tabId,
-				kind: "terminal",
-				spaceId: activeSpaceIdRef.current,
-				title,
+	/**
+	 * A terminal tab pre-split into `instances` panes, one per agent instance.
+	 * `customTitle` is set so the tab keeps the agent's name instead of being
+	 * relabelled from the running process.
+	 */
+	const newAgentGroupTab = useCallback(
+		(cwd: string | undefined, title: string, instances: AgentInstanceCount) => {
+			const tabId = nextIdRef.current++;
+			const { paneTree, leafIds: agentLeafIds } = createAgentPanePlan(
+				instances,
+				() => nextIdRef.current++,
 				cwd,
-				paneTree: { kind: "leaf", id: leafId, cwd },
-				activeLeafId: leafId,
-			},
-		]);
-		setActiveId(tabId);
-		return { tabId, leafId };
-	}, []);
+			);
+			setTabs((t) => [
+				...t,
+				{
+					id: tabId,
+					kind: "terminal",
+					spaceId: activeSpaceIdRef.current,
+					title,
+					customTitle: title,
+					cwd,
+					paneTree,
+					activeLeafId: agentLeafIds[0],
+				},
+			]);
+			setActiveId(tabId);
+			return { tabId, leafIds: agentLeafIds };
+		},
+		[],
+	);
+
+	const newAgentTab = useCallback(
+		(cwd: string | undefined, title: string) => {
+			const { tabId, leafIds: agentLeafIds } = newAgentGroupTab(cwd, title, 1);
+			return { tabId, leafId: agentLeafIds[0] };
+		},
+		[newAgentGroupTab],
+	);
 
 	const newPrivateTab = useCallback((cwd?: string) => {
 		const tabId = nextIdRef.current++;
@@ -437,9 +472,13 @@ export function useTabs() {
 	 */
 	const pinTab = useCallback((id: number) => {
 		setTabs((curr) =>
-			curr.map((t) =>
-				t.id === id && t.kind === "editor" ? { ...t, preview: false } : t,
-			),
+			curr.map((t) => {
+				if (t.id !== id) return t;
+				if ((t.kind === "editor" || t.kind === "git-diff") && t.preview) {
+					return { ...t, preview: false };
+				}
+				return t;
+			}),
 		);
 	}, []);
 
@@ -563,54 +602,21 @@ export function useTabs() {
 	}, []);
 
 	const openGitDiffTab = useCallback(
-		(input: {
-			path: string;
-			repoRoot: string;
-			mode: "-" | "+";
-			originalPath?: string | null;
-			title?: string;
-		}) => {
+		(input: GitDiffOpenInput, pin = false) => {
 			const curr = tabsRef.current;
-			const existing = curr.find(
-				(t) =>
-					t.kind === "git-diff" &&
-					t.repoRoot === input.repoRoot &&
-					t.path === input.path &&
-					t.mode === input.mode,
+			const plan = planGitDiffOpen(
+				curr,
+				input,
+				activeSpaceIdRef.current,
+				pin,
+				() => nextIdRef.current++,
 			);
-			const computedTitle =
-				input.title ?? `${basename(input.path)} (${input.mode})`;
-			const originalPath = input.originalPath ?? null;
-
-			if (existing) {
-				const nextTabs = curr.map((t) =>
-					t.id === existing.id
-						? { ...t, title: computedTitle, originalPath }
-						: t,
-				);
-				tabsRef.current = nextTabs;
-				setTabs(nextTabs);
-				setActiveId(existing.id);
-				return existing.id;
+			if (plan.tabs !== curr) {
+				tabsRef.current = plan.tabs;
+				setTabs(plan.tabs);
 			}
-
-			const id = nextIdRef.current++;
-			const nextTabs = [
-				...curr,
-				{
-					id,
-					kind: "git-diff",
-					title: computedTitle,
-					path: input.path,
-					repoRoot: input.repoRoot,
-					mode: input.mode,
-					originalPath,
-				} satisfies GitDiffTab,
-			];
-			tabsRef.current = nextTabs;
-			setTabs(nextTabs);
-			setActiveId(id);
-			return id;
+			setActiveId(plan.targetId);
+			return plan.targetId;
 		},
 		[],
 	);
@@ -944,6 +950,33 @@ export function useTabs() {
 		[],
 	);
 
+	/**
+	 * Move the active pane one position in `direction`, keeping focus on it.
+	 * `liveBounds` are the measured on-screen rects so a manually resized
+	 * layout targets the pane the user actually sees.
+	 */
+	const swapActivePaneInDirection = useCallback(
+		(
+			tabId: number,
+			direction: PaneDirection,
+			liveBounds?: PaneBounds[],
+		): void => {
+			setTabs((curr) =>
+				curr.map((t) => {
+					if (t.id !== tabId || t.kind !== "terminal") return t;
+					const paneTree = swapLeafInDirection(
+						t.paneTree,
+						t.activeLeafId,
+						direction,
+						liveBounds,
+					);
+					return paneTree === t.paneTree ? t : { ...t, paneTree };
+				}),
+			);
+		},
+		[],
+	);
+
 	const closePaneByLeaf = useCallback((leafId: number): void => {
 		let didRemove = false;
 		setTabs((curr) => {
@@ -1087,6 +1120,7 @@ export function useTabs() {
 		reassignSpaceTabs,
 		setTabLanguage,
 		newAgentTab,
+		newAgentGroupTab,
 		newPrivateTab,
 		openFileTab,
 		pinTab,
@@ -1109,6 +1143,7 @@ export function useTabs() {
 		focusPane,
 		focusNextPaneInTab,
 		splitActivePane,
+		swapActivePaneInDirection,
 		closeActivePane,
 		closePaneByLeaf,
 		resetWorkspace,

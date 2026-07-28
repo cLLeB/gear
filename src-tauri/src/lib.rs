@@ -10,25 +10,69 @@ use tauri_plugin_window_state::StateFlags;
 #[derive(Default)]
 struct LaunchDir(Mutex<Option<String>>);
 
+/// Files passed via the OS "Open With" action. Drained like LaunchDir.
+#[derive(Default)]
+struct LaunchFiles(Mutex<Vec<String>>);
+
 #[tauri::command]
 fn get_launch_dir(state: State<'_, LaunchDir>) -> Option<String> {
     state.0.lock().expect("LaunchDir mutex poisoned").take()
 }
 
-fn parse_launch_dir() -> Option<String> {
-    for arg in std::env::args().skip(1) {
-        if arg.starts_with('-') {
-            continue;
+#[tauri::command]
+fn get_launch_files(state: State<'_, LaunchFiles>) -> Vec<String> {
+    std::mem::take(&mut *state.0.lock().expect("LaunchFiles mutex poisoned"))
+}
+
+enum LaunchEntry {
+    Dir(std::path::PathBuf),
+    File(std::path::PathBuf),
+}
+
+#[derive(Default, Debug, PartialEq)]
+struct LaunchTarget {
+    dir: Option<String>,
+    files: Vec<String>,
+}
+
+/// First dir arg (else the first file's parent) becomes the workspace; every
+/// file arg is opened. Kept free of fs/env access so it stays unit-testable.
+fn resolve_launch_target(entries: Vec<LaunchEntry>) -> LaunchTarget {
+    let mut dir = None;
+    let mut files = Vec::new();
+    for entry in entries {
+        match entry {
+            LaunchEntry::Dir(path) => {
+                if dir.is_none() {
+                    dir = Some(to_canon(&path));
+                }
+            }
+            LaunchEntry::File(path) => {
+                if dir.is_none() {
+                    dir = path.parent().map(to_canon);
+                }
+                files.push(to_canon(&path));
+            }
         }
-        let Ok(canon) = std::fs::canonicalize(&arg) else {
-            continue;
-        };
-        if !canon.is_dir() {
-            continue;
-        }
-        return Some(to_canon(canon));
     }
-    None
+    LaunchTarget { dir, files }
+}
+
+fn parse_launch_target() -> LaunchTarget {
+    let entries = std::env::args()
+        .skip(1)
+        .filter(|arg| !arg.starts_with('-'))
+        .filter_map(|arg| std::fs::canonicalize(arg).ok())
+        .filter_map(|path| {
+            let meta = std::fs::metadata(&path).ok()?;
+            Some(if meta.is_dir() {
+                LaunchEntry::Dir(path)
+            } else {
+                LaunchEntry::File(path)
+            })
+        })
+        .collect();
+    resolve_launch_target(entries)
 }
 
 #[tauri::command]
@@ -65,7 +109,12 @@ pub fn run() {
         }
     }
 
-    workspace::init_launch_cwd(parse_launch_dir().as_deref());
+    // Parsed once: canonicalizing argv touches the filesystem, and the dir must
+    // be identical across init_launch_cwd, the registry authorization, and the
+    // LaunchDir state or the frontend and backend disagree about the workspace.
+    let launch = parse_launch_target();
+    let launch_dir = launch.dir.clone();
+    workspace::init_launch_cwd(launch_dir.as_deref());
 
     // For Microsoft Store builds this binary is compiled with --no-default-features
     // which drops the `updater` feature. The Store manages updates itself.
@@ -107,12 +156,13 @@ pub fn run() {
         .manage({
             let registry = workspace::WorkspaceRegistry::default();
             workspace::bootstrap_registry(&registry);
-            if let Some(launch_dir) = parse_launch_dir() {
-                let _ = registry.authorize(&launch_dir);
+            if let Some(dir) = launch_dir.as_deref() {
+                let _ = registry.authorize(dir);
             }
             registry
         })
-        .manage(LaunchDir(Mutex::new(parse_launch_dir())))
+        .manage(LaunchDir(Mutex::new(launch.dir)))
+        .manage(LaunchFiles(Mutex::new(launch.files)))
         .invoke_handler(tauri::generate_handler![
             pty::pty_open,
             pty::pty_write,
@@ -189,6 +239,7 @@ pub fn run() {
             workspace::workspace_authorize,
             workspace::workspace_current_dir,
             get_launch_dir,
+            get_launch_files,
             toggle_devtools,
             is_store_build,
             secrets::secrets_get,
@@ -212,4 +263,53 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[cfg(test)]
+mod launch_target_tests {
+    use super::{resolve_launch_target, LaunchEntry, LaunchTarget};
+    use std::path::PathBuf;
+
+    #[test]
+    fn no_entries_resolves_to_empty() {
+        assert_eq!(resolve_launch_target(vec![]), LaunchTarget::default());
+    }
+
+    #[test]
+    fn dir_arg_sets_workspace_and_opens_nothing() {
+        let out = resolve_launch_target(vec![LaunchEntry::Dir(PathBuf::from("/home/u/proj"))]);
+        assert_eq!(out.dir.as_deref(), Some("/home/u/proj"));
+        assert!(out.files.is_empty());
+    }
+
+    #[test]
+    fn file_arg_opens_file_and_uses_parent_as_workspace() {
+        let out =
+            resolve_launch_target(vec![LaunchEntry::File(PathBuf::from("/home/u/proj/main.rs"))]);
+        assert_eq!(out.dir.as_deref(), Some("/home/u/proj"));
+        assert_eq!(out.files, vec!["/home/u/proj/main.rs".to_string()]);
+    }
+
+    #[test]
+    fn multiple_files_all_open_and_first_parent_wins() {
+        let out = resolve_launch_target(vec![
+            LaunchEntry::File(PathBuf::from("/a/one.txt")),
+            LaunchEntry::File(PathBuf::from("/b/two.txt")),
+        ]);
+        assert_eq!(out.dir.as_deref(), Some("/a"));
+        assert_eq!(
+            out.files,
+            vec!["/a/one.txt".to_string(), "/b/two.txt".to_string()]
+        );
+    }
+
+    #[test]
+    fn explicit_dir_takes_precedence_over_file_parent() {
+        let out = resolve_launch_target(vec![
+            LaunchEntry::Dir(PathBuf::from("/workspace")),
+            LaunchEntry::File(PathBuf::from("/other/x.rs")),
+        ]);
+        assert_eq!(out.dir.as_deref(), Some("/workspace"));
+        assert_eq!(out.files, vec!["/other/x.rs".to_string()]);
+    }
 }

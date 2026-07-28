@@ -4,6 +4,10 @@ export { DEFAULT_THEME_ID } from "./types";
 export { applyTheme } from "./applyTheme";
 export { validateTheme } from "./validateTheme";
 export {
+  resolveTerminalFont,
+  type TerminalFont,
+} from "./resolveTerminalFont";
+export {
   storeBgImage,
   getBgImage,
   deleteBgImage,
