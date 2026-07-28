@@ -13,6 +13,9 @@ export const wrapCompartment = new Compartment();
 export const vimCompartment = new Compartment();
 export const lspCompartment = new Compartment();
 export const indentCompartment = new Compartment();
+// Built-in, in-process diagnostics (bracket/JSON/lexical/etc.) reconfigured per
+// file by its language id. Complements LSP diagnostics when no server is running.
+export const diagnosticsCompartment = new Compartment();
 
 /** Indent config from a unit string ("\t" or N spaces). */
 export function indentExtension(unit: string): Extension {
@@ -34,6 +37,7 @@ export function buildSharedExtensions(): Extension[] {
     codeFolding(),
     search({ top: true }),
     lintGutter(),
+    diagnosticsCompartment.of([]),
     chromeTheme(),
     wrapCompartment.of([]),
     rectangularSelection(),
