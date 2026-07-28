@@ -25,6 +25,7 @@ import { Prec } from "@codemirror/state";
 import { vim } from "@replit/codemirror-vim";
 import {
   buildSharedExtensions,
+  diagnosticsCompartment,
   indentCompartment,
   indentExtension,
   languageCompartment,
@@ -32,6 +33,8 @@ import {
   vimCompartment,
   wrapCompartment,
 } from "./lib/extensions";
+import { gearLinter } from "@/modules/diagnostics/codemirror";
+import { languageFromExtension } from "@/lib/toolkit/languageFromExtension";
 import { detectIndentUnit } from "./lib/indent";
 import { lspFormatDocument, useLspExtension } from "@/modules/lsp";
 import { toast } from "sonner";
@@ -46,6 +49,8 @@ import { initVimGlobals, vimHandlersExtension } from "./lib/vim";
 
 initVimGlobals();
 import { resolveLanguage } from "./lib/languageResolver";
+import { clearActiveEditor, setActiveEditor } from "./lib/activeEditor";
+import { codeActionsKeymap } from "./lib/codeActions";
 import { FORCE_READ_LIMIT, useDocument } from "./lib/useDocument";
 import {
   inlineCompletion,
@@ -119,6 +124,8 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
     const vimMode = usePreferencesStore((s) => s.vimMode);
     const wordWrap = usePreferencesStore((s) => s.wordWrap);
     const languageRef = useRef<string | null>(null);
+    // Analyzable language id (e.g. "javascript") for the in-process code toolkit.
+    const analyzableLangRef = useRef<string>("plaintext");
     const apiKeyRef = useRef<string | null>(null);
 
     useEffect(() => {
@@ -267,6 +274,15 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
           getPath: () => pathRef.current,
           getLanguage: () => languageRef.current,
         }),
+        // Track the last-focused editor so the command palette can act on it.
+        EditorView.domEventHandlers({
+          focus: (_event, view) => {
+            setActiveEditor(view, analyzableLangRef.current);
+            return false;
+          },
+        }),
+        // Semantic selection expand/shrink (Shift+Alt+Arrow), from the toolkit.
+        keymap.of(codeActionsKeymap(() => analyzableLangRef.current)),
         keymap.of([
           {
             key: "Mod-s",
@@ -315,6 +331,18 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
       const resolveTarget = languageOverride ? `_.${languageOverride}` : path;
       languageRef.current =
         languageOverride ?? (path.split(".").pop()?.toLowerCase() ?? null);
+      // In-process diagnostics keyed by the resolved language id. Enabled
+      // immediately (no dynamic import needed) so error underlines appear even
+      // before the syntax grammar finishes loading.
+      const diagLanguageId = languageFromExtension(resolveTarget);
+      analyzableLangRef.current = diagLanguageId;
+      const diagView = cmRef.current?.view;
+      if (diagView) setActiveEditor(diagView, diagLanguageId);
+      if (diagView) {
+        diagView.dispatch({
+          effects: diagnosticsCompartment.reconfigure(gearLinter(diagLanguageId)),
+        });
+      }
       resolveLanguage(resolveTarget).then((ext) => {
         if (cancelled) return;
         const view = cmRef.current?.view;
@@ -350,6 +378,14 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
         effects: lspCompartment.reconfigure(lspExt ?? []),
       });
     }, [lspExt]);
+
+    // Forget this editor from the active-editor registry when it unmounts.
+    useEffect(() => {
+      return () => {
+        const view = cmRef.current?.view;
+        if (view) clearActiveEditor(view);
+      };
+    }, []);
 
     const applySearchQuery = useCallback((search: string, replace: string) => {
       const view = cmRef.current?.view;
