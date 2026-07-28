@@ -6,7 +6,7 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import { writeFsPaths } from "@/lib/pathDrag";
-import { cn } from "@/lib/utils";
+import { cn, isMarkdownPath } from "@/lib/utils";
 import { ArrowRight01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import React, { memo, useState } from "react";
@@ -42,10 +42,6 @@ export type EntryRowProps = {
   onAttachToAgent?: (path: string) => void;
   onOpenMarkdownPreview?: (path: string) => void;
 };
-
-function isMarkdownPath(path: string): boolean {
-  return /\.(md|markdown|mdx)$/i.test(path);
-}
 
 function formatBytes(n: number): string {
   if (n < 1024) return `${n} B`;

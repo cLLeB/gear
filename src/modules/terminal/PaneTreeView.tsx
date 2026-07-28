@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import type { SearchAddon } from "@xterm/addon-search";
 import { Fragment, useRef, useState } from "react";
 import { useTerminalDropStore } from "./lib/dropStore";
-import { leafIds, type PaneNode } from "./lib/panes";
+import { firstLeafSlotId, type PaneNode } from "./lib/panes";
 import { formatDroppedPaths } from "./lib/quoteShellPath";
 import { pasteIntoLeaf } from "./lib/rendererPool";
 import { TerminalPane, type TerminalPaneHandle } from "./TerminalPane";
@@ -124,17 +124,21 @@ export function PaneTreeView(props: Props) {
     <ResizablePanelGroup
       orientation={node.dir === "row" ? "horizontal" : "vertical"}
     >
-      {node.children.map((child, i) => (
-        // Keyed by the subtree's first leaf, not the node id: when a leaf is
-        // split in place, the replacing split node gets a fresh id and would
-        // otherwise remount the surviving pane.
-        <Fragment key={leafIds(child)[0]}>
-          {i > 0 && <ResizableHandle />}
-          <ResizablePanel id={`pane-${child.id}`} minSize="10%">
-            <PaneTreeView {...props} node={child} showLabel />
-          </ResizablePanel>
-        </Fragment>
-      ))}
+      {node.children.map((child, i) => {
+        // Keyed by the subtree's slot, not the node or leaf id: splitting a
+        // leaf in place gives the replacing split node a fresh id (which would
+        // remount the surviving pane), and swapping panes moves leaf ids
+        // between positions (which would reset the resize layout).
+        const slotId = firstLeafSlotId(child);
+        return (
+          <Fragment key={slotId}>
+            {i > 0 && <ResizableHandle />}
+            <ResizablePanel id={`pane-slot-${slotId}`} minSize="10%">
+              <PaneTreeView {...props} node={child} showLabel />
+            </ResizablePanel>
+          </Fragment>
+        );
+      })}
     </ResizablePanelGroup>
   );
 }

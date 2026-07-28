@@ -36,6 +36,11 @@ export type TerminalPalette = Partial<{
   cursor: string;
   cursorAccent: string;
   selection: string;
+  // Optional typography overrides. When a theme sets these they win over the
+  // user's terminal font preferences, so a theme can ship a coherent look.
+  fontFamily: string;
+  fontWeight: string;
+  fontSize: number;
   ansi: readonly [
     string, string, string, string, string, string, string, string,
     string, string, string, string, string, string, string, string,

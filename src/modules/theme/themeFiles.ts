@@ -12,8 +12,24 @@ export function starterTheme(): Theme {
     author: "",
     description: "",
     variants: {
-      light: { colors: {} },
-      dark: { colors: {} },
+      // The terminal font fields are seeded with the defaults so an author
+      // editing a starter theme can see the knobs exist and tweak them.
+      light: {
+        colors: {},
+        terminal: {
+          fontFamily: "JetBrains Mono",
+          fontWeight: "normal",
+          fontSize: 14,
+        },
+      },
+      dark: {
+        colors: {},
+        terminal: {
+          fontFamily: "JetBrains Mono",
+          fontWeight: "normal",
+          fontSize: 14,
+        },
+      },
     },
   };
 }

@@ -21,12 +21,45 @@ function validateColors(v: unknown): ThemeColors | undefined {
   return result;
 }
 
+const TERMINAL_FONT_WEIGHTS = new Set([
+  "normal",
+  "bold",
+  "100",
+  "200",
+  "300",
+  "400",
+  "500",
+  "600",
+  "700",
+  "800",
+  "900",
+]);
+const TERMINAL_FONT_SIZE_MIN = 8;
+const TERMINAL_FONT_SIZE_MAX = 32;
+
 function validateTerminalPalette(v: unknown): TerminalPalette | undefined {
   if (!isObject(v)) return undefined;
   const result: TerminalPalette = {};
   const strFields = ["background", "foreground", "cursor", "cursorAccent", "selection"] as const;
   for (const f of strFields) {
     if (typeof v[f] === "string") result[f] = v[f] as string;
+  }
+  // Font overrides are optional and skipped when malformed, matching the rest
+  // of this validator: a bad field in a user-authored theme degrades to the
+  // user's own preference rather than rejecting the whole theme.
+  if (typeof v.fontFamily === "string" && v.fontFamily.trim().length > 0) {
+    result.fontFamily = v.fontFamily.trim();
+  }
+  if (typeof v.fontWeight === "string" && TERMINAL_FONT_WEIGHTS.has(v.fontWeight)) {
+    result.fontWeight = v.fontWeight;
+  }
+  if (
+    typeof v.fontSize === "number" &&
+    Number.isInteger(v.fontSize) &&
+    v.fontSize >= TERMINAL_FONT_SIZE_MIN &&
+    v.fontSize <= TERMINAL_FONT_SIZE_MAX
+  ) {
+    result.fontSize = v.fontSize;
   }
   if (
     Array.isArray(v.ansi) &&

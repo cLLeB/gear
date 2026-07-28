@@ -3,11 +3,22 @@ export {
 	hasLeaf,
 	isLeaf,
 	leafIds,
+	type PaneBounds,
+	type PaneDirection,
 	type PaneId,
 	type PaneNode,
 	type SplitDir,
 } from "./lib/panes";
 export { useTerminalFileDrop } from "./lib/useTerminalFileDrop";
+export {
+	type AgentPhase,
+	type AgentTabStatus,
+	ensureAgentActivityListener,
+	isAgentActivePty,
+	phaseForSignal,
+	tabAgentStatus,
+	useAgentActivityStore,
+} from "./lib/agentActivity";
 export {
 	clearFocusedTerminal,
 	disposeSession,
@@ -15,6 +26,7 @@ export {
 	leafHasForegroundProcess,
 	leafIdForPty,
 	navigateFocusedBlocks,
+	ptyIdForLeaf,
 	respawnSession,
 	whenSessionReady,
 	writeToSession,

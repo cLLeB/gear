@@ -8,6 +8,11 @@ import {
   type AutocompleteProviderId,
   type ModelId,
 } from "@/modules/ai/config";
+import {
+  type AgentLaunchCommands,
+  DEFAULT_AGENT_LAUNCH_COMMANDS,
+  normalizeAgentLaunchCommands,
+} from "@/modules/agents/lib/launcher";
 import type { KeyBinding, ShortcutId } from "@/modules/shortcuts/shortcuts";
 import { emit, listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { LazyStore } from "@tauri-apps/plugin-store";
@@ -107,6 +112,8 @@ export type Preferences = {
   terminalWebglEnabled: boolean;
   terminalFontFamily: string;
   terminalFontWeight: string;
+  /** Per-agent start command used by the agent launcher. */
+  agentLaunchCommands: AgentLaunchCommands;
   terminalCursorBlink: boolean;
   terminalShell: string;
   defaultWorkspaceEnv: string;
@@ -182,6 +189,7 @@ const LEGACY_KEY_SHOW_HIDDEN_DIRS = "showHiddenDirectories";
 const KEY_TERMINAL_WEBGL_ENABLED = "terminalWebglEnabled";
 const KEY_TERMINAL_FONT_FAMILY = "terminalFontFamily";
 const KEY_TERMINAL_FONT_WEIGHT = "terminalFontWeight";
+const KEY_AGENT_LAUNCH_COMMANDS = "agentLaunchCommands";
 const KEY_TERMINAL_CURSOR_BLINK = "terminalCursorBlink";
 const KEY_TERMINAL_SHELL = "terminalShell";
 const KEY_DEFAULT_WORKSPACE_ENV = "defaultWorkspaceEnv";
@@ -263,6 +271,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   terminalWebglEnabled: true,
   terminalFontFamily: "",
   terminalFontWeight: "normal",
+  agentLaunchCommands: DEFAULT_AGENT_LAUNCH_COMMANDS,
   terminalCursorBlink: false,
   terminalShell: "",
   defaultWorkspaceEnv: "local",
@@ -383,6 +392,9 @@ export async function loadPreferences(): Promise<Preferences> {
     terminalFontWeight:
       get<string>(KEY_TERMINAL_FONT_WEIGHT) ??
       DEFAULT_PREFERENCES.terminalFontWeight,
+    agentLaunchCommands: normalizeAgentLaunchCommands(
+      get<unknown>(KEY_AGENT_LAUNCH_COMMANDS),
+    ),
     terminalCursorBlink:
       get<boolean>(KEY_TERMINAL_CURSOR_BLINK) ??
       DEFAULT_PREFERENCES.terminalCursorBlink,
@@ -635,6 +647,15 @@ export async function setTerminalFontWeight(value: string): Promise<void> {
   await writePref(KEY_TERMINAL_FONT_WEIGHT, value.trim() || "normal");
 }
 
+export async function setAgentLaunchCommands(
+  value: AgentLaunchCommands,
+): Promise<void> {
+  await writePref(
+    KEY_AGENT_LAUNCH_COMMANDS,
+    normalizeAgentLaunchCommands(value),
+  );
+}
+
 export async function setTerminalCursorBlink(value: boolean): Promise<void> {
   await writePref(KEY_TERMINAL_CURSOR_BLINK, value);
 }
@@ -798,6 +819,7 @@ export async function onPreferencesChange(
     [KEY_TERMINAL_WEBGL_ENABLED]: "terminalWebglEnabled",
     [KEY_TERMINAL_FONT_FAMILY]: "terminalFontFamily",
     [KEY_TERMINAL_FONT_WEIGHT]: "terminalFontWeight",
+    [KEY_AGENT_LAUNCH_COMMANDS]: "agentLaunchCommands",
     [KEY_TERMINAL_CURSOR_BLINK]: "terminalCursorBlink",
     [KEY_TERMINAL_SHELL]: "terminalShell",
     [KEY_DEFAULT_WORKSPACE_ENV]: "defaultWorkspaceEnv",

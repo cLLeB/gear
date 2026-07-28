@@ -168,7 +168,10 @@ export const ExplorerSearch = forwardRef<ExplorerSearchHandle, Props>(function E
   };
 
   return (
-    <div className="flex flex-col">
+    // While searching, the results list owns the sidebar's scroll region.
+    // Without min-h-0/flex-1 the container grows past its parent and long
+    // result lists scroll the whole sidebar instead of just the list.
+    <div className={cn("flex flex-col", active && "min-h-0 flex-1")}>
       {open ? (
         <motion.div
           className="relative shrink-0 px-2 py-1.5"

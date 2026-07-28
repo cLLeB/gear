@@ -1,7 +1,6 @@
 import { resolveFontFamily } from "@/lib/fonts";
 import { fmtShortcut, MOD_KEY } from "@/lib/platform";
 import { cn } from "@/lib/utils";
-import { usePreferencesStore } from "@/modules/settings/preferences";
 import { useEffect, useRef } from "react";
 import {
   clearLeafBlockSelection,
@@ -19,6 +18,7 @@ import {
 } from "./lib/history";
 import type { BlockMode } from "./lib/modeMachine";
 import { createShellEditor, type ShellEditorHandle } from "./lib/shellEditor";
+import { useTerminalFont } from "../lib/useTerminalFont";
 
 type Props = {
   /** Active leaf the bar is driving; the editor retargets to it. */
@@ -62,8 +62,9 @@ export default function ShellInput({
     };
   }, []);
 
-  const fontFamilyPref = usePreferencesStore((p) => p.terminalFontFamily);
-  const fontSize = usePreferencesStore((p) => p.terminalFontSize);
+  // Block-mode input must match the terminal it sits in, so it resolves the
+  // same theme-aware font rather than reading the raw preference.
+  const { fontFamily: fontFamilyPref, fontSize } = useTerminalFont();
   const fontFamily = resolveFontFamily(fontFamilyPref);
   const fontRef = useRef({ fontFamily, fontSize });
   fontRef.current = { fontFamily, fontSize };

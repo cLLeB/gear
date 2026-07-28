@@ -139,9 +139,17 @@ function InstallPill({ preset }: { preset: LspPreset }) {
     });
   };
 
+  const [notFound, setNotFound] = useState(false);
+
   const checkAgain = () => {
     setChecking(true);
-    void redetectBinary(preset.command).finally(() => setChecking(false));
+    setNotFound(false);
+    void redetectBinary(preset.command)
+      // A successful detection unmounts this pill, so only the miss needs
+      // feedback — without it "Check again" looks like it did nothing.
+      .then((path) => setNotFound(!path))
+      .catch(() => setNotFound(true))
+      .finally(() => setChecking(false));
   };
 
   return (
@@ -182,6 +190,12 @@ function InstallPill({ preset }: { preset: LspPreset }) {
               />
             </button>
           </div>
+        ) : null}
+        {notFound ? (
+          <p className="mb-2 text-[11px] text-destructive">
+            Still not found. Finish the installation and make sure the command
+            is on your PATH.
+          </p>
         ) : null}
         <div className="flex items-center justify-between">
           {install ? (

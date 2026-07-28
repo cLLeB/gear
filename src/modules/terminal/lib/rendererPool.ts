@@ -13,12 +13,7 @@ import {
   readTerminalClipboard,
   writeTerminalClipboard,
 } from "./terminalClipboard";
-import {
-  terminalClipboardIntent,
-  terminalDeleteSequence,
-  terminalLineNavigationSequence,
-  terminalWordNavigationSequence,
-} from "./keymap";
+import { terminalClipboardIntent, terminalReadlineSequence } from "./keymap";
 
 export const POOL_MAX_SIZE = 5;
 const FIT_DEBOUNCE_MS = 8;
@@ -172,13 +167,25 @@ function bgActive(
   return prefs.backgroundKind === "image" && !!prefs.backgroundImageId;
 }
 
+/**
+ * Last font pushed by the React layer (preferences merged with the active
+ * theme's overrides — see useTerminalFont). The theme lives in React context,
+ * which `termOptions` can't read, so newly created slots would otherwise fall
+ * back to the raw preference and briefly show the wrong font.
+ */
+const appliedFont: { family?: string; weight?: string; size?: number } = {};
+
 function termOptions() {
   const prefs = usePreferencesStore.getState();
   return {
-    fontFamily: resolveFontFamily(prefs.terminalFontFamily),
-    fontWeight: prefs.terminalFontWeight as FontWeight,
+    fontFamily: resolveFontFamily(appliedFont.family ?? prefs.terminalFontFamily),
+    fontWeight: (appliedFont.weight ?? prefs.terminalFontWeight) as FontWeight,
     letterSpacing: prefs.terminalLetterSpacing,
-    fontSize: Math.max(4, Math.round(prefs.terminalFontSize * prefs.zoomLevel)),
+    // appliedFont.size is already zoom-multiplied (applyFontSize receives the
+    // final value), so it is used as-is rather than scaled again.
+    fontSize:
+      appliedFont.size ??
+      Math.max(4, Math.round(prefs.terminalFontSize * prefs.zoomLevel)),
     theme: buildTerminalTheme(),
     cursorBlink: false,
     cursorStyle: "bar" as const,
@@ -255,24 +262,13 @@ function createSlot(): Slot {
     if (leafId === null) return false;
     const bridge = adapter?.resolveLeaf(leafId);
     if (!bridge) return true;
-    const lineNavigation = terminalLineNavigationSequence(event, {
+    const readlineSequence = terminalReadlineSequence(event, {
       isMac: IS_MAC,
+      isAlternateScreen: isAltScreen(slot),
     });
-    if (lineNavigation) {
+    if (readlineSequence) {
       event.preventDefault();
-      if (event.type === "keydown") bridge.writeToPty(lineNavigation);
-      return false;
-    }
-    const wordNavigation = terminalWordNavigationSequence(event);
-    if (wordNavigation) {
-      event.preventDefault();
-      if (event.type === "keydown") bridge.writeToPty(wordNavigation);
-      return false;
-    }
-    const deleteSeq = terminalDeleteSequence(event, { isMac: IS_MAC });
-    if (deleteSeq) {
-      event.preventDefault();
-      if (event.type === "keydown") bridge.writeToPty(deleteSeq);
+      if (event.type === "keydown") bridge.writeToPty(readlineSequence);
       return false;
     }
     if (isShiftEnter(event)) {
@@ -907,6 +903,7 @@ function refitSlot(slot: Slot): void {
 }
 
 export function applyFontSize(size: number): void {
+  appliedFont.size = size;
   for (const slot of slots) {
     if (slot.term.options.fontSize === size) continue;
     slot.term.options.fontSize = size;
