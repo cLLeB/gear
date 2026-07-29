@@ -99,7 +99,7 @@ pub fn run() {
         let args: Vec<String> = std::env::args().collect();
         if args.get(1).map(String::as_str) == Some("__gear_notify") {
             if let (Some(agent), Some(event)) = (args.get(2), args.get(3)) {
-                agent::emit_conout_marker(agent, event);
+                agent::emit_hook_marker(agent, event);
             }
             use std::io::Write;
             let mut out = std::io::stdout();
@@ -146,6 +146,14 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_opener::init())
+        .setup(|app| {
+            // Serves agent hook markers; see modules::pty::notify_pipe for why
+            // the console is not a usable transport for hook-spawned processes.
+            #[cfg(windows)]
+            pty::notify_pipe::serve(app.handle().clone());
+            let _ = app;
+            Ok(())
+        })
         .manage(pty::PtyState::default())
         .manage(chronicle::ChronicleState::default())
         .manage(lsp::LspState::default())

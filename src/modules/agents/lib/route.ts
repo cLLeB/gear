@@ -1,4 +1,5 @@
 import { usePreferencesStore } from "@/modules/settings/preferences";
+import { info } from "@tauri-apps/plugin-log";
 import { showAgentToast } from "../components/AgentToast";
 import { useAgentStore } from "../store/agentStore";
 import { osNotify } from "./notify";
@@ -33,16 +34,26 @@ export function routeAgentNotification({
   leafId = 0,
   onActivate,
 }: RouteArgs): void {
-  if (!usePreferencesStore.getState().agentNotifications) return;
-  if (focused && visible) return;
+  if (!usePreferencesStore.getState().agentNotifications) {
+    void info(`[route] ${agent}/${kind} dropped: agentNotifications disabled`);
+    return;
+  }
+  if (focused && visible) {
+    void info(`[route] ${agent}/${kind} dropped: window focused and agent visible`);
+    return;
+  }
 
   useAgentStore.getState().pushNotification({ source, agent, kind, tabId, leafId });
 
   if (!focused) {
+    void info(`[route] ${agent}/${kind} -> OS notification`);
     void osNotify(title, body ?? agent);
     return;
   }
   if (allowToast) {
+    void info(`[route] ${agent}/${kind} -> in-app toast`);
     showAgentToast({ agent, title, body, onActivate });
+    return;
   }
+  void info(`[route] ${agent}/${kind} -> bell only (toast suppressed)`);
 }

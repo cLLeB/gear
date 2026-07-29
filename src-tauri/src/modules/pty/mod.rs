@@ -2,6 +2,8 @@ mod agent_detect;
 mod da_filter;
 #[cfg(windows)]
 mod job;
+#[cfg(windows)]
+pub mod notify_pipe;
 mod session;
 pub(crate) mod shell_init;
 

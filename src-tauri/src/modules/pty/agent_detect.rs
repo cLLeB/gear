@@ -78,6 +78,10 @@ pub struct AgentDetector {
     state: State,
     osc: Vec<u8>,
     armed: bool,
+    /// Which agent armed this pane. Kept so a marker naming a *different*
+    /// agent can take the pane over instead of being reported under the
+    /// first agent that ever ran here.
+    agent: Option<String>,
     status: Status,
 }
 
@@ -92,6 +96,7 @@ impl AgentDetector {
             state: State::Ground,
             osc: Vec::new(),
             armed: false,
+            agent: None,
             status: Status::Working,
         }
     }
@@ -160,6 +165,7 @@ impl AgentDetector {
 
     fn disarm(&mut self) {
         self.armed = false;
+        self.agent = None;
         self.status = Status::Working;
     }
 
@@ -188,25 +194,7 @@ impl AgentDetector {
                 ),
                 None => ("claude", tail),
             };
-            // Self-arms so notifications work even when no shell preexec fired
-            // (bash, Windows, tmux, wrappers).
-            match event {
-                b"working" => {
-                    self.ensure_armed(agent, emit);
-                    self.set_working(emit);
-                }
-                b"attention" => {
-                    self.ensure_armed(agent, emit);
-                    self.status = Status::Waiting;
-                    emit(Transition::Attention);
-                }
-                b"finished" => {
-                    self.ensure_armed(agent, emit);
-                    self.status = Status::Waiting;
-                    emit(Transition::Finished);
-                }
-                _ => {}
-            }
+            self.apply_marker(agent, &String::from_utf8_lossy(event), emit);
             return;
         }
         self.generic_attention(emit);
@@ -221,7 +209,9 @@ impl AgentDetector {
                 let cmd = pt.strip_prefix(b"C;").unwrap_or(b"");
                 if let Some(agent) = self.match_agent(cmd) {
                     self.armed = true;
+                    self.agent = Some(agent.clone());
                     self.status = Status::Working;
+                    log::info!("agent detect: armed {agent} via OSC 133;C");
                     emit(Transition::Started { agent });
                 }
             }
@@ -233,14 +223,53 @@ impl AgentDetector {
         }
     }
 
-    fn ensure_armed<F: FnMut(Transition)>(&mut self, agent: &str, emit: &mut F) {
-        if !self.armed {
-            self.armed = true;
-            self.status = Status::Working;
-            emit(Transition::Started {
-                agent: agent.to_string(),
-            });
+    /// Apply a hook marker to this pane. Shared by the OSC 777 reader path and
+    /// the Windows notify pipe so both arm, attribute and dedupe identically —
+    /// the transport must not change the semantics.
+    pub fn apply_marker<F: FnMut(Transition)>(&mut self, agent: &str, event: &str, emit: &mut F) {
+        log::info!(
+            "agent marker: agent={agent} event={event} (armed={} as {:?})",
+            self.armed,
+            self.agent,
+        );
+        // Self-arms so notifications work even when no shell preexec fired
+        // (bash, Windows, tmux, wrappers).
+        match event {
+            "working" => {
+                self.ensure_armed(agent, emit);
+                self.set_working(emit);
+            }
+            "attention" => {
+                self.ensure_armed(agent, emit);
+                self.status = Status::Waiting;
+                emit(Transition::Attention);
+            }
+            "finished" => {
+                self.ensure_armed(agent, emit);
+                self.status = Status::Waiting;
+                emit(Transition::Finished);
+            }
+            _ => {}
         }
+    }
+
+    fn ensure_armed<F: FnMut(Transition)>(&mut self, agent: &str, emit: &mut F) {
+        if self.armed && self.agent.as_deref() == Some(agent) {
+            return;
+        }
+        // A marker naming a different agent means a new agent took over this
+        // pane (the previous one never emitted OSC 133;D, so we were still
+        // armed for it). Close the stale session first, or the UI keeps
+        // attributing the new agent's alerts to the old one.
+        if self.armed {
+            emit(Transition::Exited);
+        }
+        self.armed = true;
+        self.agent = Some(agent.to_string());
+        self.status = Status::Working;
+        emit(Transition::Started {
+            agent: agent.to_string(),
+        });
     }
 
     fn set_working<F: FnMut(Transition)>(&mut self, emit: &mut F) {
@@ -311,6 +340,32 @@ mod tests {
     fn arms_on_pi_command() {
         let mut d = AgentDetector::new();
         assert_eq!(run(&mut d, &osc("133;C;pi")), vec![started("pi")]);
+    }
+
+    #[test]
+    fn marker_naming_another_agent_takes_over_the_pane() {
+        let mut d = AgentDetector::new();
+        assert_eq!(run(&mut d, &osc("133;C;claude")), vec![started("claude")]);
+        // claude never emitted OSC 133;D, so the pane is still armed for it.
+        // A codex marker must be reported as codex rather than inheriting the
+        // stale claude session.
+        assert_eq!(
+            run(&mut d, &osc("777;notify;Gear;codex;attention")),
+            vec![Transition::Exited, started("codex"), Transition::Attention]
+        );
+    }
+
+    #[test]
+    fn repeated_markers_from_the_same_agent_do_not_rearm() {
+        let mut d = AgentDetector::new();
+        assert_eq!(
+            run(&mut d, &osc("777;notify;Gear;codex;attention")),
+            vec![started("codex"), Transition::Attention]
+        );
+        assert_eq!(
+            run(&mut d, &osc("777;notify;Gear;codex;attention")),
+            vec![Transition::Attention]
+        );
     }
 
     #[test]

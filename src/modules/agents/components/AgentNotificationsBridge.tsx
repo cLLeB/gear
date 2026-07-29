@@ -1,6 +1,7 @@
 import type { Tab } from "@/modules/tabs";
 import { hasLeaf, leafIdForPty } from "@/modules/terminal";
 import { listen } from "@tauri-apps/api/event";
+import { info as logInfo, warn as logWarn } from "@tauri-apps/plugin-log";
 import { useEffect, useRef } from "react";
 import { maybeTriggerManagedReview } from "../lib/review";
 import { routeAgentNotification } from "../lib/route";
@@ -58,13 +59,20 @@ function route(
 
 function handleSignal(sig: AgentSignal, ctx: Ctx): void {
   const leafId = leafIdForPty(sig.id);
-  if (leafId === null) return;
+  if (leafId === null) {
+    void logWarn(`[agent] ${sig.kind} dropped: no leaf mapped to pty ${sig.id}`);
+    return;
+  }
   const store = useAgentStore.getState();
+  void logInfo(`[agent] signal ${sig.kind} pty=${sig.id} leaf=${leafId}`);
 
   switch (sig.kind) {
     case "started": {
       const info = tabInfo(ctx.tabs, leafId);
-      if (!info) return;
+      if (!info) {
+        void logWarn(`[agent] started dropped: no terminal tab owns leaf ${leafId}`);
+        return;
+      }
       store.start(leafId, info.tabId, sig.agent ?? "agent");
       return;
     }
@@ -74,13 +82,21 @@ function handleSignal(sig: AgentSignal, ctx: Ctx): void {
     case "attention": {
       store.setStatus(leafId, "waiting");
       const session = store.sessions[leafId];
-      if (session) route(session, "attention", ctx);
+      if (!session) {
+        void logWarn(`[agent] attention dropped: no session for leaf ${leafId}`);
+        return;
+      }
+      route(session, "attention", ctx);
       return;
     }
     case "finished": {
       store.setStatus(leafId, "waiting");
       const session = store.sessions[leafId];
-      if (session) route(session, "finished", ctx);
+      if (!session) {
+        void logWarn(`[agent] finished dropped: no session for leaf ${leafId}`);
+      } else {
+        route(session, "finished", ctx);
+      }
       maybeTriggerManagedReview(leafId);
       return;
     }

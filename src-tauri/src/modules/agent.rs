@@ -106,8 +106,8 @@ fn osc_command(agent: &str, event: &str) -> String {
     )
 }
 
-// Windows has no /dev/tty: the hook re-invokes Gear, which writes the marker
-// into the parent ConPTY console (see emit_conout_marker + lib.rs).
+// Windows has no /dev/tty: the hook re-invokes Gear, which hands the marker to
+// the running app over the notify pipe (see emit_hook_marker + lib.rs).
 #[cfg(windows)]
 fn osc_command(agent: &str, event: &str) -> String {
     let exe = std::env::current_exe()
@@ -370,27 +370,81 @@ pub fn agent_enable_present_hooks() -> Result<(), String> {
     Ok(())
 }
 
-// Windows has no /dev/tty: the hook calls `Gear.exe __gear_notify ...` and we
-// write the marker into the ConPTY console. GUI-subsystem release inherits no
-// console, so attach to the hook runner's first.
+/// Appends a line to a shim-only diagnostic log. The `__gear_notify` shim
+/// exits before the Tauri logger is initialised, so `log::` would go nowhere.
+/// Every step below is otherwise a silent no-op on failure, which makes a
+/// non-delivering hook impossible to diagnose from the outside.
 #[cfg(windows)]
-pub fn emit_conout_marker(agent: &str, event: &str) {
+fn shim_log(line: &str) {
+    use std::io::Write;
+    let Some(local) = std::env::var_os("LOCALAPPDATA") else {
+        return;
+    };
+    let dir = std::path::Path::new(&local)
+        .join("app.clleb.gear")
+        .join("logs");
+    let _ = std::fs::create_dir_all(&dir);
+    let secs = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    if let Ok(mut f) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(dir.join("notify-shim.log"))
+    {
+        let _ = writeln!(f, "[{secs}] {line}");
+    }
+}
+
+/// Deliver a hook marker to the running Gear process.
+///
+/// Prefers the notify pipe, which is immune to how the agent chose to spawn its
+/// hook. The `CONOUT$` path below is kept only as a fallback for a shell started
+/// before this build (no `GEAR_PTY_ID` in its environment) — it cannot work when
+/// the hook was spawned with `CREATE_NO_WINDOW`, so a fallback that "succeeds"
+/// is still worth logging as suspect.
+#[cfg(windows)]
+pub fn emit_hook_marker(agent: &str, event: &str) {
     use std::io::Write;
     use windows_sys::Win32::System::Console::{AttachConsole, ATTACH_PARENT_PROCESS};
 
+    let mut diag = format!("notify {agent}/{event}");
     if std::env::var_os("GEAR_TERMINAL").is_none() {
+        shim_log(&format!("{diag}: SKIPPED (GEAR_TERMINAL unset)"));
         return;
     }
-    unsafe {
-        AttachConsole(ATTACH_PARENT_PROCESS);
+
+    match std::env::var(crate::modules::pty::notify_pipe::PTY_ID_ENV)
+        .ok()
+        .and_then(|v| v.parse::<u32>().ok())
+    {
+        Some(pty_id) => match crate::modules::pty::notify_pipe::send(pty_id, agent, event) {
+            Ok(()) => {
+                shim_log(&format!("{diag} pty={pty_id} pipe=ok"));
+                return;
+            }
+            Err(e) => diag.push_str(&format!(" pty={pty_id} PIPE_ERR({e}) falling back to CONOUT$")),
+        },
+        None => diag.push_str(" PTY_ID unset, falling back to CONOUT$"),
     }
+
+    let attached = unsafe { AttachConsole(ATTACH_PARENT_PROCESS) };
+    diag.push_str(&format!(" attach={attached}"));
     let marker = format!("\x1b]777;notify;Gear;{agent};{event}\x07");
-    if let Ok(mut f) = std::fs::OpenOptions::new()
+    match std::fs::OpenOptions::new()
         .read(true)
         .write(true)
         .open("CONOUT$")
     {
-        let _ = f.write_all(marker.as_bytes());
+        Ok(mut f) => match f.write_all(marker.as_bytes()) {
+            Ok(()) => match f.flush() {
+                Ok(()) => shim_log(&format!("{diag} conout=ok wrote={}", marker.len())),
+                Err(e) => shim_log(&format!("{diag} conout=ok FLUSH_ERR({e})")),
+            },
+            Err(e) => shim_log(&format!("{diag} conout=ok WRITE_ERR({e})")),
+        },
+        Err(e) => shim_log(&format!("{diag} CONOUT_OPEN_ERR({e})")),
     }
 }
 
