@@ -13,7 +13,7 @@ use super::da_filter::DaFilter;
 use super::shell_init;
 use crate::modules::workspace::WorkspaceEnv;
 
-const AGENT_EVENT: &str = "gear:agent-signal";
+pub(super) const AGENT_EVENT: &str = "gear:agent-signal";
 
 // Flusher coalesces a short window after first-byte arrival so we send chunks,
 // not single bytes. MAX_IDLE is only a safety net for missed signals.
@@ -124,7 +124,12 @@ pub fn spawn(
     };
     let pair = pty_system.openpty(size).map_err(|e| e.to_string())?;
 
-    let cmd = shell_init::build_command(cwd, workspace, blocks, shell)?;
+    #[allow(unused_mut)]
+    let mut cmd = shell_init::build_command(cwd, workspace, blocks, shell)?;
+    // Lets a hook re-invoking Gear name the pane it belongs to. Set here rather
+    // than in apply_common because only the caller knows the session id.
+    #[cfg(windows)]
+    cmd.env(super::notify_pipe::PTY_ID_ENV, id.to_string());
     let mut child = pair.slave.spawn_command(cmd).map_err(|e| e.to_string())?;
     drop(pair.slave);
 
@@ -172,13 +177,17 @@ pub fn spawn(
     let pending_r = pending.clone();
     let writer_for_da = writer.clone();
     let app_reader = app.clone();
+    // Shared so the Windows notify pipe can drive the same detector as the
+    // reader: the transport must not fork the arm/attribution state.
+    let agent_detect = Arc::new(Mutex::new(AgentDetector::new()));
+    #[cfg(windows)]
+    super::notify_pipe::register(id, &agent_detect);
     let reader_thread = thread::Builder::new()
         .name("Gear-pty-reader".into())
         .spawn(move || {
             let mut buf = [0u8; READ_BUF];
             let mut filtered: Vec<u8> = Vec::with_capacity(READ_BUF);
             let mut da_filter = DaFilter::new();
-            let mut agent_detect = AgentDetector::new();
             let mut dropped_bytes: u64 = 0;
             let mut logged_first = false;
             loop {
@@ -192,9 +201,11 @@ pub fn spawn(
                                 spawn_at.elapsed().as_millis()
                             );
                         }
-                        agent_detect.process(&buf[..n], |t| {
-                            let _ = app_reader.emit(AGENT_EVENT, t.into_signal(id));
-                        });
+                        if let Ok(mut d) = agent_detect.lock() {
+                            d.process(&buf[..n], |t| {
+                                let _ = app_reader.emit(AGENT_EVENT, t.into_signal(id));
+                            });
+                        }
                         filtered.clear();
                         da_filter.process(&buf[..n], &mut filtered, |reply| {
                             if let Ok(mut w) = writer_for_da.lock() {
@@ -220,9 +231,11 @@ pub fn spawn(
                     }
                 }
             }
-            agent_detect.finish(|t| {
-                let _ = app_reader.emit(AGENT_EVENT, t.into_signal(id));
-            });
+            if let Ok(mut d) = agent_detect.lock() {
+                d.finish(|t| {
+                    let _ = app_reader.emit(AGENT_EVENT, t.into_signal(id));
+                });
+            }
             pending_r.1.notify_one();
             if dropped_bytes > 0 {
                 log::warn!("pty backpressure: dropped {dropped_bytes} bytes (cap {MAX_PENDING})");

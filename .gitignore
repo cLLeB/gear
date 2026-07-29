@@ -1,6 +1,10 @@
 .env.build
 node_modules/
 src-tauri/target/
+# Alternate CARGO_TARGET_DIR: tauri-plugin-notification refuses to set the
+# AppUserModelID for exes under target/debug|release, so Windows notification
+# work builds here instead.
+build-dev/
 dist/
 .claude/
 .sixth/
