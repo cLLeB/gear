@@ -124,6 +124,33 @@ mod tests {
     }
 
     #[test]
+    fn split_upstream_separates_remote_and_branch() {
+        assert_eq!(
+            split_upstream("origin/main"),
+            (Some("origin".to_string()), Some("main".to_string()))
+        );
+    }
+
+    #[test]
+    fn split_upstream_splits_on_the_first_slash_only() {
+        assert_eq!(
+            split_upstream("origin/feature/x"),
+            (Some("origin".to_string()), Some("feature/x".to_string()))
+        );
+    }
+
+    #[test]
+    fn split_upstream_without_slash_yields_branch_only() {
+        assert_eq!(split_upstream("main"), (None, Some("main".to_string())));
+    }
+
+    #[test]
+    fn normalize_git_path_converts_backslashes_to_slashes() {
+        assert_eq!(normalize_git_path("a\\b\\c"), "a/b/c");
+        assert_eq!(normalize_git_path("a/b"), "a/b");
+    }
+
+    #[test]
     fn safe_pathspec_rejects_nul_and_control() {
         assert!(!is_safe_pathspec("foo\0bar"));
         assert!(!is_safe_pathspec("foo\nbar"));

@@ -23,7 +23,9 @@ import {
 } from "@/components/ui/resizable";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { consumeLaunchFiles, getLaunchDir } from "@/lib/launchDir";
+import { consumeLaunchFiles } from "@/lib/launchDir";
+import { useControlBridge } from "@/modules/control";
+import { shouldPersistSidebarWidth } from "@/modules/sidebar";
 import { quoteShellArg } from "@/lib/shellQuote";
 import { useZoom } from "@/lib/useZoom";
 import { cn } from "@/lib/utils";
@@ -99,14 +101,26 @@ import {
 	useGlobalShortcuts,
 } from "@/modules/shortcuts";
 import { SidebarRail, type SidebarViewId } from "@/modules/sidebar";
-import { SourceControlPanel, useSourceControl } from "@/modules/source-control";
-import { type SpaceMeta, SpaceSwitcher, useSpaces } from "@/modules/spaces";
+import {
+	activeRepositoryContextPath,
+	gitGraphRepositoryPath,
+	repositoryTargetIsPending,
+	SourceControlPanel,
+	sourceControlRepositoryPath,
+	useRepositoryTargeting,
+	useSourceControl,
+} from "@/modules/source-control";
+import {
+	SpaceSwitcher,
+	useSpacePersistence,
+	useSpaces,
+	useSpacesBoot,
+} from "@/modules/spaces";
 import { StatusBar } from "@/modules/statusbar";
 import type { SettingsViewTab } from "@/modules/tabs";
 import {
 	DEFAULT_SPACE_ID,
 	MAX_PANES_PER_TAB,
-	type TerminalTab,
 	useTabs,
 	useWindowTitle,
 	useWorkspaceCwd,
@@ -120,21 +134,15 @@ import {
 	leafIds,
 	type PaneBounds,
 	type PaneDirection,
+	ptyIdForLeaf,
 	respawnSession,
 	type TerminalPaneHandle,
 	TerminalStack,
+	useAgentActivityStore,
 	useTerminalFileDrop,
 	whenSessionReady,
 	writeToSession,
 } from "@/modules/terminal";
-import {
-	loadEditorPaths,
-	loadSpacesMeta,
-	loadTerminalTabs,
-	saveEditorPaths,
-	saveSpacesMeta,
-	saveTerminalTabs,
-} from "@/modules/terminal/lib/sessionPersistence";
 import { ThemeProvider } from "@/modules/theme";
 import { UpdaterDialog, WhatsNewDialog } from "@/modules/updater";
 import {
@@ -142,6 +150,7 @@ import {
 	LOCAL_WORKSPACE,
 	useWorkspaceEnvStore,
 	type WorkspaceEnv,
+	workspaceScopeKey,
 } from "@/modules/workspace";
 import { SettingsPane } from "@/settings/SettingsPane";
 import {
@@ -219,19 +228,17 @@ function readSidebarView(): SidebarViewId {
 }
 
 export default function App() {
-	// Load persisted terminal sessions once on mount. If the app was launched
-	// from a directory (CLI/Finder), we skip restoration and use that directory.
-	const [restoredSessions] = useState(() =>
-		getLaunchDir() ? null : loadTerminalTabs(),
-	);
-	const [restoredEditorPaths] = useState(() =>
-		getLaunchDir() ? null : loadEditorPaths(),
-	);
+	// Session restore lives in useSpacesBoot below. Launching with an explicit
+	// directory (CLI/Finder) skips restore and opens that directory instead.
+	const [booted, setBooted] = useState(false);
+	const markBooted = useCallback(() => setBooted(true), []);
 
 	const {
 		tabs,
 		activeId,
 		setActiveId,
+		allocId,
+		replaceTabs,
 		newTab,
 		newBlockTab,
 		setActiveSpaceForNewTabs,
@@ -268,53 +275,16 @@ export default function App() {
 		openSettingsTab,
 	} = useTabs();
 
-	// Open tabs 2..N from the restored session list after first mount.
-	// Also re-open editor files that were open in the previous session.
-	const restoredRef = useRef(restoredSessions);
-	const restoredEditorPathsRef = useRef(restoredEditorPaths);
-	useEffect(() => {
-		const sessions = restoredRef.current;
-		if (sessions && sessions.length > 1) {
-			for (const s of sessions.slice(1)) {
-				const id = newTab(s.cwd);
-				if (s.spaceId && s.spaceId !== DEFAULT_SPACE_ID) {
-					moveTabToSpace(id, s.spaceId);
-				}
-			}
-		}
-		const editorPaths = restoredEditorPathsRef.current;
-		if (editorPaths) {
-			for (const path of editorPaths) {
-				openFileTab(path, true);
-			}
-		}
-		// intentionally empty deps — runs once after mount
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, []);
-
 	// Mirror `tabs` into a ref so callbacks scheduled with `setTimeout`
 	// (e.g. cdInNewTab) read the latest pane state instead of a stale closure.
 	const tabsRef = useRef(tabs);
 	tabsRef.current = tabs;
+	const activeIdRef = useRef(activeId);
+	activeIdRef.current = activeId;
 
 	// Confirm before quitting while a terminal still has a running process.
 	const { pendingAppClose, confirmAppClose, cancelAppClose } =
 		useAppCloseGuard(tabsRef);
-
-	// Persist terminal tabs and editor paths to localStorage for restore on relaunch.
-	useEffect(() => {
-		const toSave = tabs
-			.filter((t): t is TerminalTab => t.kind === "terminal" && !t.private)
-			.map((t) => ({ title: t.title, cwd: t.cwd, spaceId: t.spaceId }));
-		const editorPaths = tabs
-			.filter((t) => t.kind === "editor" && !("preview" in t && t.preview))
-			.map((t) => (t as { path: string }).path);
-		const id = window.setTimeout(() => {
-			saveTerminalTabs(toSave);
-			saveEditorPaths(editorPaths);
-		}, 600);
-		return () => window.clearTimeout(id);
-	}, [tabs]);
 
 	const activeTerminalTab = useMemo(() => {
 		const t = tabs.find((x) => x.id === activeId);
@@ -392,20 +362,24 @@ export default function App() {
 		},
 		[persistSidebarView, sidebarView],
 	);
-	const persistSidebarWidth = useCallback((next: number) => {
-		sidebarWidthRef.current = next;
-		if (sidebarWidthWriteTimerRef.current) {
-			window.clearTimeout(sidebarWidthWriteTimerRef.current);
-		}
-		sidebarWidthWriteTimerRef.current = window.setTimeout(() => {
-			sidebarWidthWriteTimerRef.current = 0;
-			try {
-				window.localStorage.setItem(SIDEBAR_WIDTH_STORAGE_KEY, String(next));
-			} catch {
-				// ignore
+	const persistSidebarWidth = useCallback(
+		(next: number, isUserInteraction: boolean) => {
+			if (!shouldPersistSidebarWidth(next, isUserInteraction)) return;
+			sidebarWidthRef.current = next;
+			if (sidebarWidthWriteTimerRef.current) {
+				window.clearTimeout(sidebarWidthWriteTimerRef.current);
 			}
-		}, 200);
-	}, []);
+			sidebarWidthWriteTimerRef.current = window.setTimeout(() => {
+				sidebarWidthWriteTimerRef.current = 0;
+				try {
+					window.localStorage.setItem(SIDEBAR_WIDTH_STORAGE_KEY, String(next));
+				} catch {
+					// ignore
+				}
+			}, 200);
+		},
+		[],
+	);
 	useEffect(() => {
 		return () => {
 			if (sidebarWidthWriteTimerRef.current) {
@@ -457,56 +431,10 @@ export default function App() {
 
 	// ── Spaces (in-session tab groups) ─────────────────────────────────────────
 	const activeSpaceId = useSpaces((s) => s.activeId) ?? DEFAULT_SPACE_ID;
+	const activeSpaceIdRef = useRef(activeSpaceId);
+	activeSpaceIdRef.current = activeSpaceId;
 	const [switcherOpen, setSwitcherOpen] = useState(false);
 
-	const spacesList = useSpaces((s) => s.spaces);
-
-	// Restore persisted spaces, or seed a single default space. The default
-	// space's id IS DEFAULT_SPACE_ID, so existing/undefined-space tabs belong to
-	// it and stay visible. Defensive: any failure falls back to the default so
-	// startup can never break.
-	useEffect(() => {
-		const st = useSpaces.getState();
-		if (st.spaces.length > 0) return;
-		try {
-			const saved = loadSpacesMeta();
-			if (saved && saved.spaces.length > 0) {
-				st.hydrate(
-					saved.spaces as SpaceMeta[],
-					saved.activeId ?? DEFAULT_SPACE_ID,
-				);
-				return;
-			}
-		} catch {
-			// fall through to default
-		}
-		const now = Date.now();
-		st.hydrate(
-			[
-				{
-					id: DEFAULT_SPACE_ID,
-					name: "Main",
-					root: null,
-					env: workspaceEnv,
-					createdAt: now,
-					updatedAt: now,
-				},
-			],
-			DEFAULT_SPACE_ID,
-		);
-		// Run once on mount.
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, []);
-
-	// Persist the spaces list + active space (debounced) for restore on relaunch.
-	useEffect(() => {
-		if (spacesList.length === 0) return;
-		const id = window.setTimeout(
-			() => saveSpacesMeta({ spaces: spacesList, activeId: activeSpaceId }),
-			600,
-		);
-		return () => window.clearTimeout(id);
-	}, [spacesList, activeSpaceId]);
 
 	// Only the active space's tabs appear in the tab strip; all tabs stay mounted
 	// so switching spaces never tears down a background terminal's PTY.
@@ -594,6 +522,7 @@ export default function App() {
 	const [pendingDeleteTabs, setPendingDeleteTabs] = useState<number[] | null>(
 		null,
 	);
+	const [homeResolved, setHomeResolved] = useState(false);
 	useEffect(() => {
 		homeDir()
 			.then(async (p) => {
@@ -605,7 +534,8 @@ export default function App() {
 					// Bootstrap already authorizes home from Rust; ignore.
 				}
 			})
-			.catch(() => setHome(null));
+			.catch(() => setHome(null))
+			.finally(() => setHomeResolved(true));
 	}, []);
 
 	const switchWorkspace = useCallback(
@@ -665,6 +595,39 @@ export default function App() {
 			.catch(() => setLaunchCwd(null))
 			.finally(() => setLaunchCwdResolved(true));
 	}, []);
+
+	// ── Session restore ────────────────────────────────────────────────────────
+	// Adopts a restored space's workspace env without tearing anything down —
+	// unlike switchWorkspace, there are no live sessions yet at boot. Returns the
+	// env's home so the fresh-tab fallback can land in the right filesystem.
+	const adoptWorkspaceEnv = useCallback(
+		async (env: WorkspaceEnv): Promise<string | null> => {
+			setWorkspaceEnv(env.kind === "local" ? LOCAL_WORKSPACE : env);
+			if (env.kind !== "wsl") return null;
+			try {
+				const wslHome = await getWslHome(env.distro);
+				setHome(wslHome);
+				return wslHome;
+			} catch {
+				// Distro gone or WSL not running — fall back to the local home.
+				return null;
+			}
+		},
+		[setWorkspaceEnv],
+	);
+
+	useSpacesBoot({
+		ready: launchCwdResolved && homeResolved,
+		launchCwd,
+		home,
+		allocId,
+		replaceTabs,
+		markBooted,
+		setActiveSpaceForNewTabs,
+		adoptWorkspaceEnv,
+	});
+
+	useSpacePersistence({ tabs, activeId, activeSpaceId, enabled: booted });
 
 	// Listen for openSettingsWindow() calls from any module.
 	useEffect(() => {
@@ -918,6 +881,19 @@ export default function App() {
 		for (const k of [...searchAddons.current.keys()])
 			if (!live.has(k)) searchAddons.current.delete(k);
 	}, [tabs]);
+
+	// Looking at the tab is answering it: clear any agent "attention" badge on
+	// the panes that just became visible, so the marker doesn't outlive the
+	// prompt that raised it.
+	useEffect(() => {
+		const tab = tabsRef.current.find((t) => t.id === activeId);
+		if (tab?.kind !== "terminal") return;
+		const ptyIds = leafIds(tab.paneTree).flatMap((leafId) => {
+			const ptyId = ptyIdForLeaf(leafId);
+			return ptyId === null ? [] : [ptyId];
+		});
+		useAgentActivityStore.getState().acknowledgeAttention(ptyIds);
+	}, [activeId]);
 
 	const handleClose = useCallback(
 		async (id: number) => {
@@ -1262,16 +1238,12 @@ export default function App() {
 	const workspaceFallbackPath = launchCwdResolved
 		? (launchCwd ?? home ?? null)
 		: null;
-	const sourceControlContextPath = (() => {
-		if (activeTab?.kind === "terminal") {
-			return activeTerminalLeafCwd ?? explorerRoot ?? workspaceFallbackPath;
-		}
-		if (activeTab?.kind === "editor") return dirname(activeTab.path);
-		if (activeTab?.kind === "git-diff") return activeTab.repoRoot;
-		if (activeTab?.kind === "git-commit-file") return activeTab.repoRoot;
-		if (activeTab?.kind === "git-history") return activeTab.repoRoot;
-		return explorerRoot ?? workspaceFallbackPath;
-	})();
+	const sourceControlContextPath = activeRepositoryContextPath({
+		activeTab,
+		activeTerminalLeafCwd,
+		explorerRoot,
+		workspaceFallbackPath,
+	});
 	const hasOpenGitTab = useMemo(
 		() =>
 			tabs.some(
@@ -1282,15 +1254,52 @@ export default function App() {
 			),
 		[tabs],
 	);
-	const sourceControlActive = hasOpenGitTab || sidebarView === "source-control";
 	// Stable per-session path so switching tabs / cd-ing in a shell does NOT
 	// re-fire git IPC for the badge. The active panel resolves the current
 	// context path on its own when the user actually opens git.
 	const badgeContextPath = workspaceFallbackPath;
-	const sourceControlPath = sourceControlActive
-		? sourceControlContextPath
-		: badgeContextPath;
+
+	// "Open in Source Control" on an Explorer folder pins that folder's repo
+	// for this space + workspace, so a nested repo or submodule can be inspected
+	// without moving the workspace root. Cleared by "Follow active context".
+	const workspaceKey = workspaceScopeKey(workspaceEnv);
+	const openSourceControlView = useCallback(
+		() => cycleSidebarView("source-control"),
+		[cycleSidebarView],
+	);
+	const isContextCurrent = useCallback(
+		(spaceId: string, key: string) =>
+			activeSpaceIdRef.current === spaceId &&
+			workspaceScopeKey(useWorkspaceEnvStore.getState().env) === key,
+		[],
+	);
+	const {
+		repositoryTarget,
+		openInSourceControl,
+		openGitHistory: openGitHistoryForPath,
+		followActiveContext,
+	} = useRepositoryTargeting({
+		spaceId: activeSpaceId,
+		workspaceKey,
+		isContextCurrent,
+		openSourceControl: openSourceControlView,
+		openCommitHistoryTab,
+	});
+
+	const sourceControlPath = sourceControlRepositoryPath({
+		contextPath: sourceControlContextPath,
+		badgeContextPath,
+		sidebarView,
+		hasOpenGitTab,
+		target: repositoryTarget,
+	});
 	const sourceControl = useSourceControl(sourceControlPath, true);
+	const repositoryTargetPending = repositoryTargetIsPending({
+		target: repositoryTarget,
+		loadedContextPath: sourceControl.contextPath,
+		loadedRepoRoot: sourceControl.repo?.repoRoot ?? null,
+		isLoading: sourceControl.isLoading,
+	});
 
 	const toggleSidebarPosition = useCallback(() => {
 		void setSidebarPosition(sidebarPosition === "left" ? "right" : "left");
@@ -1309,9 +1318,15 @@ export default function App() {
 			});
 			return;
 		}
-		if (!sourceControlContextPath) return;
+		// Honour a pinned repo so the history tab matches what the panel shows.
+		const path = gitGraphRepositoryPath({
+			contextPath: sourceControlContextPath,
+			sidebarView,
+			target: repositoryTarget,
+		});
+		if (!path) return;
 		try {
-			const repo = await native.gitResolveRepo(sourceControlContextPath);
+			const repo = await native.gitResolveRepo(path);
 			if (!repo) return;
 			openCommitHistoryTab({ repoRoot: repo.repoRoot, branch: repo.branch });
 		} catch {
@@ -1319,6 +1334,8 @@ export default function App() {
 		}
 	}, [
 		openCommitHistoryTab,
+		repositoryTarget,
+		sidebarView,
 		sourceControl.hasRepo,
 		sourceControl.repo,
 		sourceControl.status?.branch,
@@ -1427,7 +1444,9 @@ export default function App() {
 				}
 				toggleMini();
 			},
-			"ai.askSelection": () => askFromSelection(),
+			// Route through the wrapper so keyboard activation dismisses the
+			// popup exactly like clicking the button does.
+			"ai.askSelection": () => onAskFromSelection(),
 			"shortcuts.open": () => setShortcutsOpen((v) => !v),
 			"settings.open": () => openSettingsTab(),
 			"sidebar.toggle": toggleSidebar,
@@ -1467,7 +1486,7 @@ export default function App() {
 			toggleMini,
 			hasComposer,
 			openSettingsTab,
-			askFromSelection,
+			onAskFromSelection,
 			toggleSidebar,
 			toggleExplorerFocus,
 			zoomIn,
@@ -1520,12 +1539,67 @@ export default function App() {
 
 	const registerEditorHandle = useCallback(
 		(id: number, h: EditorPaneHandle | null) => {
-			if (h) editorRefs.current.set(id, h);
-			else editorRefs.current.delete(id);
+			if (h) {
+				editorRefs.current.set(id, h);
+				// A `gear <file> --line N` that opened this tab parked its jump
+				// here because the pane had not mounted yet.
+				const pending = pendingEditorNavigation.current.get(id);
+				if (pending != null) {
+					pendingEditorNavigation.current.delete(id);
+					if (pending.line === undefined) h.focus();
+					else h.gotoLine(pending.line, { focus: pending.focus });
+				}
+			} else {
+				editorRefs.current.delete(id);
+			}
 			if (id === activeId) setActiveEditorHandle(h);
 		},
 		[activeId],
 	);
+
+	// `gear <file>` from a pane: open in that pane's space, and only steal
+	// window focus when the caller asked for it.
+	const pendingEditorNavigation = useRef<
+		Map<number, { line?: number; focus: boolean }>
+	>(new Map());
+
+	const openControlFile = useCallback(
+		({
+			path,
+			line,
+			focus,
+			spaceId,
+		}: {
+			path: string;
+			line?: number;
+			focus: boolean;
+			spaceId: string;
+		}) => {
+			if (focus && useSpaces.getState().activeId !== spaceId) {
+				useSpaces.getState().setActive(spaceId);
+			}
+			const id = openFileTab(path, true, { spaceId, activate: focus });
+			if (id === null) return null;
+			const editor = editorRefs.current.get(id);
+			if (line !== undefined) {
+				if (editor) editor.gotoLine(line, { focus });
+				else pendingEditorNavigation.current.set(id, { line, focus });
+			} else if (focus) {
+				if (editor) editor.focus();
+				else pendingEditorNavigation.current.set(id, { focus: true });
+			}
+			return id;
+		},
+		[openFileTab],
+	);
+
+	useControlBridge({
+		ready: launchCwdResolved,
+		tabsRef,
+		activeTabIdRef: activeIdRef,
+		activeSpaceIdRef,
+		onOpen: openControlFile,
+	});
 
 	const registerPreviewHandle = useCallback(
 		(id: number, h: PreviewPaneHandle | null) => {
@@ -1959,6 +2033,10 @@ export default function App() {
 						<ResizablePanelGroup
 							orientation="horizontal"
 							className="min-h-0 flex-1"
+							onLayoutChanged={(_, { isUserInteraction }) => {
+								const width = sidebarRef.current?.getSize().inPixels ?? 0;
+								persistSidebarWidth(width, isUserInteraction);
+							}}
 						>
 							{!zenMode && sidebarPosition === "left" && (
 								<>
@@ -1975,7 +2053,6 @@ export default function App() {
 										collapsible
 										collapsedSize={0}
 										onResize={(size) => {
-											if (size.inPixels > 0) persistSidebarWidth(size.inPixels);
 											persistSidebarCollapsed(size.inPixels <= 0);
 										}}
 									>
@@ -1991,6 +2068,8 @@ export default function App() {
 															onPathRenamed={handlePathRenamed}
 															onPathDeleted={handlePathDeleted}
 															onRevealInTerminal={cdInNewTab}
+															onOpenInSourceControl={openInSourceControl}
+															onOpenGitHistory={openGitHistoryForPath}
 															onAttachToAgent={handleAttachFileToAgent}
 															onOpenMarkdownPreview={openMarkdownPreview}
 														/>
@@ -2001,6 +2080,9 @@ export default function App() {
 															onOpenDiff={openGitDiffTab}
 															onOpenGitGraph={openGitGraphFromContext}
 															onOpenFile={handleOpenFile}
+															repositoryPinned={repositoryTarget.mode === "fixed"}
+															onFollowActiveContext={followActiveContext}
+															repositoryPending={repositoryTargetPending}
 														/>
 													)}
 												</ErrorBoundary>
@@ -2083,7 +2165,6 @@ export default function App() {
 										collapsible
 										collapsedSize={0}
 										onResize={(size) => {
-											if (size.inPixels > 0) persistSidebarWidth(size.inPixels);
 											persistSidebarCollapsed(size.inPixels <= 0);
 										}}
 									>
@@ -2099,6 +2180,8 @@ export default function App() {
 															onPathRenamed={handlePathRenamed}
 															onPathDeleted={handlePathDeleted}
 															onRevealInTerminal={cdInNewTab}
+															onOpenInSourceControl={openInSourceControl}
+															onOpenGitHistory={openGitHistoryForPath}
 															onAttachToAgent={handleAttachFileToAgent}
 															onOpenMarkdownPreview={openMarkdownPreview}
 														/>
@@ -2109,6 +2192,9 @@ export default function App() {
 															onOpenDiff={openGitDiffTab}
 															onOpenGitGraph={openGitGraphFromContext}
 															onOpenFile={handleOpenFile}
+															repositoryPinned={repositoryTarget.mode === "fixed"}
+															onFollowActiveContext={followActiveContext}
+															repositoryPending={repositoryTargetPending}
 														/>
 													)}
 												</ErrorBoundary>

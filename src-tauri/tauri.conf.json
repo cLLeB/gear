@@ -4,9 +4,9 @@
   "version": "0.1.2",
   "identifier": "app.clleb.gear",
   "build": {
-    "beforeDevCommand": "pnpm dev",
+    "beforeDevCommand": "pnpm build:cli:dev && pnpm dev",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "pnpm build",
+    "beforeBuildCommand": "pnpm build:cli && pnpm build",
     "frontendDist": "../dist",
     "removeUnusedCommands": true
   },
@@ -35,6 +35,9 @@
   },
   "bundle": {
     "active": true,
+    "externalBin": [
+      "binaries/gear-cli"
+    ],
     "publisher": "Caleb Kwabena Kyere Boateng",
     "targets": [
       "app",

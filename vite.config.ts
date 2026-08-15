@@ -1,16 +1,19 @@
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
-import path from "path";
+import path from "node:path";
 import { defineConfig } from "vite";
 
 const host = process.env.TAURI_DEV_HOST;
+// `__dirname` is undefined once Vite loads this TS config natively instead of
+// bundling it to CJS first, which breaks every alias below.
+const rootDir = import.meta.dirname;
 
 // https://vite.dev/config/
 export default defineConfig(async ({ mode }) => ({
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "./src"),
+      "@": path.resolve(rootDir, "./src"),
     },
   },
   esbuild: {
@@ -26,7 +29,7 @@ export default defineConfig(async ({ mode }) => ({
     chunkSizeWarningLimit: 1500,
     rollupOptions: {
       input: {
-        main: path.resolve(__dirname, "index.html"),
+        main: path.resolve(rootDir, "index.html"),
       },
       output: {
         manualChunks(id: string) {

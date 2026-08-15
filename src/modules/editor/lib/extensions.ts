@@ -27,6 +27,34 @@ export function indentExtension(unit: string): Extension {
 
 export const DEFAULT_INDENT: Extension = indentExtension("  ");
 
+const WORD_WRAP_COLUMN_VAR = "--gear-editor-wrap-column";
+// Module-level so reconfiguring the column reuses the same theme instance and
+// CodeMirror doesn't tear down and re-add the stylesheet on every change.
+const WORD_WRAP_COLUMN_THEME = EditorView.theme({
+  ".cm-content.cm-lineWrapping": {
+    maxWidth: `var(${WORD_WRAP_COLUMN_VAR})`,
+    marginLeft: "6px",
+    marginRight: "2px",
+  },
+  ".cm-content.cm-lineWrapping .cm-line": {
+    paddingLeft: "0",
+    paddingRight: "0",
+  },
+});
+
+/** Soft wrap at `column`, or no wrapping at all when `column` is null. The
+ *  column is a max width, so a narrower editor still wraps earlier. */
+export function wordWrapExtension(column: number | null): Extension {
+  if (column === null) return [];
+  return [
+    EditorView.lineWrapping,
+    WORD_WRAP_COLUMN_THEME,
+    EditorView.contentAttributes.of({
+      style: `${WORD_WRAP_COLUMN_VAR}: ${column}ch`,
+    }),
+  ];
+}
+
 // Only what basicSetup doesn't already cover, to avoid duplicate extensions.
 // basicSetup gives us line numbers, fold gutter, history, indentOnInput,
 // bracketMatching, closeBrackets, autocompletion, highlightActiveLine,

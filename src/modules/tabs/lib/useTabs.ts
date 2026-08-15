@@ -20,6 +20,7 @@ import {
 	type AgentInstanceCount,
 	createAgentPanePlan,
 } from "@/modules/agents/lib/launcher";
+import { planCommitHistoryOpen } from "./planCommitHistoryOpen";
 import {
 	type GitDiffOpenInput,
 	planGitDiffOpen,
@@ -118,6 +119,8 @@ export type GitHistoryTab = {
 	kind: "git-history";
 	title: string;
 	repoRoot: string;
+	spaceId?: string;
+	cold?: boolean;
 };
 
 export type GitCommitFileDiffTab = {
@@ -174,6 +177,13 @@ export function pickTabBySpaceIndex(
 	return tabs.filter((t) => (t.spaceId ?? DEFAULT_SPACE_ID) === spaceId)[idx];
 }
 
+export type OpenFileTabOptions = {
+	/** Space the tab belongs to. Defaults to the active space. */
+	spaceId?: string;
+	/** Whether to switch to the tab. Defaults to true. */
+	activate?: boolean;
+};
+
 export type TabPatch = Partial<{
 	title: string;
 	cwd: string;
@@ -203,21 +213,11 @@ function titleFromUrl(url: string): string {
 }
 
 export function useTabs() {
-	const [tabs, setTabs] = useState<Tab[]>(() => {
-		return [
-			{
-				id: 1,
-				kind: "editor",
-				spaceId: DEFAULT_SPACE_ID,
-				title: "untitled",
-				path: "",
-				dirty: false,
-				preview: false,
-			},
-		];
-	});
-	const [activeId, setActiveId] = useState(1);
-	const nextIdRef = useRef(3);
+	// Starts empty: the spaces boot pass owns the first tab, so a fresh profile
+	// gets a terminal rather than an untitled editor nobody asked for.
+	const [tabs, setTabs] = useState<Tab[]>([]);
+	const [activeId, setActiveId] = useState(0);
+	const nextIdRef = useRef(1);
 	const tabsRef = useRef(tabs);
 	// Space that newly-created tabs are assigned to. Driven by the Spaces feature
 	// via setActiveSpaceForNewTabs; defaults to the single default space.
@@ -230,6 +230,36 @@ export function useTabs() {
 	const setActiveSpaceForNewTabs = useCallback((spaceId: string) => {
 		activeSpaceIdRef.current = spaceId;
 	}, []);
+
+	/** Hands out ids from the same counter tabs and pane leaves share. */
+	const allocId = useCallback(() => nextIdRef.current++, []);
+
+	/** Swaps the whole tab set — used once by the boot restore pass. Ids in
+	 *  `next` must come from `allocId` so they never collide with later tabs. */
+	const replaceTabs = useCallback((next: Tab[], nextActiveId: number) => {
+		let toDispose: number[] = [];
+		setTabs((curr) => {
+			toDispose = curr.flatMap((t) =>
+				t.kind === "terminal" ? leafIds(t.paneTree) : [],
+			);
+			return next;
+		});
+		setActiveId(nextActiveId);
+		for (const lid of toDispose) disposeSession(lid);
+	}, []);
+
+	// A restored tab stays cold — unmounted, no PTY — until the user first
+	// activates it. Clearing the flag here is the only thing that wakes it up.
+	useEffect(() => {
+		setTabs((curr) =>
+			curr.some((t) => t.id === activeId && t.cold)
+				? curr.map((t) => (t.id === activeId ? { ...t, cold: false } : t))
+				: curr,
+		);
+		// Depends on `tabs` too so a restore that lands on the already-active id
+		// still warms. The guard returns the same array when there is nothing to
+		// warm, so React bails out rather than looping.
+	}, [activeId, tabs]);
 
 	const newTab = useCallback((cwd?: string, shellPath?: string) => {
 		const tabId = nextIdRef.current++;
@@ -391,7 +421,10 @@ export function useTabs() {
 	 *   reused: if a persistent tab for the path already exists it is activated;
 	 *   otherwise the current preview slot is replaced with the new path.
 	 */
-	const openFileTab = useCallback((path: string, pin = true) => {
+	const openFileTab = useCallback(
+		(path: string, pin = true, options?: OpenFileTabOptions) => {
+		const spaceId = options?.spaceId ?? activeSpaceIdRef.current;
+		const activate = options?.activate ?? true;
 		let targetId: number | null = null;
 		setTabs((curr) => {
 			if (pin) {
@@ -415,7 +448,7 @@ export function useTabs() {
 					{
 						id,
 						kind: "editor",
-						spaceId: activeSpaceIdRef.current,
+						spaceId,
 						title: basename(path),
 						path,
 						dirty: false,
@@ -462,9 +495,11 @@ export function useTabs() {
 				return next;
 			}
 		});
-		if (targetId !== null) setActiveId(targetId);
-		return targetId as number | null;
-	}, []);
+			if (targetId !== null && activate) setActiveId(targetId);
+			return targetId as number | null;
+		},
+		[],
+	);
 
 	/**
 	 * Promotes a preview tab to a persistent one. Called on double-click of the
@@ -624,33 +659,18 @@ export function useTabs() {
 	const openCommitHistoryTab = useCallback(
 		(input: { repoRoot: string; branch?: string | null }) => {
 			const curr = tabsRef.current;
-			const existing = curr.find(
-				(t) => t.kind === "git-history" && t.repoRoot === input.repoRoot,
+			const plan = planCommitHistoryOpen(
+				curr,
+				input,
+				activeSpaceIdRef.current,
+				() => nextIdRef.current++,
 			);
-			const title = input.branch ? `History · ${input.branch}` : "Git History";
-			if (existing) {
-				const nextTabs = curr.map((t) =>
-					t.id === existing.id ? { ...t, title } : t,
-				);
-				tabsRef.current = nextTabs;
-				setTabs(nextTabs);
-				setActiveId(existing.id);
-				return existing.id;
+			if (plan.tabs !== curr) {
+				tabsRef.current = plan.tabs;
+				setTabs(plan.tabs);
 			}
-			const id = nextIdRef.current++;
-			const nextTabs = [
-				...curr,
-				{
-					id,
-					kind: "git-history",
-					title,
-					repoRoot: input.repoRoot,
-				} satisfies GitHistoryTab,
-			];
-			tabsRef.current = nextTabs;
-			setTabs(nextTabs);
-			setActiveId(id);
-			return id;
+			setActiveId(plan.targetId);
+			return plan.targetId;
 		},
 		[],
 	);
@@ -1112,6 +1132,8 @@ export function useTabs() {
 		tabs,
 		activeId,
 		setActiveId,
+		allocId,
+		replaceTabs,
 		newTab,
 		newBlockTab,
 		newTabInSpace,

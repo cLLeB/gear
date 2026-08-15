@@ -6,6 +6,12 @@
 if ($global:__GEAR_HOOKS_LOADED) { return }
 $global:__GEAR_HOOKS_LOADED = $true
 
+if ($env:GEAR_CLI -and (Test-Path -LiteralPath $env:GEAR_CLI -PathType Leaf)) {
+    function global:gear {
+        & $env:GEAR_CLI @args
+    }
+}
+
 try {
     [Console]::InputEncoding  = [System.Text.UTF8Encoding]::new($false)
     [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
