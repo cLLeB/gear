@@ -38,7 +38,7 @@ import {
   useAgentActivityStore,
 } from "@/modules/terminal";
 import type { AgentLaunchRequest } from "@/modules/agents/lib/launcher";
-import { computeCloseTargets } from "./lib/closeTargets";
+import { computeCloseTargets, tabsToRight } from "./lib/closeTargets";
 import { NewTabMenu } from "./NewTabMenu";
 import { labelFor } from "./lib/tabLabel";
 import type { Tab } from "./lib/useTabs";
@@ -255,6 +255,17 @@ export function TabBar({
                         <span
                           role="button"
                           aria-label="Close tab"
+                          // Stop the press before it reaches the TabsTrigger:
+                          // onClick alone is too late, so closing an unfocused
+                          // tab would activate it on the way out.
+                          onPointerDown={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                          }}
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                          }}
                           onClick={(e) => {
                             e.stopPropagation();
                             onClose(t.id);
@@ -290,6 +301,12 @@ export function TabBar({
                       disabled={tabs.length <= 1}
                     >
                       Close other tabs
+                    </ContextMenuItem>
+                    <ContextMenuItem
+                      onSelect={() => onCloseTabs?.(tabsToRight(tabs, t.id))}
+                      disabled={tabsToRight(tabs, t.id).length === 0}
+                    >
+                      Close tabs to the right
                     </ContextMenuItem>
                   </ContextMenuContent>
                 </ContextMenu>

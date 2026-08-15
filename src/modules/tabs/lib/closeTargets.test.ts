@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeCloseTargets } from "./closeTargets";
+import { computeCloseTargets, tabsToRight } from "./closeTargets";
 import type { Tab } from "./useTabs";
 
 const terminal = (id: number): Tab =>
@@ -44,5 +44,29 @@ describe("computeCloseTargets", () => {
     expect(
       computeCloseTargets([terminal(1), editor(2, true)], 1).saved,
     ).toEqual([]);
+  });
+});
+
+describe("tabsToRight", () => {
+  const tabs = [terminal(1), editor(2, false), editor(3, true), markdown(4)];
+
+  it("returns every tab after the anchor, in strip order", () => {
+    expect(tabsToRight(tabs, 2)).toEqual([3, 4]);
+  });
+
+  it("ignores dirty state — the caller's close guard handles that", () => {
+    expect(tabsToRight(tabs, 1)).toEqual([2, 3, 4]);
+  });
+
+  it("is empty for the rightmost tab", () => {
+    expect(tabsToRight(tabs, 4)).toEqual([]);
+  });
+
+  it("is empty for an unknown anchor", () => {
+    expect(tabsToRight(tabs, 99)).toEqual([]);
+  });
+
+  it("is empty for a single-tab strip", () => {
+    expect(tabsToRight([terminal(1)], 1)).toEqual([]);
   });
 });

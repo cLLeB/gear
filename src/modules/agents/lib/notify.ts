@@ -6,6 +6,8 @@ import {
   sendNotification,
 } from "@tauri-apps/plugin-notification";
 
+export type OsNotificationResult = "requested" | "denied" | "failed";
+
 let granted = false;
 
 /** Per-platform sound id. Windows accepts only the WinRT toast names
@@ -31,15 +33,33 @@ async function ensurePermission(): Promise<boolean> {
   return ok;
 }
 
-export async function osNotify(title: string, body: string): Promise<void> {
+/** Requests a native notification. "requested" only means the platform accepted
+ *  the call — it is not proof a toast was shown. */
+export async function osNotify(
+  title: string,
+  body: string,
+): Promise<OsNotificationResult> {
   try {
     if (!(await ensurePermission())) {
       void warn(`[notify] permission denied, dropped: ${title}`);
-      return;
+      return "denied";
     }
     sendNotification({ title, body, sound: SOUND });
     void info(`[notify] sent: ${title}`);
+    return "requested";
   } catch (e) {
     void warn(`[notify] failed: ${String(e)}`);
+    return "failed";
   }
+}
+
+/** Fires a real native notification so the user can confirm delivery from
+ *  settings. Routing normally suppresses alerts while Gear is focused and the
+ *  agent is visible, which makes delivery impossible to verify by hand — the
+ *  caller delays this so the user can switch apps first. */
+export async function testAgentOsNotification(): Promise<OsNotificationResult> {
+  return osNotify(
+    "Gear notifications are working",
+    "You will be notified when an agent needs your attention.",
+  );
 }

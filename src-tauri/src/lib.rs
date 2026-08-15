@@ -1,9 +1,11 @@
 pub mod modules;
 
 use fs::to_canon;
-use modules::{agent, chronicle, fs, git, history, lsp, net, pty, secrets, shell, workspace};
+use modules::{
+    agent, chronicle, control, fs, git, history, lsp, net, pty, secrets, shell, workspace,
+};
 use std::sync::Mutex;
-use tauri::State;
+use tauri::{Manager, State};
 use tauri_plugin_window_state::StateFlags;
 
 /// Drained on first read so HMR / re-mounts can't replay the launch dir.
@@ -116,6 +118,9 @@ pub fn run() {
     let launch_dir = launch.dir.clone();
     workspace::init_launch_cwd(launch_dir.as_deref());
 
+    let control_state = control::ControlState::default();
+    let control_for_setup = control_state.clone();
+
     // For Microsoft Store builds this binary is compiled with --no-default-features
     // which drops the `updater` feature. The Store manages updates itself.
     #[allow(unused_mut)]
@@ -146,7 +151,8 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_opener::init())
-        .setup(|app| {
+        .setup(move |app| {
+            control::start(app.handle().clone(), control_for_setup.clone())?;
             // Serves agent hook markers; see modules::pty::notify_pipe for why
             // the console is not a usable transport for hook-spawned processes.
             #[cfg(windows)]
@@ -155,6 +161,7 @@ pub fn run() {
             Ok(())
         })
         .manage(pty::PtyState::default())
+        .manage(control_state)
         .manage(chronicle::ChronicleState::default())
         .manage(lsp::LspState::default())
         .manage(shell::ShellState::default())
@@ -199,10 +206,13 @@ pub fn run() {
             fs::file::fs_stat,
             fs::file::fs_canonicalize,
             fs::mutate::fs_copy,
+            fs::mutate::fs_move,
+            fs::mutate::fs_write_new,
             fs::mutate::fs_create_file,
             fs::mutate::fs_create_dir,
             fs::mutate::fs_rename,
             fs::mutate::fs_delete,
+            fs::clipboard::clipboard_read_files,
             fs::watch::fs_watch_add,
             fs::watch::fs_watch_remove,
             fs::search::fs_search,
@@ -246,6 +256,8 @@ pub fn run() {
             workspace::wsl_home,
             workspace::workspace_authorize,
             workspace::workspace_current_dir,
+            control::control_frontend_ready,
+            control::control_respond,
             get_launch_dir,
             get_launch_files,
             toggle_devtools,
@@ -269,8 +281,17 @@ pub fn run() {
             chronicle::chronicle_search,
             chronicle::chronicle_prune,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while running tauri application")
+        .run(|app, event| {
+            // Drop the loopback listener and its discovery descriptor so a later
+            // CLI invocation can't dial a dead port.
+            if matches!(event, tauri::RunEvent::Exit) {
+                if let Some(state) = app.try_state::<control::ControlState>() {
+                    state.shutdown();
+                }
+            }
+        });
 }
 
 #[cfg(test)]

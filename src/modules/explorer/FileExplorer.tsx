@@ -27,7 +27,10 @@ import {
 import { ExplorerSearch, type ExplorerSearchHandle } from "./ExplorerSearch";
 import { EntryRow, PendingRow, StatusRow } from "./TreeRow";
 import { InlineInput } from "./InlineInput";
+import { toast } from "sonner";
+import { useExplorerClipboard } from "./lib/clipboard";
 import { copyToClipboard, revealInFinder } from "./lib/contextActions";
+import { pasteInto } from "./lib/pasteRunner";
 import { fileIconUrl, folderIconUrl } from "./lib/iconResolver";
 import { COMPACT_CONTENT, COMPACT_ITEM } from "./lib/menuItemClass";
 import { cn } from "@/lib/utils";
@@ -49,6 +52,8 @@ type Props = {
   onPathRenamed?: (from: string, to: string) => void;
   onPathDeleted?: (path: string) => void;
   onRevealInTerminal?: (path: string) => void;
+  onOpenInSourceControl?: (path: string) => void;
+  onOpenGitHistory?: (path: string) => void;
   onAttachToAgent?: (path: string) => void;
   onOpenMarkdownPreview?: (path: string) => void;
 };
@@ -174,6 +179,8 @@ export const FileExplorer = forwardRef<FileExplorerHandle, Props>(
       onPathRenamed,
       onPathDeleted,
       onRevealInTerminal,
+      onOpenInSourceControl,
+      onOpenGitHistory,
       onAttachToAgent,
       onOpenMarkdownPreview,
     },
@@ -365,6 +372,55 @@ export const FileExplorer = forwardRef<FileExplorerHandle, Props>(
       return rootPath ?? "";
     }, [anchorPath, entryIndexByPath, rows, rootPath]);
 
+    // ── Copy / cut / paste ───────────────────────────────────────────────────
+    // The paste target is the same directory a new file would be created in:
+    // the selected folder, or the selected file's parent, or the root.
+    const clipboardEntry = useExplorerClipboard((s) => s.entry);
+
+    const handleCopyEntries = useCallback(
+      (paths?: readonly string[]) => {
+        const targets = paths ?? getSelectedPaths();
+        if (targets.length === 0) return;
+        useExplorerClipboard.getState().copy(targets);
+        // Also put the paths on the OS clipboard as text, so they can be pasted
+        // into a terminal or another app.
+        void copyToClipboard(targets.join("\n"));
+      },
+      [getSelectedPaths],
+    );
+
+    const handleCutEntries = useCallback(
+      (paths?: readonly string[]) => {
+        const targets = paths ?? getSelectedPaths();
+        if (targets.length === 0) return;
+        useExplorerClipboard.getState().cut(targets);
+      },
+      [getSelectedPaths],
+    );
+
+    const handlePasteEntries = useCallback(
+      (destDir?: string) => {
+        const target = destDir ?? getCreateParent();
+        if (!target) return;
+        const entry = useExplorerClipboard.getState().entry;
+        void pasteInto(target, entry).then((result) => {
+          if (!result.ok) {
+            toast.error(`Paste failed: ${result.reason}`);
+            return;
+          }
+          // A cut is spent once pasted; a copy stays available to paste again.
+          if (result.op === "move") useExplorerClipboard.getState().clear();
+          tree.refresh(target);
+          if (result.written.length > 0) {
+            tree.expand(target);
+            setSelectedPaths(new Set(result.written));
+            setAnchorPath(result.written[0]);
+          }
+        });
+      },
+      [getCreateParent, getSelectedPaths, tree],
+    );
+
     if (!rootPath) {
       return (
         <div className="flex h-full flex-col items-center justify-center gap-2 p-6 text-center">
@@ -394,6 +450,26 @@ export const FileExplorer = forwardRef<FileExplorerHandle, Props>(
         target.isContentEditable
       )
         return;
+
+      // Checked before the empty-tree guard: pasting into an empty folder is
+      // exactly when the user needs it most.
+      if ((e.metaKey || e.ctrlKey) && !e.altKey) {
+        switch (e.key.toLowerCase()) {
+          case "c":
+            e.preventDefault();
+            handleCopyEntries();
+            return;
+          case "x":
+            e.preventDefault();
+            handleCutEntries();
+            return;
+          case "v":
+            e.preventDefault();
+            handlePasteEntries();
+            return;
+        }
+      }
+
       if (entryPaths.length === 0) return;
 
       const currentIdx = anchorPath ? entryPaths.indexOf(anchorPath) : -1;
@@ -484,8 +560,17 @@ export const FileExplorer = forwardRef<FileExplorerHandle, Props>(
               onSelectPath={handleSelectPath}
               onGetSelectedPaths={getSelectedPaths}
               onRevealInTerminal={onRevealInTerminal}
+              onOpenInSourceControl={onOpenInSourceControl}
+              onOpenGitHistory={onOpenGitHistory}
               onAttachToAgent={onAttachToAgent}
               onOpenMarkdownPreview={onOpenMarkdownPreview}
+              onCopyEntries={handleCopyEntries}
+              onCutEntries={handleCutEntries}
+              onPasteEntries={handlePasteEntries}
+              isCut={
+                clipboardEntry?.mode === "cut" &&
+                clipboardEntry.paths.includes(row.path)
+              }
             />
           );
         }
@@ -579,6 +664,8 @@ export const FileExplorer = forwardRef<FileExplorerHandle, Props>(
           onRequestClose={() => setIsSearchOpen(false)}
           onActiveChange={setIsSearchActive}
           onRevealInTerminal={onRevealInTerminal}
+          onOpenInSourceControl={onOpenInSourceControl}
+          onOpenGitHistory={onOpenGitHistory}
           onAttachToAgent={onAttachToAgent}
         />
 
@@ -675,6 +762,22 @@ export const FileExplorer = forwardRef<FileExplorerHandle, Props>(
                   Open in Terminal
                 </ContextMenuItem>
               )}
+              {onOpenInSourceControl && (
+                <ContextMenuItem
+                  className={COMPACT_ITEM}
+                  onSelect={() => onOpenInSourceControl(rootPath)}
+                >
+                  Open in Source Control
+                </ContextMenuItem>
+              )}
+              {onOpenGitHistory && (
+                <ContextMenuItem
+                  className={COMPACT_ITEM}
+                  onSelect={() => onOpenGitHistory(rootPath)}
+                >
+                  Open Git History
+                </ContextMenuItem>
+              )}
               <ContextMenuItem
                 className={COMPACT_ITEM}
                 onSelect={() => void revealInFinder(rootPath)}
@@ -693,6 +796,12 @@ export const FileExplorer = forwardRef<FileExplorerHandle, Props>(
                 onSelect={() => tree.beginCreate(rootPath, "dir")}
               >
                 New Folder
+              </ContextMenuItem>
+              <ContextMenuItem
+                className={COMPACT_ITEM}
+                onSelect={() => handlePasteEntries(rootPath)}
+              >
+                Paste
               </ContextMenuItem>
               <ContextMenuSeparator />
               <ContextMenuItem

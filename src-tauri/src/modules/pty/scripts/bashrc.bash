@@ -24,6 +24,12 @@ if [ -z "$__GEAR_HOOKS_LOADED" ]; then
   # on reload, guard with a flag.
   [ -f "$HOME/.bashrc" ] && source "$HOME/.bashrc"
 
+  if [ -n "$GEAR_CLI" ] && [ -x "$GEAR_CLI" ]; then
+    gear() {
+      command "$GEAR_CLI" "$@"
+    }
+  fi
+
   _gear_urlencode() {
     local LC_ALL=C s="$1" i c
     for (( i=0; i<${#s}; i++ )); do

@@ -6,6 +6,7 @@ import { isLeaf, type PaneNode } from "@/modules/terminal/lib/panes";
 import { parseWorkspaceScopeKey, type WorkspaceEnv } from "@/modules/workspace";
 import { useEffect, useRef } from "react";
 import { activeSpaceEnv, freshTabCwd } from "./activeSpace";
+import { clearLegacySession, readLegacySession } from "./legacyMigration";
 import { freshTerminalTab, hydrateTabs } from "./serialize";
 import { loadAll, type SpaceMeta, saveActiveId, saveSpacesList } from "./store";
 import { useSpaces } from "./useSpaces";
@@ -55,7 +56,7 @@ export function useSpacesBoot({
         const { spaces, activeId, states } = await loadAll();
 
         if (spaces.length === 0) {
-          const root = launchCwd ?? home ?? null;
+          const root: string | null = launchCwd ?? home ?? null;
           // Hydrate prefs before reading the saved workspace env.
           await usePreferencesStore
             .getState()
@@ -75,6 +76,37 @@ export function useSpacesBoot({
           await saveActiveId(DEFAULT_SPACE_ID);
           setActiveSpaceForNewTabs(DEFAULT_SPACE_ID);
           useSpaces.getState().hydrate([meta], DEFAULT_SPACE_ID);
+
+          const restoredHome = await adoptWorkspaceEnv(meta.env);
+
+          // Upgrading from the old localStorage session: adopt it once so the
+          // user's tabs survive the switch to the spaces store.
+          const legacy = readLegacySession(DEFAULT_SPACE_ID);
+          const migrated = legacy
+            ? hydrateTabs(
+                legacy.tabsBySpace.get(DEFAULT_SPACE_ID) ?? [],
+                DEFAULT_SPACE_ID,
+                allocId,
+              )
+            : [];
+          if (legacy) clearLegacySession();
+
+          if (migrated.length > 0) {
+            await Promise.allSettled(
+              uniqueCwds(migrated).map((c) => native.workspaceAuthorize(c)),
+            );
+            replaceTabs(migrated, migrated[0].id);
+            return;
+          }
+
+          // First-ever launch: open a terminal at the workspace root. Boot owns
+          // the first tab outright, so there is no untitled editor to displace.
+          const cwd = freshTabCwd(meta.env, restoredHome, launchCwd, home);
+          if (cwd) {
+            await native.workspaceAuthorize(cwd).catch(() => {});
+          }
+          const first = freshTerminalTab(DEFAULT_SPACE_ID, cwd, allocId);
+          replaceTabs([first], first.id);
           return;
         }
 

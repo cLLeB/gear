@@ -5,8 +5,10 @@ import {
 } from "@/modules/terminal/lib/panes";
 import type {
   EditorTab,
+  GitHistoryTab,
   MarkdownTab,
   PreviewTab,
+  SettingsViewTab,
   Tab,
   TerminalTab,
 } from "@/modules/tabs/lib/useTabs";
@@ -22,9 +24,11 @@ export type SerializedTab =
       blocks?: boolean;
       customTitle?: string;
     }
-  | { kind: "editor"; path: string }
+  | { kind: "editor"; path: string; lang?: string }
   | { kind: "preview"; url: string }
-  | { kind: "markdown"; path: string };
+  | { kind: "markdown"; path: string }
+  | { kind: "settings"; section?: string }
+  | { kind: "git-history"; repoRoot: string };
 
 function basename(path: string): string {
   const parts = path.split(/[\\/]/).filter(Boolean);
@@ -59,9 +63,15 @@ export function isSerializableTab(tab: Tab): boolean {
     case "terminal":
       return !tab.private;
     case "editor":
+      // An untitled scratch buffer has no path to reopen from.
+      return tab.path !== "";
     case "preview":
     case "markdown":
+    case "settings":
+    case "git-history":
       return true;
+    // ai-diff, git-diff and git-commit-file are views over transient state (a
+    // pending approval, a working-tree diff) that may not exist next launch.
     default:
       return false;
   }
@@ -78,11 +88,24 @@ function serializeTab(tab: Tab): SerializedTab | null {
         ...(tab.customTitle !== undefined && { customTitle: tab.customTitle }),
       };
     case "editor":
-      return { kind: "editor", path: tab.path };
+      return {
+        kind: "editor",
+        path: tab.path,
+        ...(tab.languageOverride !== undefined && {
+          lang: tab.languageOverride,
+        }),
+      };
     case "preview":
       return { kind: "preview", url: tab.url };
     case "markdown":
       return { kind: "markdown", path: tab.path };
+    case "settings":
+      return {
+        kind: "settings",
+        ...(tab.section !== undefined && { section: tab.section }),
+      };
+    case "git-history":
+      return { kind: "git-history", repoRoot: tab.repoRoot };
     default:
       return null;
   }
@@ -174,7 +197,10 @@ function hydrateTab(
         title: basename(s.path),
         path: s.path,
         dirty: false,
+        // Restored as pinned: a tab that survived a restart is one the user
+        // kept, so the next explorer click must not silently replace it.
         preview: false,
+        ...(s.lang !== undefined && { languageOverride: s.lang }),
       } satisfies EditorTab;
     case "preview":
       return {
@@ -194,6 +220,26 @@ function hydrateTab(
         title: basename(s.path),
         path: s.path,
       } satisfies MarkdownTab;
+    case "settings":
+      return {
+        id: allocId(),
+        kind: "settings",
+        spaceId,
+        cold: true,
+        title: "Settings",
+        ...(s.section !== undefined && { section: s.section }),
+      } satisfies SettingsViewTab;
+    case "git-history":
+      return {
+        id: allocId(),
+        kind: "git-history",
+        spaceId,
+        cold: true,
+        // The branch is unknown until the repo is read; the tab renames itself
+        // the next time it is opened with one.
+        title: "Git History",
+        repoRoot: s.repoRoot,
+      } satisfies GitHistoryTab;
     default:
       return null;
   }

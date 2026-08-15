@@ -84,6 +84,30 @@ describe("useAgentActivityStore", () => {
     expect(1 in state.phases).toBe(false);
     expect(1 in state.agents).toBe(false);
   });
+
+  it("acknowledges attention without losing active agent state", () => {
+    const { setPhase, setAgent, acknowledgeAttention } =
+      useAgentActivityStore.getState();
+    setPhase(1, "attention");
+    setAgent(1, "gemini");
+    setPhase(2, "working");
+    const agents = useAgentActivityStore.getState().agents;
+
+    acknowledgeAttention([1, 2, 3]);
+
+    const state = useAgentActivityStore.getState();
+    expect(state.phases).toEqual({ 1: "idle", 2: "working" });
+    expect(state.agents).toBe(agents);
+    expect(isAgentActivePty(1)).toBe(true);
+  });
+
+  it("is a no-op when no pty is waiting for attention", () => {
+    const { setPhase, acknowledgeAttention } = useAgentActivityStore.getState();
+    setPhase(1, "working");
+    const before = useAgentActivityStore.getState().phases;
+    acknowledgeAttention([1, 2]);
+    expect(useAgentActivityStore.getState().phases).toBe(before);
+  });
 });
 
 describe("isAgentActivePty", () => {

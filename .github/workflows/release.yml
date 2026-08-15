@@ -19,12 +19,17 @@ jobs:
           - platform: macos-latest
             bundles: "dmg,app"
             extra_args: "--target universal-apple-darwin"
+            # Must match the app's target so Tauri finds the sidecar; the CLI
+            # build script lipos the two arches for this alias.
+            cli-target: "universal-apple-darwin"
           - platform: ubuntu-latest
             bundles: "appimage,deb,rpm"
             extra_args: ""
+            cli-target: "x86_64-unknown-linux-gnu"
           - platform: windows-latest
             bundles: "msi,nsis"
             extra_args: ""
+            cli-target: "x86_64-pc-windows-msvc"
     runs-on: ${{ matrix.platform }}
 
     steps:
@@ -74,6 +79,9 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Pin the sidecar's target so a host-arch guess can't ship the wrong
+          # helper (e.g. an arm64 CLI inside an x86_64 bundle).
+          GEAR_CLI_TARGET: ${{ matrix.cli-target }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
