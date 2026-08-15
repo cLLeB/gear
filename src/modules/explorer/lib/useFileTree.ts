@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { currentWorkspaceEnv } from "@/modules/workspace";
 import { usePreferencesStore } from "@/modules/settings/preferences";
+import { recallExpansion, rememberExpansion } from "./expansionMemory";
 import { listenFsChanged, parentDir, watchAdd, watchRemove } from "./watch";
 
 export type DirEntry = {
@@ -33,35 +34,6 @@ export function dirname(path: string): string {
   const i = path.lastIndexOf("/");
   if (i <= 0) return "/";
   return path.slice(0, i);
-}
-
-// LRU cache for expansion state — remembers last 8 expanded dirs per session.
-const LRU_SIZE = 8;
-const LRU_KEY = "gear-explorer-expanded";
-
-function rememberExpansion(path: string): void {
-  try {
-    const raw = localStorage.getItem(LRU_KEY);
-    const list: string[] = raw ? (JSON.parse(raw) as string[]) : [];
-    const next = [path, ...list.filter((p) => p !== path)].slice(0, LRU_SIZE);
-    localStorage.setItem(LRU_KEY, JSON.stringify(next));
-  } catch {}
-}
-
-function recallExpansion(rootPath: string): Set<string> {
-  try {
-    const raw = localStorage.getItem(LRU_KEY);
-    if (!raw) return new Set();
-    const list: string[] = JSON.parse(raw) as string[];
-    const sep = rootPath.includes("\\") ? "\\" : "/";
-    return new Set(
-      list.filter(
-        (p) => p === rootPath || p.startsWith(rootPath + "/") || p.startsWith(rootPath + sep),
-      ),
-    );
-  } catch {
-    return new Set();
-  }
 }
 
 type Options = {
@@ -157,7 +129,7 @@ export function useFileTree(rootPath: string | null, options?: Options) {
     setPendingCreate(null);
     setRenaming(null);
 
-    // Restore LRU expansion for this root.
+    // Restore the folders that were open under this root last time.
     const recalled = recallExpansion(rootPath);
     setExpanded(recalled.size > 0 ? recalled : new Set());
     setNodes({});
@@ -229,7 +201,6 @@ export function useFileTree(rootPath: string | null, options?: Options) {
           }
         } else {
           next.add(path);
-          rememberExpansion(path);
           if (!watchedRef.current.has(path)) {
             watchAdd([path]);
             watchedRef.current.add(path);
@@ -253,7 +224,6 @@ export function useFileTree(rootPath: string | null, options?: Options) {
         if (curr.has(path)) return curr;
         const next = new Set(curr);
         next.add(path);
-        rememberExpansion(path);
         if (!watchedRef.current.has(path)) {
           watchAdd([path]);
           watchedRef.current.add(path);
@@ -267,6 +237,14 @@ export function useFileTree(rootPath: string | null, options?: Options) {
     },
     [fetchChildren],
   );
+
+  // Persist the whole expanded set rather than each expansion as it happens, so
+  // collapsing a folder is remembered too. Cheap: one small localStorage write
+  // per toggle, and toggles are user-paced.
+  useEffect(() => {
+    if (!rootPath) return;
+    rememberExpansion(rootPath, expanded);
+  }, [rootPath, expanded]);
 
   const refresh = useCallback(
     (path: string) => {
@@ -287,7 +265,6 @@ export function useFileTree(rootPath: string | null, options?: Options) {
           if (curr.has(parentPath)) return curr;
           const next = new Set(curr);
           next.add(parentPath);
-          rememberExpansion(parentPath);
           if (!watchedRef.current.has(parentPath)) {
             watchAdd([parentPath]);
             watchedRef.current.add(parentPath);

@@ -11,6 +11,7 @@ import { keymap, EditorView } from "@codemirror/view";
 import { usePreferencesStore } from "@/modules/settings/preferences";
 import { useTheme } from "@/modules/theme/ThemeProvider";
 import CodeMirror, { type ReactCodeMirrorRef } from "@uiw/react-codemirror";
+import { useEditorViewState } from "./lib/useEditorViewState";
 import { EDITOR_THEME_EXT, resolveEditorTheme } from "./lib/themes";
 import {
   forwardRef,
@@ -213,6 +214,19 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
       pendingLineRef.current = null;
     }, [focusWhenRendered]);
 
+    // Restores the cursor/scroll offset a restored tab was last left at. An
+    // explicit goto (opening a file at a line) is the stronger intent, so the
+    // remembered position only applies when none is pending.
+    const getPathForViewState = useCallback(() => pathRef.current, []);
+    const { extension: viewStateExtension, restore: restoreViewState } =
+      useEditorViewState(getPathForViewState);
+
+    const applyRememberedPosition = useCallback(() => {
+      const view = cmRef.current?.view;
+      if (!view || pendingLineRef.current != null) return;
+      void restoreViewState(view);
+    }, [restoreViewState]);
+
     const applyPendingFocus = useCallback(() => {
       const view = cmRef.current?.view;
       if (!view || !pendingFocusRef.current || statusRef.current !== "ready")
@@ -223,9 +237,15 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
 
     useEffect(() => {
       if (doc.status !== "ready") return;
+      applyRememberedPosition();
       applyPendingGoto();
       applyPendingFocus();
-    }, [doc.status, applyPendingFocus, applyPendingGoto]);
+    }, [
+      doc.status,
+      applyPendingFocus,
+      applyPendingGoto,
+      applyRememberedPosition,
+    ]);
 
     // Save, honoring format-on-save: LSP formatters run in-buffer before the
     // write; external CLI formatters run after (they rewrite the file on disk),
@@ -351,8 +371,10 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
             run: (view) => triggerInlineCompletion(view),
           },
         ]),
+        viewStateExtension,
       ],
-      [],
+      // `viewStateExtension` is stable, so this memo still runs once.
+      [viewStateExtension],
     );
 
     useEffect(() => {
