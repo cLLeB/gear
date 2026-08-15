@@ -31,6 +31,7 @@ import {
   languageCompartment,
   lspCompartment,
   vimCompartment,
+  wordWrapExtension,
   wrapCompartment,
 } from "./lib/extensions";
 import { gearLinter } from "@/modules/diagnostics/codemirror";
@@ -69,6 +70,8 @@ export type EditorPaneHandle = {
   getPath: () => string;
   /** Re-read the file from disk. Skips silently if the buffer is dirty. */
   reload: () => boolean;
+  /** Move the cursor to a 1-based line and center it, once content is ready. */
+  gotoLine: (line: number, options?: { focus?: boolean }) => void;
   /** Apply CodeMirror's undo/redo commands. */
   undo: () => void;
   redo: () => void;
@@ -122,7 +125,9 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
     const editorThemeId = usePreferencesStore((s) => s.editorTheme);
     const { resolvedMode } = useTheme();
     const vimMode = usePreferencesStore((s) => s.vimMode);
-    const wordWrap = usePreferencesStore((s) => s.wordWrap);
+    const wordWrapColumn = usePreferencesStore((s) =>
+      s.wordWrap ? s.wordWrapColumn : null,
+    );
     const languageRef = useRef<string | null>(null);
     // Analyzable language id (e.g. "javascript") for the in-process code toolkit.
     const analyzableLangRef = useRef<string>("plaintext");
@@ -175,6 +180,52 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
 
     const pathRef = useRef(path);
     pathRef.current = path;
+
+    // A goto/focus can arrive before the document has loaded (opening a file
+    // and jumping to a line is one action), so both are parked and replayed
+    // once `doc.status` reaches "ready".
+    const pendingLineRef = useRef<{ line: number; focus: boolean } | null>(
+      null,
+    );
+    const pendingFocusRef = useRef(false);
+    const statusRef = useRef(doc.status);
+    statusRef.current = doc.status;
+
+    // CodeMirror can still be laying out on the frame the doc becomes ready;
+    // focusing then is dropped, so wait one frame and re-check the same view.
+    const focusWhenRendered = useCallback((view: EditorView) => {
+      requestAnimationFrame(() => {
+        if (cmRef.current?.view === view) view.focus();
+      });
+    }, []);
+
+    const applyPendingGoto = useCallback(() => {
+      const view = cmRef.current?.view;
+      const pending = pendingLineRef.current;
+      if (!view || pending == null || statusRef.current !== "ready") return;
+      const target = Math.max(1, Math.min(pending.line, view.state.doc.lines));
+      const at = view.state.doc.line(target).from;
+      view.dispatch({
+        selection: { anchor: at },
+        effects: EditorView.scrollIntoView(at, { y: "center" }),
+      });
+      if (pending.focus) focusWhenRendered(view);
+      pendingLineRef.current = null;
+    }, [focusWhenRendered]);
+
+    const applyPendingFocus = useCallback(() => {
+      const view = cmRef.current?.view;
+      if (!view || !pendingFocusRef.current || statusRef.current !== "ready")
+        return;
+      pendingFocusRef.current = false;
+      focusWhenRendered(view);
+    }, [focusWhenRendered]);
+
+    useEffect(() => {
+      if (doc.status !== "ready") return;
+      applyPendingGoto();
+      applyPendingFocus();
+    }, [doc.status, applyPendingFocus, applyPendingGoto]);
 
     // Save, honoring format-on-save: LSP formatters run in-buffer before the
     // write; external CLI formatters run after (they rewrite the file on disk),
@@ -318,11 +369,9 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
       const view = cmRef.current?.view;
       if (!view) return;
       view.dispatch({
-        effects: wrapCompartment.reconfigure(
-          wordWrap ? EditorView.lineWrapping : [],
-        ),
+        effects: wrapCompartment.reconfigure(wordWrapExtension(wordWrapColumn)),
       });
-    }, [wordWrap]);
+    }, [wordWrapColumn]);
 
     useEffect(() => {
       let cancelled = false;
@@ -426,7 +475,8 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
           });
         },
         focus: () => {
-          cmRef.current?.view?.focus();
+          pendingFocusRef.current = true;
+          applyPendingFocus();
         },
         getSelection: () => {
           const view = cmRef.current?.view;
@@ -437,6 +487,10 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
         },
         getPath: () => path,
         reload: () => reloadRef.current(),
+        gotoLine: (line: number, options) => {
+          pendingLineRef.current = { line, focus: options?.focus ?? true };
+          applyPendingGoto();
+        },
         undo: () => {
           const view = cmRef.current?.view;
           if (view) undo(view);
@@ -450,7 +504,7 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
           window.setTimeout(() => findInputRef.current?.focus(), 0);
         },
       }),
-      [path],
+      [path, applyPendingFocus, applyPendingGoto],
     );
 
     if (doc.status === "loading") {

@@ -11,6 +11,12 @@
   unset _gear_user_zdotdir
 }
 
+if [[ -n "$GEAR_CLI" && -x "$GEAR_CLI" ]]; then
+  gear() {
+    command "$GEAR_CLI" "$@"
+  }
+fi
+
 # Re-source guard within a single shell (e.g. user runs `source ~/.zshrc`).
 # This is NOT exported, so each nested zsh installs its own hooks — desired,
 # since every interactive shell needs its own prompt integration.

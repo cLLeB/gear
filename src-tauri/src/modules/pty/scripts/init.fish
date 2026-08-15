@@ -14,6 +14,12 @@ if set -q __GEAR_HOOKS_LOADED
 end
 set -g __GEAR_HOOKS_LOADED 1
 
+if set -q GEAR_CLI; and test -x "$GEAR_CLI"
+    function gear
+        command "$GEAR_CLI" $argv
+    end
+end
+
 # Gear is a clean terminal; drop fish's default startup greeting. A user who
 # sets their own in config.fish (sourced after this) keeps it.
 function fish_greeting
@@ -54,6 +60,16 @@ end
 # where a framework prompt (starship etc.) would otherwise override fish_prompt
 # and drop our markers.
 function __gear_install_prompt
+    # Conda wraps fish_prompt in a named copy (__fish_prompt_orig) that still
+    # delegates to ours. Re-wrapping that would nest our prompt inside itself and
+    # emit every marker twice, so bail out when the chain already reaches us.
+    # Generalize if another prompt framework preserves Gear indirectly.
+    if not set -q GEAR_BLOCKS
+        and functions -q __fish_prompt_orig
+        and functions fish_prompt | string match -q '*__fish_prompt_orig*'
+        and functions __fish_prompt_orig | string match -q '*__gear_user_prompt*'
+        return
+    end
     __gear_capture_user_prompt
     if set -q GEAR_BLOCKS
         function fish_right_prompt

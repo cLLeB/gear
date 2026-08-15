@@ -23,3 +23,12 @@ export function computeCloseTargets(tabs: Tab[], activeId: number): CloseTargets
     all: tabs.map((t) => t.id),
   };
 }
+
+/** Chrome-style "close tabs to the right": every tab strictly after `anchorId`
+ * in the given order. Callers pass the space-scoped list, so this never reaches
+ * across spaces. Returns [] for an unknown anchor or the rightmost tab. */
+export function tabsToRight(tabs: Tab[], anchorId: number): number[] {
+  const idx = tabs.findIndex((t) => t.id === anchorId);
+  if (idx < 0) return [];
+  return tabs.slice(idx + 1).map((t) => t.id);
+}

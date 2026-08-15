@@ -39,6 +39,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
+            fish \
             libwebkit2gtk-4.1-dev \
             libappindicator3-dev \
             libglib2.0-dev \
@@ -67,3 +68,6 @@ jobs:
       - name: Rustfmt
         working-directory: src-tauri
         run: cargo fmt --check
+
+      - name: fish shell integration
+        run: fish --no-config src-tauri/src/modules/pty/scripts/init.test.fish

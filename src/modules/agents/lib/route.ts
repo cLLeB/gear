@@ -2,8 +2,12 @@ import { usePreferencesStore } from "@/modules/settings/preferences";
 import { info } from "@tauri-apps/plugin-log";
 import { showAgentToast } from "../components/AgentToast";
 import { useAgentStore } from "../store/agentStore";
+import { resolveAgentNotificationDelivery } from "./delivery";
+import { createAgentNotificationGate } from "./notificationGate";
 import { osNotify } from "./notify";
 import type { AgentSource, NotificationKind } from "./types";
+
+const shouldDeliver = createAgentNotificationGate();
 
 type RouteArgs = {
   source: AgentSource;
@@ -38,19 +42,28 @@ export function routeAgentNotification({
     void info(`[route] ${agent}/${kind} dropped: agentNotifications disabled`);
     return;
   }
-  if (focused && visible) {
+  const delivery = resolveAgentNotificationDelivery({
+    focused,
+    visible,
+    allowToast,
+  });
+  if (delivery === "none") {
     void info(`[route] ${agent}/${kind} dropped: window focused and agent visible`);
+    return;
+  }
+  if (!shouldDeliver({ source, agent, kind, tabId, leafId })) {
+    void info(`[route] ${agent}/${kind} dropped: duplicate within cooldown`);
     return;
   }
 
   useAgentStore.getState().pushNotification({ source, agent, kind, tabId, leafId });
 
-  if (!focused) {
+  if (delivery === "native") {
     void info(`[route] ${agent}/${kind} -> OS notification`);
     void osNotify(title, body ?? agent);
     return;
   }
-  if (allowToast) {
+  if (delivery === "toast") {
     void info(`[route] ${agent}/${kind} -> in-app toast`);
     showAgentToast({ agent, title, body, onActivate });
     return;

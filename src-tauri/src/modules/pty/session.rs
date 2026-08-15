@@ -109,6 +109,7 @@ pub fn spawn(
     workspace: WorkspaceEnv,
     blocks: bool,
     shell: Option<String>,
+    control: Option<crate::modules::control::ShellControlEnv>,
     on_data: Channel<Response>,
     on_exit: Channel<i32>,
 ) -> Result<(Arc<Session>, PtySize), String> {
@@ -125,7 +126,7 @@ pub fn spawn(
     let pair = pty_system.openpty(size).map_err(|e| e.to_string())?;
 
     #[allow(unused_mut)]
-    let mut cmd = shell_init::build_command(cwd, workspace, blocks, shell)?;
+    let mut cmd = shell_init::build_command(cwd, workspace, blocks, shell, control)?;
     // Lets a hook re-invoking Gear name the pane it belongs to. Set here rather
     // than in apply_common because only the caller knows the session id.
     #[cfg(windows)]

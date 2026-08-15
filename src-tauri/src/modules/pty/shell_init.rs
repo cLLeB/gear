@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use portable_pty::CommandBuilder;
 
+use crate::modules::control::ShellControlEnv;
 use crate::modules::workspace::{self, WorkspaceEnv};
 
 #[derive(serde::Serialize, Debug)]
@@ -58,15 +59,16 @@ pub fn build_command(
     workspace: WorkspaceEnv,
     blocks: bool,
     custom_shell: Option<String>,
+    control: Option<ShellControlEnv>,
 ) -> Result<CommandBuilder, String> {
     #[cfg(unix)]
     {
         let _ = workspace;
-        unix::build(cwd, blocks, custom_shell)
+        unix::build(cwd, blocks, custom_shell, control)
     }
     #[cfg(windows)]
     {
-        windows::build(cwd, workspace, blocks, custom_shell)
+        windows::build(cwd, workspace, blocks, custom_shell, control)
     }
 }
 
@@ -101,7 +103,12 @@ fn ensure_utf8_locale(cmd: &mut CommandBuilder) {
     cmd.env("LANG", fallback);
 }
 
-fn apply_common(cmd: &mut CommandBuilder, cwd: Option<String>, blocks: bool) {
+fn apply_common(
+    cmd: &mut CommandBuilder,
+    cwd: Option<String>,
+    blocks: bool,
+    control: Option<&ShellControlEnv>,
+) {
     cmd.env("TERM", "xterm-256color");
     cmd.env("COLORTERM", "truecolor");
     cmd.env("GEAR_TERMINAL", "1");
@@ -110,13 +117,38 @@ fn apply_common(cmd: &mut CommandBuilder, cwd: Option<String>, blocks: bool) {
     }
     // Drop AppImage-injected env so spawned system binaries use the host runtime
     // (no-op off Linux / when not running from an AppImage).
-    for (key, value) in workspace::appimage_env_overrides() {
+    let appimage_overrides = workspace::appimage_env_overrides();
+    // Prepend the CLI launcher dir to the *cleaned* PATH, not the AppImage one.
+    let clean_path = match appimage_overrides.iter().find(|(key, _)| *key == "PATH") {
+        Some((_, value)) => value.clone(),
+        None => std::env::var_os("PATH"),
+    };
+    for (key, value) in appimage_overrides {
         match value {
             Some(v) => {
                 cmd.env(key, v);
             }
             None => {
                 cmd.env_remove(key);
+            }
+        }
+    }
+    if let Some(control) = control {
+        cmd.env("GEAR_CONTROL_ADDR", &control.address);
+        cmd.env("GEAR_CONTROL_TOKEN", &control.token);
+        cmd.env("GEAR_PANE_ID", control.pane_id.to_string());
+        if let Some(path) = &control.cli_path {
+            cmd.env("GEAR_CLI", path);
+        }
+        if let Some(bin_dir) = &control.cli_bin_dir {
+            let paths = std::iter::once(bin_dir.clone()).chain(
+                clean_path
+                    .as_deref()
+                    .into_iter()
+                    .flat_map(std::env::split_paths),
+            );
+            if let Ok(path) = std::env::join_paths(paths) {
+                cmd.env("PATH", path);
             }
         }
     }
@@ -230,13 +262,14 @@ mod unix {
         cwd: Option<String>,
         blocks: bool,
         custom_shell: Option<String>,
+        control: Option<super::ShellControlEnv>,
     ) -> Result<CommandBuilder, String> {
         let (shell, shell_path) = match custom_shell {
             Some(path) if !path.is_empty() => Shell::from_path(&path),
             _ => Shell::detect(),
         };
         let mut cmd = CommandBuilder::new(&shell_path);
-        super::apply_common(&mut cmd, cwd, blocks);
+        super::apply_common(&mut cmd, cwd, blocks, control.as_ref());
 
         match shell {
             Shell::Zsh => {
@@ -392,8 +425,12 @@ mod windows {
         workspace: WorkspaceEnv,
         blocks: bool,
         custom_shell: Option<String>,
+        control: Option<super::ShellControlEnv>,
     ) -> Result<CommandBuilder, String> {
         if let WorkspaceEnv::Wsl { distro } = workspace {
+            // A Windows sidecar can't run inside WSL without path + network
+            // translation, so no credentials are injected there.
+            let _ = control;
             return build_wsl(cwd, distro, blocks, custom_shell);
         }
         let shell_path = match custom_shell {
@@ -408,7 +445,7 @@ mod windows {
         let is_powershell = shell_name == "pwsh.exe" || shell_name == "powershell.exe";
 
         let mut cmd = CommandBuilder::new(&shell_path);
-        super::apply_common(&mut cmd, cwd, blocks);
+        super::apply_common(&mut cmd, cwd, blocks, control.as_ref());
 
         if is_powershell {
             match prepare_ps_profile() {
@@ -941,4 +978,58 @@ fn detect_windows_shells() -> Vec<ShellProfile> {
     }
 
     shells
+}
+
+#[cfg(test)]
+mod control_env_tests {
+    use std::ffi::OsStr;
+
+    use portable_pty::CommandBuilder;
+
+    use super::{apply_common, ShellControlEnv};
+
+    #[test]
+    fn common_env_includes_authenticated_caller_context() {
+        let mut command = CommandBuilder::new("shell");
+        let control = ShellControlEnv {
+            address: "127.0.0.1:1234".into(),
+            token: "secret".into(),
+            pane_id: 42,
+            cli_path: Some("/app/gear-cli".into()),
+            cli_bin_dir: Some(std::path::PathBuf::from("/app/bin")),
+        };
+        apply_common(&mut command, None, false, Some(&control));
+
+        assert_eq!(
+            command.get_env("GEAR_CONTROL_ADDR"),
+            Some(OsStr::new("127.0.0.1:1234"))
+        );
+        assert_eq!(
+            command.get_env("GEAR_CONTROL_TOKEN"),
+            Some(OsStr::new("secret"))
+        );
+        assert_eq!(command.get_env("GEAR_PANE_ID"), Some(OsStr::new("42")));
+        assert_eq!(
+            command.get_env("GEAR_CLI"),
+            Some(OsStr::new("/app/gear-cli"))
+        );
+        assert_eq!(
+            command
+                .get_env("PATH")
+                .and_then(|path| std::env::split_paths(path).next()),
+            Some(std::path::PathBuf::from("/app/bin"))
+        );
+    }
+
+    #[test]
+    fn common_env_omits_control_vars_without_a_caller() {
+        let mut command = CommandBuilder::new("shell");
+        apply_common(&mut command, None, false, None);
+
+        assert_eq!(command.get_env("GEAR_CONTROL_TOKEN"), None);
+        assert_eq!(command.get_env("GEAR_PANE_ID"), None);
+        assert_eq!(command.get_env("GEAR_CLI"), None);
+        // The terminal marker is unrelated to the control plane and must stay.
+        assert_eq!(command.get_env("GEAR_TERMINAL"), Some(OsStr::new("1")));
+    }
 }

@@ -39,6 +39,8 @@ export type EntryRowProps = {
   onSelectPath: (path: string, event: React.MouseEvent) => void;
   onGetSelectedPaths: () => string[];
   onRevealInTerminal?: (path: string) => void;
+  onOpenInSourceControl?: (path: string) => void;
+  onOpenGitHistory?: (path: string) => void;
   onAttachToAgent?: (path: string) => void;
   onOpenMarkdownPreview?: (path: string) => void;
 };
@@ -67,6 +69,8 @@ function EntryRowImpl(props: EntryRowProps) {
     onSelectPath,
     onGetSelectedPaths,
     onRevealInTerminal,
+    onOpenInSourceControl,
+    onOpenGitHistory,
     onAttachToAgent,
     onOpenMarkdownPreview,
   } = props;
@@ -179,6 +183,22 @@ function EntryRowImpl(props: EntryRowProps) {
             onSelect={() => onRevealInTerminal(path)}
           >
             Open in Terminal
+          </ContextMenuItem>
+        )}
+        {isDir && onOpenInSourceControl && (
+          <ContextMenuItem
+            className={COMPACT_ITEM}
+            onSelect={() => onOpenInSourceControl(path)}
+          >
+            Open in Source Control
+          </ContextMenuItem>
+        )}
+        {isDir && onOpenGitHistory && (
+          <ContextMenuItem
+            className={COMPACT_ITEM}
+            onSelect={() => onOpenGitHistory(path)}
+          >
+            Open Git History
           </ContextMenuItem>
         )}
         <ContextMenuItem
