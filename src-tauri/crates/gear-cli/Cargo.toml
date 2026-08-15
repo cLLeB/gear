@@ -1,0 +1,28 @@
+[package]
+name = "gear-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[[bin]]
+name = "gear-cli"
+path = "src/main.rs"
+
+[dependencies]
+# Kept in step with the root crate so the workspace resolves one copy.
+dirs = "5"
+serde_json = "1"
+gear-control-protocol = { path = "../gear-control-protocol" }
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.59", features = [
+    "Win32_Foundation",
+    "Win32_System_Threading",
+] }
+
+[dev-dependencies]
+tempfile = "3"

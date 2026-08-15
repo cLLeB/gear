@@ -16,6 +16,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { invoke } from "@tauri-apps/api/core";
 import { useMemo, useState } from "react";
 import { AgentIcon } from "../lib/agentIcon";
+import { displayAgent } from "../lib/format";
 import type { AgentNotification, AgentStatus } from "../lib/types";
 import { useAgentStore } from "../store/agentStore";
 
@@ -55,7 +56,9 @@ function StatusRow({
         size={16}
         className="shrink-0 text-muted-foreground"
       />
-      <span className="flex-1 truncate text-sm text-foreground">{agent}</span>
+      <span className="flex-1 truncate text-sm text-foreground">
+        {displayAgent(agent)}
+      </span>
       <span
         className={cn(
           "flex items-center gap-1.5 text-xs",
@@ -106,7 +109,7 @@ function NotificationRow({
         )}
       </span>
       <span className="min-w-0 flex-1 truncate text-sm text-foreground">
-        {n.agent}{" "}
+        {displayAgent(n.agent)}{" "}
         <span className="text-muted-foreground">{NOTIF_LABEL[n.kind]}</span>
       </span>
       <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground">
@@ -119,13 +122,6 @@ function NotificationRow({
 /** CLI agents whose notification hooks the Rust side knows how to install.
  * Must stay in sync with AGENTS in src-tauri/src/modules/agent.rs. */
 const HOOK_AGENTS = ["claude", "codex", "gemini", "pi"] as const;
-
-const HOOK_AGENT_LABELS: Record<(typeof HOOK_AGENTS)[number], string> = {
-  claude: "Claude Code",
-  codex: "Codex CLI",
-  gemini: "Gemini CLI",
-  pi: "Pi",
-};
 
 function HookAgentRow({
   id,
@@ -349,7 +345,7 @@ export function NotificationBell({ onActivate, onActivateLocal }: Props) {
                 <HookAgentRow
                   key={id}
                   id={id}
-                  label={HOOK_AGENT_LABELS[id]}
+                  label={displayAgent(id)}
                   ready={hooks[id] === true}
                   installing={installing === id}
                   onEnable={() => enableHooks(id)}

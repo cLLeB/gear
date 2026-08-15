@@ -1,5 +1,6 @@
 import { Kbd, KbdGroup } from "@/components/ui/kbd";
-import { fmtShortcut, MOD_KEY } from "@/lib/platform";
+import { fmtShortcut } from "@/lib/platform";
+import { useShortcutLabel } from "@/modules/shortcuts";
 import { motion } from "motion/react";
 import { useEffect } from "react";
 
@@ -20,6 +21,12 @@ const PRESETS: { label: string; prefix: string }[] = [
 ];
 
 export function SelectionAskAi({ x, y, onAsk, onDismiss }: SelectionAskAiProps) {
+  // Render the configured binding rather than a hardcoded one: the default is
+  // Mod+J, deliberately not Mod+L, which the shell needs for clear-screen.
+  const shortcut = fmtShortcut(
+    ...useShortcutLabel("ai.askSelection").split(" ").filter(Boolean),
+  );
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onDismiss();
@@ -65,7 +72,7 @@ export function SelectionAskAi({ x, y, onAsk, onDismiss }: SelectionAskAiProps) 
           className="flex h-6 items-center gap-1 rounded px-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
         >
           <KbdGroup>
-            <Kbd className="h-4 min-w-4 px-1 text-[10px]">{fmtShortcut(MOD_KEY, "L")}</Kbd>
+            <Kbd className="h-4 min-w-4 px-1 text-[10px]">{shortcut}</Kbd>
           </KbdGroup>
         </button>
       </div>

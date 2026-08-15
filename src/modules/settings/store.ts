@@ -23,6 +23,8 @@ export const DEFAULT_THEME_ID = "gear-default";
 
 export type BackgroundKind = "none" | "image" | "builtin" | "gradient";
 
+export type TerminalCursorStyle = "bar" | "block" | "underline";
+
 export const BG_OPACITY_RENDER_FACTOR = 0.5;
 
 export function clampBgOpacity(v: number): number {
@@ -115,6 +117,7 @@ export type Preferences = {
   /** Per-agent start command used by the agent launcher. */
   agentLaunchCommands: AgentLaunchCommands;
   terminalCursorBlink: boolean;
+  terminalCursorStyle: TerminalCursorStyle;
   terminalShell: string;
   defaultWorkspaceEnv: string;
   lspActivation: Record<string, LspActivation>;
@@ -126,6 +129,7 @@ export type Preferences = {
   zoomLevel: number;
   agentNotifications: boolean;
   wordWrap: boolean;
+  wordWrapColumn: number;
   sidebarPosition: "left" | "right";
   shortcuts: Record<ShortcutId, KeyBinding[]>;
   editorAutoSave: boolean;
@@ -191,6 +195,7 @@ const KEY_TERMINAL_FONT_FAMILY = "terminalFontFamily";
 const KEY_TERMINAL_FONT_WEIGHT = "terminalFontWeight";
 const KEY_AGENT_LAUNCH_COMMANDS = "agentLaunchCommands";
 const KEY_TERMINAL_CURSOR_BLINK = "terminalCursorBlink";
+const KEY_TERMINAL_CURSOR_STYLE = "terminalCursorStyle";
 const KEY_TERMINAL_SHELL = "terminalShell";
 const KEY_DEFAULT_WORKSPACE_ENV = "defaultWorkspaceEnv";
 const KEY_LSP_ACTIVATION = "lspActivation";
@@ -202,6 +207,7 @@ const KEY_LAST_WSL_DISTRO = "lastWslDistro";
 const KEY_ZOOM_LEVEL = "zoomLevel";
 const KEY_AGENT_NOTIFICATIONS = "agentNotifications";
 const KEY_WORD_WRAP = "wordWrap";
+const KEY_WORD_WRAP_COLUMN = "wordWrapColumn";
 const KEY_SIDEBAR_POSITION = "sidebarPosition";
 const KEY_SHORTCUTS = "shortcuts";
 const KEY_EDITOR_AUTO_SAVE = "editorAutoSave";
@@ -226,6 +232,10 @@ export const TERMINAL_FONT_SIZE_MAX = 32;
 export const TERMINAL_FONT_SIZES = [
   10, 12, 13, 14, 15, 16, 18, 20, 22, 24,
 ] as const;
+
+export const WORD_WRAP_COLUMN_DEFAULT = 80;
+export const WORD_WRAP_COLUMN_MIN = 20;
+export const WORD_WRAP_COLUMN_MAX = 500;
 
 export const TERMINAL_SCROLLBACK_DEFAULT = 2000;
 export const TERMINAL_SCROLLBACK_MIN = 200;
@@ -273,6 +283,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   terminalFontWeight: "normal",
   agentLaunchCommands: DEFAULT_AGENT_LAUNCH_COMMANDS,
   terminalCursorBlink: false,
+  terminalCursorStyle: "bar",
   terminalShell: "",
   defaultWorkspaceEnv: "local",
   lspActivation: {},
@@ -284,6 +295,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   zoomLevel: 1.0,
   agentNotifications: true,
   wordWrap: false,
+  wordWrapColumn: WORD_WRAP_COLUMN_DEFAULT,
   sidebarPosition: "left",
   shortcuts: {} as Record<ShortcutId, KeyBinding[]>,
   editorAutoSave: false,
@@ -398,6 +410,9 @@ export async function loadPreferences(): Promise<Preferences> {
     terminalCursorBlink:
       get<boolean>(KEY_TERMINAL_CURSOR_BLINK) ??
       DEFAULT_PREFERENCES.terminalCursorBlink,
+    terminalCursorStyle: coerceTerminalCursorStyle(
+      get<unknown>(KEY_TERMINAL_CURSOR_STYLE),
+    ),
     terminalShell:
       get<string>(KEY_TERMINAL_SHELL) ?? DEFAULT_PREFERENCES.terminalShell,
     defaultWorkspaceEnv:
@@ -427,6 +442,9 @@ export async function loadPreferences(): Promise<Preferences> {
       get<boolean>(KEY_AGENT_NOTIFICATIONS) ??
       DEFAULT_PREFERENCES.agentNotifications,
     wordWrap: get<boolean>(KEY_WORD_WRAP) ?? DEFAULT_PREFERENCES.wordWrap,
+    wordWrapColumn: clampWordWrapColumn(
+      get<number>(KEY_WORD_WRAP_COLUMN) ?? DEFAULT_PREFERENCES.wordWrapColumn,
+    ),
     sidebarPosition:
       (get<string>(KEY_SIDEBAR_POSITION) as "left" | "right") ??
       DEFAULT_PREFERENCES.sidebarPosition,
@@ -627,6 +645,18 @@ export async function setWordWrap(value: boolean): Promise<void> {
   await writePref(KEY_WORD_WRAP, value);
 }
 
+export function clampWordWrapColumn(value: number): number {
+  if (!Number.isFinite(value)) return WORD_WRAP_COLUMN_DEFAULT;
+  return Math.min(
+    WORD_WRAP_COLUMN_MAX,
+    Math.max(WORD_WRAP_COLUMN_MIN, Math.round(value)),
+  );
+}
+
+export async function setWordWrapColumn(value: number): Promise<void> {
+  await writePref(KEY_WORD_WRAP_COLUMN, clampWordWrapColumn(value));
+}
+
 export async function setSidebarPosition(value: "left" | "right"): Promise<void> {
   await writePref(KEY_SIDEBAR_POSITION, value);
 }
@@ -658,6 +688,16 @@ export async function setAgentLaunchCommands(
 
 export async function setTerminalCursorBlink(value: boolean): Promise<void> {
   await writePref(KEY_TERMINAL_CURSOR_BLINK, value);
+}
+
+export function coerceTerminalCursorStyle(value: unknown): TerminalCursorStyle {
+  return value === "bar" || value === "block" || value === "underline"
+    ? value
+    : DEFAULT_PREFERENCES.terminalCursorStyle;
+}
+
+export async function setTerminalCursorStyle(value: unknown): Promise<void> {
+  await writePref(KEY_TERMINAL_CURSOR_STYLE, coerceTerminalCursorStyle(value));
 }
 
 export async function setTerminalShell(value: string): Promise<void> {
@@ -821,6 +861,7 @@ export async function onPreferencesChange(
     [KEY_TERMINAL_FONT_WEIGHT]: "terminalFontWeight",
     [KEY_AGENT_LAUNCH_COMMANDS]: "agentLaunchCommands",
     [KEY_TERMINAL_CURSOR_BLINK]: "terminalCursorBlink",
+    [KEY_TERMINAL_CURSOR_STYLE]: "terminalCursorStyle",
     [KEY_TERMINAL_SHELL]: "terminalShell",
     [KEY_DEFAULT_WORKSPACE_ENV]: "defaultWorkspaceEnv",
     [KEY_LSP_ACTIVATION]: "lspActivation",
@@ -832,6 +873,7 @@ export async function onPreferencesChange(
     [KEY_ZOOM_LEVEL]: "zoomLevel",
     [KEY_AGENT_NOTIFICATIONS]: "agentNotifications",
     [KEY_WORD_WRAP]: "wordWrap",
+    [KEY_WORD_WRAP_COLUMN]: "wordWrapColumn",
     [KEY_SIDEBAR_POSITION]: "sidebarPosition",
     [KEY_SHORTCUTS]: "shortcuts",
     [KEY_EDITOR_AUTO_SAVE]: "editorAutoSave",

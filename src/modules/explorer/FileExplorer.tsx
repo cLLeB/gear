@@ -49,6 +49,8 @@ type Props = {
   onPathRenamed?: (from: string, to: string) => void;
   onPathDeleted?: (path: string) => void;
   onRevealInTerminal?: (path: string) => void;
+  onOpenInSourceControl?: (path: string) => void;
+  onOpenGitHistory?: (path: string) => void;
   onAttachToAgent?: (path: string) => void;
   onOpenMarkdownPreview?: (path: string) => void;
 };
@@ -174,6 +176,8 @@ export const FileExplorer = forwardRef<FileExplorerHandle, Props>(
       onPathRenamed,
       onPathDeleted,
       onRevealInTerminal,
+      onOpenInSourceControl,
+      onOpenGitHistory,
       onAttachToAgent,
       onOpenMarkdownPreview,
     },
@@ -484,6 +488,8 @@ export const FileExplorer = forwardRef<FileExplorerHandle, Props>(
               onSelectPath={handleSelectPath}
               onGetSelectedPaths={getSelectedPaths}
               onRevealInTerminal={onRevealInTerminal}
+              onOpenInSourceControl={onOpenInSourceControl}
+              onOpenGitHistory={onOpenGitHistory}
               onAttachToAgent={onAttachToAgent}
               onOpenMarkdownPreview={onOpenMarkdownPreview}
             />
@@ -579,6 +585,8 @@ export const FileExplorer = forwardRef<FileExplorerHandle, Props>(
           onRequestClose={() => setIsSearchOpen(false)}
           onActiveChange={setIsSearchActive}
           onRevealInTerminal={onRevealInTerminal}
+          onOpenInSourceControl={onOpenInSourceControl}
+          onOpenGitHistory={onOpenGitHistory}
           onAttachToAgent={onAttachToAgent}
         />
 
@@ -673,6 +681,22 @@ export const FileExplorer = forwardRef<FileExplorerHandle, Props>(
                   onSelect={() => onRevealInTerminal(rootPath)}
                 >
                   Open in Terminal
+                </ContextMenuItem>
+              )}
+              {onOpenInSourceControl && (
+                <ContextMenuItem
+                  className={COMPACT_ITEM}
+                  onSelect={() => onOpenInSourceControl(rootPath)}
+                >
+                  Open in Source Control
+                </ContextMenuItem>
+              )}
+              {onOpenGitHistory && (
+                <ContextMenuItem
+                  className={COMPACT_ITEM}
+                  onSelect={() => onOpenGitHistory(rootPath)}
+                >
+                  Open Git History
                 </ContextMenuItem>
               )}
               <ContextMenuItem

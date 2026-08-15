@@ -40,8 +40,15 @@ import {
   setTerminalScrollback,
   setTerminalWebglEnabled,
   setTerminalCursorBlink,
+  setTerminalCursorStyle,
   setTerminalFontWeight,
   setVimMode,
+  setWordWrap,
+  setWordWrapColumn,
+  clampWordWrapColumn,
+  WORD_WRAP_COLUMN_MAX,
+  WORD_WRAP_COLUMN_MIN,
+  type TerminalCursorStyle,
 } from "@/modules/settings/store";
 import { useTheme } from "@/modules/theme";
 import {
@@ -55,6 +62,10 @@ import { disable, enable, isEnabled } from "@tauri-apps/plugin-autostart";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { FORMATTER_LABELS } from "@/modules/editor/lib/externalFormat";
+import {
+  type OsNotificationResult,
+  testAgentOsNotification,
+} from "@/modules/agents/lib/notify";
 import { SectionHeader } from "../components/SectionHeader";
 import { SettingRow } from "../components/SettingRow";
 
@@ -81,6 +92,52 @@ const AUTO_SAVE_STEP = 100;
 const AUTO_SAVE_MIN = 100;
 const AUTO_SAVE_MAX = 60000;
 
+const NOTIFICATION_TEST_DELAY_MS = 2_000;
+
+type NotificationTestState =
+  | OsNotificationResult
+  | "idle"
+  | "waiting"
+  | "sending";
+
+function notificationTestLabel(status: NotificationTestState): string {
+  switch (status) {
+    case "waiting":
+      return "Switch apps...";
+    case "sending":
+      return "Sending...";
+    case "requested":
+      return "Requested";
+    case "denied":
+      return "Blocked";
+    case "failed":
+      return "Failed";
+    default:
+      return "Test in 2s";
+  }
+}
+
+function notificationTestTitle(status: NotificationTestState): string {
+  switch (status) {
+    case "waiting":
+      return "Switch to another app to verify native delivery";
+    case "requested":
+      return "The native notification was requested";
+    case "denied":
+      return "Notifications are disabled by the system";
+    case "failed":
+      return "Gear could not request a native notification";
+    default:
+      return "Send a native test notification after two seconds";
+  }
+}
+
+const TERMINAL_CURSOR_STYLES: { label: string; value: TerminalCursorStyle }[] = [
+  { label: "Bar", value: "bar" },
+  { label: "Block", value: "block" },
+  { label: "Underline", value: "underline" },
+];
+
 const TERMINAL_FONT_WEIGHTS: { label: string; value: string }[] = [
   { label: "Light", value: "300" },
   { label: "Normal", value: "normal" },
@@ -98,12 +155,31 @@ export function GeneralSection() {
   const vimMode = usePreferencesStore((s) => s.vimMode);
   const editorAutoSave = usePreferencesStore((s) => s.editorAutoSave);
   const editorAutoSaveDelay = usePreferencesStore((s) => s.editorAutoSaveDelay);
+  const wordWrap = usePreferencesStore((s) => s.wordWrap);
+  const wordWrapColumn = usePreferencesStore((s) => s.wordWrapColumn);
+  const [notificationTest, setNotificationTest] =
+    useState<NotificationTestState>("idle");
+  const notificationTestPending =
+    notificationTest === "waiting" || notificationTest === "sending";
+
+  // Routing suppresses alerts while Gear is focused and the agent is visible,
+  // so the delay gives the user time to switch apps — otherwise a working
+  // notification looks identical to a broken one.
+  const testNotification = async () => {
+    setNotificationTest("waiting");
+    await new Promise((resolve) =>
+      setTimeout(resolve, NOTIFICATION_TEST_DELAY_MS),
+    );
+    setNotificationTest("sending");
+    setNotificationTest(await testAgentOsNotification());
+  };
   const editorFontSize = usePreferencesStore((s) => s.editorFontSize);
   const editorFormatOnSave = usePreferencesStore((s) => s.editorFormatOnSave);
   const editorFormatter = usePreferencesStore((s) => s.editorFormatter);
   const showHidden = usePreferencesStore((s) => s.showHidden);
   const terminalWebglEnabled = usePreferencesStore((s) => s.terminalWebglEnabled);
   const terminalCursorBlink = usePreferencesStore((s) => s.terminalCursorBlink);
+  const terminalCursorStyle = usePreferencesStore((s) => s.terminalCursorStyle);
   const terminalFontWeight = usePreferencesStore((s) => s.terminalFontWeight);
   const terminalFontFamily = usePreferencesStore((s) => s.terminalFontFamily);
   const terminalLetterSpacing = usePreferencesStore((s) => s.terminalLetterSpacing);
@@ -268,6 +344,21 @@ export function GeneralSection() {
           />
         )}
         <SettingRow
+          title="Word wrap"
+          description="Soft-wrap long lines in the code editor."
+        >
+          <Switch
+            checked={wordWrap}
+            onCheckedChange={(v) => void setWordWrap(v)}
+          />
+        </SettingRow>
+        {wordWrap && (
+          <WordWrapColumnInput
+            value={wordWrapColumn}
+            onChange={(v) => void setWordWrapColumn(v)}
+          />
+        )}
+        <SettingRow
           title="Font size"
           description="Font size for the code editor, independent of the terminal."
         >
@@ -373,6 +464,33 @@ export function GeneralSection() {
             checked={terminalCursorBlink}
             onCheckedChange={(v) => void setTerminalCursorBlink(v)}
           />
+        </SettingRow>
+        <SettingRow
+          title="Terminal cursor style"
+          description="Shape of the terminal cursor."
+        >
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="h-8 justify-between gap-2 rounded-none px-2.5 text-[12px]">
+                <span>
+                  {TERMINAL_CURSOR_STYLES.find((s) => s.value === terminalCursorStyle)?.label ??
+                    terminalCursorStyle}
+                </span>
+                <HugeiconsIcon icon={ArrowDown01Icon} size={12} strokeWidth={2} className="opacity-70" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-[120px] rounded-none border border-border bg-popover p-0 shadow-none ring-0">
+              {TERMINAL_CURSOR_STYLES.map((s) => (
+                <DropdownMenuItem
+                  key={s.value}
+                  onSelect={() => void setTerminalCursorStyle(s.value)}
+                  className={cn("rounded-none px-3 py-1.5 text-[12px]", s.value === terminalCursorStyle && "bg-accent/50")}
+                >
+                  {s.label}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </SettingRow>
         <SettingRow
           title={t("settings.general.fontFamily")}
@@ -491,12 +609,28 @@ export function GeneralSection() {
         <Label>Agents</Label>
         <SettingRow
           title="Coding agent notifications"
-          description="Alert when Claude Code or Codex running in a terminal needs your input or finishes. Desktop notification when Gear is unfocused, in-app otherwise."
+          description="Alert when a coding agent needs your input or finishes. Native notification when Gear is unfocused, in-app otherwise."
         >
-          <Switch
-            checked={agentNotifications}
-            onCheckedChange={(v) => void setAgentNotifications(v)}
-          />
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              className="h-8 rounded-none px-2.5 text-[12px]"
+              disabled={!agentNotifications || notificationTestPending}
+              title={notificationTestTitle(notificationTest)}
+              onClick={() => void testNotification()}
+            >
+              {notificationTestLabel(notificationTest)}
+            </Button>
+            <Switch
+              checked={agentNotifications}
+              disabled={notificationTestPending}
+              onCheckedChange={(v) => {
+                setNotificationTest("idle");
+                void setAgentNotifications(v);
+              }}
+            />
+          </div>
         </SettingRow>
       </div>
 
@@ -562,6 +696,57 @@ function Label({ children }: { children: React.ReactNode }) {
     <span className="text-[11px] font-medium tracking-tight text-muted-foreground">
       {children}
     </span>
+  );
+}
+
+function WordWrapColumnInput({
+  value,
+  onChange,
+}: {
+  value: number;
+  onChange: (v: number) => void;
+}) {
+  const [draft, setDraft] = useState(String(value));
+
+  useEffect(() => {
+    setDraft(String(value));
+  }, [value]);
+
+  const commit = () => {
+    const n = Number(draft);
+    if (!Number.isFinite(n)) {
+      setDraft(String(value));
+      return;
+    }
+    const clamped = clampWordWrapColumn(n);
+    setDraft(String(clamped));
+    if (clamped !== value) onChange(clamped);
+  };
+
+  return (
+    <SettingRow
+      title="Wrap column"
+      description="Soft-wrap at this column, or earlier when the editor is narrower."
+    >
+      <div className="flex items-center gap-2">
+        <Input
+          type="number"
+          min={WORD_WRAP_COLUMN_MIN}
+          max={WORD_WRAP_COLUMN_MAX}
+          step={1}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.currentTarget.blur();
+            }
+          }}
+          className="h-8 w-20 rounded-md border border-border bg-background px-2.5 text-right text-[12px] md:text-[12px] tabular-nums outline-none focus:border-foreground/40 focus-visible:ring-0 focus-visible:border-foreground/40 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+        />
+        <span className="text-[11px] text-muted-foreground">columns</span>
+      </div>
+    </SettingRow>
   );
 }
 

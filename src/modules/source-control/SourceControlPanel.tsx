@@ -91,6 +91,14 @@ type Props = {
     title?: string;
   }) => void;
   onOpenFile?: (absolutePath: string) => void;
+  /** True when the panel is pinned to a repo chosen from the Explorer rather
+   * than following the active tab's context. */
+  repositoryPinned?: boolean;
+  /** Unpin and go back to following the active tab's context. */
+  onFollowActiveContext?: () => void;
+  /** A newly pinned repo has not finished loading; show the loading state
+   * rather than the previous repository's file list. */
+  repositoryPending?: boolean;
 };
 
 const SOURCE_CONTROL_TOOLTIP_CLASS =
@@ -158,6 +166,9 @@ export const SourceControlPanel = memo(function SourceControlPanel({
   onOpenGitGraph,
   onOpenDiff,
   onOpenFile,
+  repositoryPinned,
+  onFollowActiveContext,
+  repositoryPending = false,
 }: Props) {
   const scm = useSourceControlPanel(open, sourceControl, onOpenDiff);
   const refreshAnimationRef = useRef<number | null>(null);
@@ -527,6 +538,23 @@ export const SourceControlPanel = memo(function SourceControlPanel({
                 <span className="max-w-[140px] truncate">{repoLabel}</span>
               </div>
             )}
+            {repositoryPinned && onFollowActiveContext ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={onFollowActiveContext}
+                    className="inline-flex shrink-0 items-center gap-1 rounded-md border border-border/60 px-1.5 py-0.5 text-[10px] font-medium leading-none text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                  >
+                    Pinned
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent className={SOURCE_CONTROL_TOOLTIP_CLASS}>
+                  Showing a repository opened from the Explorer. Click to follow
+                  the active tab again.
+                </TooltipContent>
+              </Tooltip>
+            ) : null}
             {scm.status && (scm.status.ahead > 0 || scm.status.behind > 0) ? (
               <div className="flex shrink-0 items-center gap-0.5 text-[10px] font-semibold tabular-nums leading-none text-muted-foreground">
                 {scm.status.ahead > 0 ? (
@@ -642,11 +670,11 @@ export const SourceControlPanel = memo(function SourceControlPanel({
           </button>
         ) : null}
 
-        {scm.panelState === "loading" ? (
+        {scm.panelState === "loading" || repositoryPending ? (
           <PanelCenter title="Loading repository" />
         ) : null}
 
-        {scm.panelState === "no-repo" ? (
+        {!repositoryPending && scm.panelState === "no-repo" ? (
           <PanelCenter
             title="No repository"
             body="The active workspace is not inside a Git repository."
@@ -665,7 +693,7 @@ export const SourceControlPanel = memo(function SourceControlPanel({
           />
         ) : null}
 
-        {scm.panelState === "ready" && scm.status ? (
+        {!repositoryPending && scm.panelState === "ready" && scm.status ? (
           <>
             <div className="relative shrink-0 space-y-2 border-b border-border/40 bg-gradient-to-b from-card/65 to-card/30 px-2.5 pb-2.5 pt-2.5">
               <div

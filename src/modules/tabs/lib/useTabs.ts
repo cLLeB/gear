@@ -20,6 +20,7 @@ import {
 	type AgentInstanceCount,
 	createAgentPanePlan,
 } from "@/modules/agents/lib/launcher";
+import { planCommitHistoryOpen } from "./planCommitHistoryOpen";
 import {
 	type GitDiffOpenInput,
 	planGitDiffOpen,
@@ -118,6 +119,7 @@ export type GitHistoryTab = {
 	kind: "git-history";
 	title: string;
 	repoRoot: string;
+	spaceId?: string;
 };
 
 export type GitCommitFileDiffTab = {
@@ -173,6 +175,13 @@ export function pickTabBySpaceIndex(
 ): Tab | undefined {
 	return tabs.filter((t) => (t.spaceId ?? DEFAULT_SPACE_ID) === spaceId)[idx];
 }
+
+export type OpenFileTabOptions = {
+	/** Space the tab belongs to. Defaults to the active space. */
+	spaceId?: string;
+	/** Whether to switch to the tab. Defaults to true. */
+	activate?: boolean;
+};
 
 export type TabPatch = Partial<{
 	title: string;
@@ -391,7 +400,10 @@ export function useTabs() {
 	 *   reused: if a persistent tab for the path already exists it is activated;
 	 *   otherwise the current preview slot is replaced with the new path.
 	 */
-	const openFileTab = useCallback((path: string, pin = true) => {
+	const openFileTab = useCallback(
+		(path: string, pin = true, options?: OpenFileTabOptions) => {
+		const spaceId = options?.spaceId ?? activeSpaceIdRef.current;
+		const activate = options?.activate ?? true;
 		let targetId: number | null = null;
 		setTabs((curr) => {
 			if (pin) {
@@ -415,7 +427,7 @@ export function useTabs() {
 					{
 						id,
 						kind: "editor",
-						spaceId: activeSpaceIdRef.current,
+						spaceId,
 						title: basename(path),
 						path,
 						dirty: false,
@@ -462,9 +474,11 @@ export function useTabs() {
 				return next;
 			}
 		});
-		if (targetId !== null) setActiveId(targetId);
-		return targetId as number | null;
-	}, []);
+			if (targetId !== null && activate) setActiveId(targetId);
+			return targetId as number | null;
+		},
+		[],
+	);
 
 	/**
 	 * Promotes a preview tab to a persistent one. Called on double-click of the
@@ -624,33 +638,18 @@ export function useTabs() {
 	const openCommitHistoryTab = useCallback(
 		(input: { repoRoot: string; branch?: string | null }) => {
 			const curr = tabsRef.current;
-			const existing = curr.find(
-				(t) => t.kind === "git-history" && t.repoRoot === input.repoRoot,
+			const plan = planCommitHistoryOpen(
+				curr,
+				input,
+				activeSpaceIdRef.current,
+				() => nextIdRef.current++,
 			);
-			const title = input.branch ? `History · ${input.branch}` : "Git History";
-			if (existing) {
-				const nextTabs = curr.map((t) =>
-					t.id === existing.id ? { ...t, title } : t,
-				);
-				tabsRef.current = nextTabs;
-				setTabs(nextTabs);
-				setActiveId(existing.id);
-				return existing.id;
+			if (plan.tabs !== curr) {
+				tabsRef.current = plan.tabs;
+				setTabs(plan.tabs);
 			}
-			const id = nextIdRef.current++;
-			const nextTabs = [
-				...curr,
-				{
-					id,
-					kind: "git-history",
-					title,
-					repoRoot: input.repoRoot,
-				} satisfies GitHistoryTab,
-			];
-			tabsRef.current = nextTabs;
-			setTabs(nextTabs);
-			setActiveId(id);
-			return id;
+			setActiveId(plan.targetId);
+			return plan.targetId;
 		},
 		[],
 	);
