@@ -120,6 +120,7 @@ export type GitHistoryTab = {
 	title: string;
 	repoRoot: string;
 	spaceId?: string;
+	cold?: boolean;
 };
 
 export type GitCommitFileDiffTab = {
@@ -212,21 +213,11 @@ function titleFromUrl(url: string): string {
 }
 
 export function useTabs() {
-	const [tabs, setTabs] = useState<Tab[]>(() => {
-		return [
-			{
-				id: 1,
-				kind: "editor",
-				spaceId: DEFAULT_SPACE_ID,
-				title: "untitled",
-				path: "",
-				dirty: false,
-				preview: false,
-			},
-		];
-	});
-	const [activeId, setActiveId] = useState(1);
-	const nextIdRef = useRef(3);
+	// Starts empty: the spaces boot pass owns the first tab, so a fresh profile
+	// gets a terminal rather than an untitled editor nobody asked for.
+	const [tabs, setTabs] = useState<Tab[]>([]);
+	const [activeId, setActiveId] = useState(0);
+	const nextIdRef = useRef(1);
 	const tabsRef = useRef(tabs);
 	// Space that newly-created tabs are assigned to. Driven by the Spaces feature
 	// via setActiveSpaceForNewTabs; defaults to the single default space.
@@ -239,6 +230,36 @@ export function useTabs() {
 	const setActiveSpaceForNewTabs = useCallback((spaceId: string) => {
 		activeSpaceIdRef.current = spaceId;
 	}, []);
+
+	/** Hands out ids from the same counter tabs and pane leaves share. */
+	const allocId = useCallback(() => nextIdRef.current++, []);
+
+	/** Swaps the whole tab set — used once by the boot restore pass. Ids in
+	 *  `next` must come from `allocId` so they never collide with later tabs. */
+	const replaceTabs = useCallback((next: Tab[], nextActiveId: number) => {
+		let toDispose: number[] = [];
+		setTabs((curr) => {
+			toDispose = curr.flatMap((t) =>
+				t.kind === "terminal" ? leafIds(t.paneTree) : [],
+			);
+			return next;
+		});
+		setActiveId(nextActiveId);
+		for (const lid of toDispose) disposeSession(lid);
+	}, []);
+
+	// A restored tab stays cold — unmounted, no PTY — until the user first
+	// activates it. Clearing the flag here is the only thing that wakes it up.
+	useEffect(() => {
+		setTabs((curr) =>
+			curr.some((t) => t.id === activeId && t.cold)
+				? curr.map((t) => (t.id === activeId ? { ...t, cold: false } : t))
+				: curr,
+		);
+		// Depends on `tabs` too so a restore that lands on the already-active id
+		// still warms. The guard returns the same array when there is nothing to
+		// warm, so React bails out rather than looping.
+	}, [activeId, tabs]);
 
 	const newTab = useCallback((cwd?: string, shellPath?: string) => {
 		const tabId = nextIdRef.current++;
@@ -1111,6 +1132,8 @@ export function useTabs() {
 		tabs,
 		activeId,
 		setActiveId,
+		allocId,
+		replaceTabs,
 		newTab,
 		newBlockTab,
 		newTabInSpace,

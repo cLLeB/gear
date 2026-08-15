@@ -54,6 +54,56 @@ describe("serializeTabs", () => {
     expect(out.map((t) => t.kind)).toEqual(["terminal", "editor"]);
   });
 
+  it("keeps settings and git-history tabs", () => {
+    const tabs: Tab[] = [
+      { id: 1, kind: "settings", spaceId: "s1", title: "Settings", section: "ai" },
+      {
+        id: 3,
+        kind: "git-history",
+        spaceId: "s1",
+        title: "History · main",
+        repoRoot: "/repo",
+      },
+    ];
+    expect(serializeTabs(tabs)).toEqual([
+      { kind: "settings", section: "ai" },
+      { kind: "git-history", repoRoot: "/repo" },
+    ]);
+  });
+
+  it("drops an untitled editor, which has no path to reopen from", () => {
+    const tabs: Tab[] = [
+      {
+        id: 1,
+        kind: "editor",
+        spaceId: "s1",
+        title: "untitled",
+        path: "",
+        dirty: false,
+        preview: false,
+      },
+    ];
+    expect(serializeTabs(tabs)).toEqual([]);
+  });
+
+  it("carries the editor's manual language override", () => {
+    const tabs: Tab[] = [
+      {
+        id: 1,
+        kind: "editor",
+        spaceId: "s1",
+        title: "x",
+        path: "/a/x.txt",
+        dirty: false,
+        preview: false,
+        languageOverride: "ts",
+      },
+    ];
+    expect(serializeTabs(tabs)).toEqual([
+      { kind: "editor", path: "/a/x.txt", lang: "ts" },
+    ]);
+  });
+
   it("marks the active leaf in a split tree", () => {
     const tree: PaneNode = {
       kind: "split",
@@ -156,5 +206,47 @@ describe("hydrateTabs", () => {
       "localhost:5173",
       "README.md",
     ]);
+  });
+
+  it("restores an editor tab pinned, so the next explorer click keeps it", () => {
+    const [tab] = hydrateTabs(
+      [{ kind: "editor", path: "/a/foo.ts", lang: "ts" }],
+      "s1",
+      counter(),
+    );
+    expect(tab).toMatchObject({
+      kind: "editor",
+      preview: false,
+      languageOverride: "ts",
+    });
+  });
+
+  it("hydrates settings and git-history tabs", () => {
+    const out = hydrateTabs(
+      [
+        { kind: "settings", section: "ai" },
+        { kind: "git-history", repoRoot: "/repo" },
+      ],
+      "s1",
+      counter(),
+    );
+    expect(out).toMatchObject([
+      { kind: "settings", section: "ai", cold: true },
+      { kind: "git-history", repoRoot: "/repo", cold: true },
+    ]);
+  });
+
+  it("round-trips every restorable kind through serialize and back", () => {
+    const serialized: SerializedTab[] = [
+      { kind: "terminal", tree: { kind: "leaf", cwd: "/a", active: true } },
+      { kind: "editor", path: "/a/x.ts" },
+      { kind: "preview", url: "http://localhost:5173/x" },
+      { kind: "markdown", path: "/a/README.md" },
+      { kind: "settings" },
+      { kind: "git-history", repoRoot: "/repo" },
+    ];
+    const tabs = hydrateTabs(serialized, "s1", counter());
+    expect(tabs).toHaveLength(serialized.length);
+    expect(serializeTabs(tabs)).toEqual(serialized);
   });
 });

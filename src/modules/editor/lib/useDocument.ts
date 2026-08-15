@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { currentWorkspaceEnv } from "@/modules/workspace";
 import { usePreferencesStore } from "@/modules/settings/preferences";
 import { getLaunchDir } from "@/lib/launchDir";
+import { clearDraft, loadDraft, saveDraft, shouldBackup } from "./drafts";
 import { detectEol, type Eol, normalizeToLf, restoreEol } from "./eol";
 
 type ReadResult =
@@ -15,6 +16,9 @@ type FileStat = { size: number; mtime: number; kind: string };
 
 /// Mirrors FORCE_MAX_READ_BYTES in src-tauri fs/file.rs.
 export const FORCE_READ_LIMIT = 50 * 1024 * 1024;
+
+/// How long typing must pause before the hot-exit backup is written.
+const BACKUP_DEBOUNCE_MS = 500;
 
 export type DocumentState =
   | { status: "loading" }
@@ -77,7 +81,10 @@ export function useDocument({ path, onDirtyChange }: Options) {
     diskMtimeRef.current = mtime;
     savedRef.current = content;
     // Edits typed while the write was in flight must stay dirty.
-    setDirty(bufferRef.current !== content);
+    const stillDirty = bufferRef.current !== content;
+    setDirty(stillDirty);
+    // The buffer is on disk now, so the hot-exit backup has served its purpose.
+    if (!stillDirty) void clearDraft(path);
   }, [path]);
 
   // False when the write was withheld because the file changed on disk since
@@ -135,17 +142,35 @@ export function useDocument({ path, onDirtyChange }: Options) {
       workspace: currentWorkspaceEnv(),
       force: forcedPathRef.current === path,
     })
-      .then((res) => {
+      .then(async (res) => {
         if (cancelled) return;
         if (res.kind === "text") {
           eolRef.current = detectEol(res.content);
           diskMtimeRef.current = res.mtime;
           const content = normalizeToLf(res.content);
           savedRef.current = content;
-          bufferRef.current = content;
+
+          // Hot exit: a backed-up buffer from a previous session wins over disk.
+          const draft = await loadDraft(path);
+          if (cancelled) return;
+          const hasDraft = draft !== null && draft.text !== content;
+          const restored = hasDraft ? draft.text : content;
+          // The file changed on disk since the draft was taken. Hand the old
+          // mtime back so saving trips the existing conflict prompt rather than
+          // silently overwriting whatever else changed it.
+          if (
+            hasDraft &&
+            draft.mtime !== null &&
+            draft.mtime !== res.mtime
+          ) {
+            diskMtimeRef.current = draft.mtime;
+          }
+
+          bufferRef.current = restored;
+          setDirty(restored !== content);
           setDoc({
             status: "ready",
-            content,
+            content: restored,
             size: res.size,
           });
         } else if (res.kind === "binary") {
@@ -217,11 +242,42 @@ export function useDocument({ path, onDirtyChange }: Options) {
     [],
   );
 
+  // Hot-exit backup, debounced separately from autosave: autosave may be off
+  // entirely, and the backup still has to keep up with typing.
+  const backupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scheduleBackup = useCallback(() => {
+    if (backupTimerRef.current) clearTimeout(backupTimerRef.current);
+    backupTimerRef.current = setTimeout(() => {
+      backupTimerRef.current = null;
+      const buffer = bufferRef.current;
+      if (shouldBackup(buffer, savedRef.current)) {
+        void saveDraft(path, buffer, diskMtimeRef.current);
+      } else {
+        void clearDraft(path);
+      }
+    }, BACKUP_DEBOUNCE_MS);
+  }, [path]);
+
+  // Flush a pending backup when the tab unmounts or the path changes, so
+  // closing a dirty editor never races the debounce.
+  useEffect(() => {
+    return () => {
+      if (!backupTimerRef.current) return;
+      clearTimeout(backupTimerRef.current);
+      backupTimerRef.current = null;
+      const buffer = bufferRef.current;
+      if (shouldBackup(buffer, savedRef.current)) {
+        void saveDraft(path, buffer, diskMtimeRef.current);
+      }
+    };
+  }, [path]);
+
   const onChange = useCallback(
     (next: string) => {
       bufferRef.current = next;
       const isDirty = next !== savedRef.current;
       setDirty(isDirty);
+      scheduleBackup();
 
       clearAutoSaveTimer();
 
@@ -232,7 +288,7 @@ export function useDocument({ path, onDirtyChange }: Options) {
         }, delay);
       }
     },
-    [clearAutoSaveTimer, saveNow],
+    [clearAutoSaveTimer, saveNow, scheduleBackup],
   );
 
   useEffect(() => clearAutoSaveTimer, [path, clearAutoSaveTimer]);

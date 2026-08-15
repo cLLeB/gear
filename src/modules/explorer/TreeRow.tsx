@@ -43,6 +43,11 @@ export type EntryRowProps = {
   onOpenGitHistory?: (path: string) => void;
   onAttachToAgent?: (path: string) => void;
   onOpenMarkdownPreview?: (path: string) => void;
+  onCopyEntries?: (paths: readonly string[]) => void;
+  onCutEntries?: (paths: readonly string[]) => void;
+  onPasteEntries?: (destDir: string) => void;
+  /** Cut and awaiting a paste — shown dimmed, the way file managers do. */
+  isCut?: boolean;
 };
 
 function formatBytes(n: number): string {
@@ -73,6 +78,10 @@ function EntryRowImpl(props: EntryRowProps) {
     onOpenGitHistory,
     onAttachToAgent,
     onOpenMarkdownPreview,
+    onCopyEntries,
+    onCutEntries,
+    onPasteEntries,
+    isCut,
   } = props;
 
   const [isConfirming, setIsConfirming] = useState(false);
@@ -84,6 +93,10 @@ function EntryRowImpl(props: EntryRowProps) {
   const createTarget = isDir ? path : path.slice(0, path.lastIndexOf("/")) || rootPath;
   const paddingLeft = 6 + depth * 12;
   const bulkActive = isSelected && selectedCount > 1;
+  // Right-clicking outside the current selection acts on the row alone, which
+  // is what every file manager does.
+  const actionPaths = (): readonly string[] =>
+    bulkActive ? onGetSelectedPaths() : [path];
 
   const handleClick = (event: React.MouseEvent) => {
     if (tree.renaming) return;
@@ -130,6 +143,7 @@ function EntryRowImpl(props: EntryRowProps) {
             className={cn(
               "group flex h-6 w-full min-w-0 cursor-pointer items-center gap-2 rounded-sm px-1.5 text-left text-[13px] text-foreground/85 transition-colors hover:bg-accent/70",
               isSelected && "bg-accent text-foreground",
+              isCut && "opacity-50",
             )}
             style={{ paddingLeft }}
           >
@@ -220,6 +234,31 @@ function EntryRowImpl(props: EntryRowProps) {
         >
           New Folder
         </ContextMenuItem>
+        <ContextMenuSeparator />
+        {onCopyEntries && (
+          <ContextMenuItem
+            className={COMPACT_ITEM}
+            onSelect={() => onCopyEntries(actionPaths())}
+          >
+            Copy
+          </ContextMenuItem>
+        )}
+        {onCutEntries && (
+          <ContextMenuItem
+            className={COMPACT_ITEM}
+            onSelect={() => onCutEntries(actionPaths())}
+          >
+            Cut
+          </ContextMenuItem>
+        )}
+        {onPasteEntries && (
+          <ContextMenuItem
+            className={COMPACT_ITEM}
+            onSelect={() => onPasteEntries(createTarget)}
+          >
+            Paste
+          </ContextMenuItem>
+        )}
         <ContextMenuSeparator />
         <ContextMenuItem
           className={COMPACT_ITEM}
