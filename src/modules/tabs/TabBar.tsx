@@ -8,6 +8,7 @@ import {
   IncognitoIcon,
   Message02Icon,
   MoreHorizontalIcon,
+  PlayIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { invoke } from "@tauri-apps/api/core";
@@ -66,6 +67,10 @@ type Props = {
   onCloseOthers?: (id: number) => void;
   /** Bulk close from the overflow menu (Close Others / Saved / All). */
   onCloseTabs?: (ids: number[]) => void;
+  /** Run the active editor tab's file. Omitted hides the run control. */
+  onRun?: () => void;
+  /** Name of the config that would run the active file; null when none does. */
+  runLabel?: string | null;
   compact?: boolean;
 };
 
@@ -86,6 +91,8 @@ export function TabBar({
   onReorder,
   onCloseOthers,
   onCloseTabs,
+  onRun,
+  runLabel,
   compact,
 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -127,6 +134,12 @@ export function TabBar({
     saved: savedIds,
     all: allIds,
   } = computeCloseTargets(tabs, activeId);
+
+  // The run control only concerns editor tabs; a terminal tab has nothing to
+  // run. Shown-but-disabled on an unsupported file so the absence is explained.
+  const activeTab = tabs.find((t) => t.id === activeId);
+  const isEditor = activeTab?.kind === "editor";
+  const runnable = Boolean(runLabel);
 
   return (
     <div className="flex min-w-0 shrink items-center gap-0.5">
@@ -315,6 +328,28 @@ export function TabBar({
           </TabsList>
         </Tabs>
       </div>
+      {onRun && isEditor && (
+        <Button
+          variant="ghost"
+          size="icon"
+          disabled={!runnable}
+          onClick={onRun}
+          aria-label={runLabel ? `Run with ${runLabel}` : "Run file"}
+          title={
+            runnable
+              ? `Run ${runLabel} (F5)`
+              : "No run command for this file type"
+          }
+          className={cn(
+            "size-7 shrink-0 rounded-md",
+            runnable
+              ? "text-emerald-500 hover:bg-accent hover:text-emerald-400"
+              : "text-muted-foreground/40",
+          )}
+        >
+          <HugeiconsIcon icon={PlayIcon} size={14} strokeWidth={2} />
+        </Button>
+      )}
       <NewTabMenu
         shells={shells}
         onNew={onNew}

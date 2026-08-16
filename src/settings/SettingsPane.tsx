@@ -7,6 +7,7 @@ import {
   PaintBoardIcon,
   Settings01Icon,
   UserMultiple02Icon,
+  PlayIcon,
   KeyboardIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -16,6 +17,7 @@ import { AboutSection } from "./sections/AboutSection";
 import { AgentsSection } from "./sections/AgentsSection";
 import { GeneralSection } from "./sections/GeneralSection";
 import { ModelsSection } from "./sections/ModelsSection";
+import { RunSection } from "./sections/RunSection";
 import { ShortcutsSection } from "./sections/ShortcutsSection";
 import { ThemesSection } from "./sections/ThemesSection";
 
@@ -30,6 +32,7 @@ const TAB_DEFS: {
   { id: "shortcuts", labelKey: "settings.tabs.shortcuts", icon: KeyboardIcon,         component: ShortcutsSection },
   { id: "models",    labelKey: "settings.tabs.models",    icon: AiScanIcon,           component: ModelsSection },
   { id: "agents",    labelKey: "settings.tabs.agents",    icon: UserMultiple02Icon,   component: AgentsSection },
+  { id: "run",       labelKey: "settings.tabs.run",       icon: PlayIcon,             component: RunSection },
   { id: "about",     labelKey: "settings.tabs.about",     icon: InformationCircleIcon, component: AboutSection },
 ];
 

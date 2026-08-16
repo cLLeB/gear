@@ -20,6 +20,8 @@ import {
 	type AgentInstanceCount,
 	createAgentPanePlan,
 } from "@/modules/agents/lib/launcher";
+import { planRunTarget } from "@/modules/run/lib/plan";
+import type { RunSpec } from "@/modules/run/lib/types";
 import { planCommitHistoryOpen } from "./planCommitHistoryOpen";
 import {
 	type GitDiffOpenInput,
@@ -43,6 +45,8 @@ export type TerminalTab = {
 	customTitle?: string;
 	/** Warp-style command-block mode for this terminal. */
 	blocks?: boolean;
+	/** Dedicated target for the Run command, reused across runs in this space. */
+	run?: boolean;
 	/** Restored but not yet activated — excluded from mounting so no PTY spawns. */
 	cold?: boolean;
 	/** Space this tab belongs to (spaces feature; optional until adopted). */
@@ -656,6 +660,30 @@ export function useTabs() {
 		[],
 	);
 
+	/** Find-or-create this space's dedicated Run terminal and focus it. */
+	const openRunTerminal = useCallback((spec: RunSpec) => {
+		const curr = tabsRef.current;
+		const plan = planRunTarget(
+			curr,
+			activeSpaceIdRef.current,
+			() => nextIdRef.current++,
+			spec,
+		);
+		if (plan.tabs !== curr) {
+			tabsRef.current = plan.tabs;
+			setTabs(plan.tabs);
+		}
+		setActiveId(plan.tabId);
+		const target = plan.tabs.find((t) => t.id === plan.tabId);
+		return {
+			tabId: plan.tabId,
+			leafId: plan.leafId,
+			created: plan.created,
+			shellPath:
+				target?.kind === "terminal" ? (target.shellPath ?? null) : null,
+		};
+	}, []);
+
 	const openCommitHistoryTab = useCallback(
 		(input: { repoRoot: string; branch?: string | null }) => {
 			const curr = tabsRef.current;
@@ -1150,6 +1178,7 @@ export function useTabs() {
 		newMarkdownTab,
 		openAiDiffTab,
 		openGitDiffTab,
+		openRunTerminal,
 		openCommitHistoryTab,
 		openCommitFileDiffTab,
 		setAiDiffStatus,
