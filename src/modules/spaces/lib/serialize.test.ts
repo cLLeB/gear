@@ -161,6 +161,31 @@ describe("hydrateTabs", () => {
     expect(restored.cwd).toBe("/b");
   });
 
+  it("round-trips the run terminal flag and keeps its name over the cwd", () => {
+    const tabs: Tab[] = [
+      term({
+        paneTree: { kind: "leaf", id: 11, cwd: "/proj/src" },
+        activeLeafId: 11,
+        run: true,
+      }),
+    ];
+    const [restored] = hydrateTabs(serializeTabs(tabs), "s2", counter());
+    expect(restored.kind).toBe("terminal");
+    if (restored.kind !== "terminal") return;
+    expect(restored.run).toBe(true);
+    expect(restored.title).toBe("Run");
+  });
+
+  it("leaves an ordinary terminal unflagged so runs never adopt it", () => {
+    const tabs: Tab[] = [
+      term({ paneTree: { kind: "leaf", id: 11, cwd: "/proj" }, activeLeafId: 11 }),
+    ];
+    const [restored] = hydrateTabs(serializeTabs(tabs), "s2", counter());
+    if (restored.kind !== "terminal") throw new Error("expected terminal");
+    expect(restored.run).toBeUndefined();
+    expect(restored.title).toBe("proj");
+  });
+
   it("allocates fresh, unique, monotonic ids across all tabs and leaves", () => {
     const tree: PaneNode = {
       kind: "split",

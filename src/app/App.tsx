@@ -86,6 +86,7 @@ import { RewindPanel, useRewindStore } from "@/modules/rewind";
 import { usePreferencesStore } from "@/modules/settings/preferences";
 import {
 	onKeysChanged,
+	setRunSelectedConfig,
 	setSidebarPosition,
 	setWordWrap,
 } from "@/modules/settings/store";
@@ -117,6 +118,15 @@ import {
 	useSpacesBoot,
 } from "@/modules/spaces";
 import { StatusBar } from "@/modules/statusbar";
+import {
+	canRun,
+	resolveRunSpec,
+	RunTrustDialog,
+	useRunConfigs,
+	useRunFile,
+} from "@/modules/run";
+import { useRunTrustStore } from "@/modules/run/lib/trustPrompt";
+import { toast } from "sonner";
 import type { SettingsViewTab } from "@/modules/tabs";
 import {
 	DEFAULT_SPACE_ID,
@@ -255,6 +265,7 @@ export default function App() {
 		openAiDiffTab,
 		closeAiDiffTab,
 		openGitDiffTab,
+		openRunTerminal,
 		openCommitHistoryTab,
 		openCommitFileDiffTab,
 		closeTab,
@@ -1406,6 +1417,55 @@ export default function App() {
 		void handleClose(activeId);
 	}, [activeId, closeActivePane, handleClose]);
 
+	const runWorkspaceRoot = explorerRoot ?? launchCwd ?? home ?? null;
+	const runConfigs = useRunConfigs(runWorkspaceRoot);
+	const requestRunTrust = useRunTrustStore((s) => s.request);
+
+	const runFile = useRunFile({
+		openRunTerminal,
+		workspaceRoot: runWorkspaceRoot,
+		onUnsupported: (message) =>
+			toast.error(message, {
+				description: "Add a run command for this file type in Settings.",
+			}),
+		requestTrust: requestRunTrust,
+	});
+
+	/** Run the focused editor tab's file, saving it first so it isn't stale. */
+	const runActiveFile = useCallback(async () => {
+		const t = tabsRef.current.find((x) => x.id === activeId);
+		if (t?.kind !== "editor" || !t.path) return;
+		await editorRefs.current.get(activeId)?.save();
+		await runFile(t.path);
+	}, [activeId, runFile]);
+
+	/** Whether any layer claims a path — drives the explorer's Run item. */
+	const canRunPath = useCallback(
+		(path: string) => canRun(path, runConfigs.layers),
+		[runConfigs.layers],
+	);
+
+	/** Name of the config that would run the focused file, or null. */
+	const activeRunLabel = useMemo(() => {
+		const t = tabs.find((x) => x.id === activeId);
+		if (t?.kind !== "editor" || !t.path) return null;
+		return (
+			resolveRunSpec(t.path, {
+				...runConfigs.layers,
+				workspaceRoot: runWorkspaceRoot ?? undefined,
+				selectedId: runConfigs.selectedId ?? undefined,
+			})?.label ?? null
+		);
+	}, [tabs, activeId, runConfigs.layers, runConfigs.selectedId, runWorkspaceRoot]);
+
+	const selectRunConfig = useCallback(
+		(qualified: string | null) => {
+			if (!runWorkspaceRoot) return;
+			void setRunSelectedConfig(runWorkspaceRoot, qualified);
+		},
+		[runWorkspaceRoot],
+	);
+
 	const shortcutHandlers = useMemo<ShortcutHandlers>(
 		() => ({
 			"commandPalette.open": () => setCommandPaletteOpen(true),
@@ -1450,6 +1510,7 @@ export default function App() {
 			"shortcuts.open": () => setShortcutsOpen((v) => !v),
 			"settings.open": () => openSettingsTab(),
 			"sidebar.toggle": toggleSidebar,
+			"run.file": () => void runActiveFile(),
 			"explorer.focus": toggleExplorerFocus,
 			"view.zoomIn": zoomIn,
 			"view.zoomOut": zoomOut,
@@ -1493,6 +1554,7 @@ export default function App() {
 			zoomOut,
 			zoomReset,
 			wordWrap,
+			runActiveFile,
 		],
 	);
 
@@ -1725,8 +1787,12 @@ export default function App() {
 				askAiSelection: askFromSelection,
 				openSettings: () => openSettingsTab(),
 				openShortcuts: () => setShortcutsOpen(true),
+				runActiveFile: () => void runActiveFile(),
+				runLabel: activeRunLabel,
 			}),
 		[
+			runActiveFile,
+			activeRunLabel,
 			tabs,
 			activeId,
 			searchTarget,
@@ -2021,6 +2087,8 @@ export default function App() {
 							}
 							onCloseOthers={closeOtherTabs}
 							onCloseTabs={closeTabs}
+							onRun={() => void runActiveFile()}
+							runLabel={activeRunLabel}
 							onActivateAgent={onActivateAgent}
 							onActivateLocalAgent={onActivateLocalAgent}
 							onOpenSettings={() => openSettingsTab()}
@@ -2072,6 +2140,8 @@ export default function App() {
 															onOpenGitHistory={openGitHistoryForPath}
 															onAttachToAgent={handleAttachFileToAgent}
 															onOpenMarkdownPreview={openMarkdownPreview}
+																		onRunFile={(p) => void runFile(p)}
+																		canRunPath={canRunPath}
 														/>
 													) : (
 														<SourceControlPanel
@@ -2184,6 +2254,8 @@ export default function App() {
 															onOpenGitHistory={openGitHistoryForPath}
 															onAttachToAgent={handleAttachFileToAgent}
 															onOpenMarkdownPreview={openMarkdownPreview}
+																		onRunFile={(p) => void runFile(p)}
+																		canRunPath={canRunPath}
 														/>
 													) : (
 														<SourceControlPanel
@@ -2230,8 +2302,14 @@ export default function App() {
 								activeTab?.kind === "editor" && !!activeTab.languageOverride
 							}
 							onSetEditorLanguage={(ext) => setTabLanguage(activeId, ext)}
+							runConfigs={runWorkspaceRoot ? runConfigs.available : undefined}
+							runSelectedId={runConfigs.selectedId}
+							onSelectRunConfig={runWorkspaceRoot ? selectRunConfig : undefined}
+							runNeedsTrust={runConfigs.needsTrust}
 						/>
 					)}
+
+					<RunTrustDialog />
 
 					<RewindPanel />
 

@@ -31,6 +31,10 @@ function splitTab(id: number, panes: number): Tab {
   } as unknown as Tab;
 }
 
+function editorTab(id: number, path: string): Tab {
+  return { id, kind: "editor", title: path, path, dirty: false } as unknown as Tab;
+}
+
 function baseContext(
   over: Partial<CommandPaletteActionContext> = {},
 ): CommandPaletteActionContext {
@@ -59,6 +63,8 @@ function baseContext(
     askAiSelection: noop,
     openSettings: noop,
     openShortcuts: noop,
+    runActiveFile: noop,
+    runLabel: null,
     ...over,
   };
 }
@@ -125,5 +131,31 @@ describe("createCommandPaletteActions", () => {
     expect(reasonById({ explorerRoot: null, home: null }, "tab.newEditor")).toBe(
       "No workspace root",
     );
+  });
+
+  it("enables run on an editor tab a config claims", () => {
+    expect(
+      reasonById(
+        { tabs: [editorTab(1, "/w/heart.py")], runLabel: "Python" },
+        "run.file",
+      ),
+    ).toBeUndefined();
+  });
+
+  it("disables run when the active tab is a terminal, not a file", () => {
+    expect(reasonById({ runLabel: "Python" }, "run.file")).toBe("No file open");
+  });
+
+  it("disables run when no config claims the file", () => {
+    expect(
+      reasonById({ tabs: [editorTab(1, "/w/notes.txt")], runLabel: null }, "run.file"),
+    ).toBe("No run command for this file type");
+  });
+
+  it("names the resolved config in the palette entry", () => {
+    const item = createCommandPaletteActions(
+      baseContext({ tabs: [editorTab(1, "/w/a.py")], runLabel: "Poetry" }),
+    ).find((i) => i.id === "run.file");
+    expect(item?.label).toBe("Run current file (Poetry)");
   });
 });

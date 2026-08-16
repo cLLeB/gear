@@ -13,6 +13,7 @@ import {
   KeyboardIcon,
   LayoutTwoColumnIcon,
   LayoutTwoRowIcon,
+  PlayIcon,
   Search01Icon,
   Settings01Icon,
   SidebarLeftIcon,
@@ -71,6 +72,9 @@ export type CommandPaletteActionContext = {
   askAiSelection: () => void;
   openSettings: () => void;
   openShortcuts: () => void;
+  runActiveFile: () => void;
+  /** Name of the config that would run the active file; null when none does. */
+  runLabel: string | null;
 };
 
 export function createCommandPaletteActions(
@@ -95,6 +99,13 @@ export function createCommandPaletteActions(
       : undefined;
   const closeDisabledReason =
     onlyOneTab && activePaneCount < 2 ? "Last tab" : undefined;
+  const activeEditorPath =
+    activeTab?.kind === "editor" ? activeTab.path : null;
+  const runDisabledReason = !activeEditorPath
+    ? "No file open"
+    : !ctx.runLabel
+      ? "No run command for this file type"
+      : undefined;
 
   return [
     {
@@ -116,6 +127,16 @@ export function createCommandPaletteActions(
       shortcutId: "shortcuts.open",
       run: ctx.openShortcuts,
       deferRun: true,
+    },
+    {
+      id: "run.file",
+      label: ctx.runLabel ? `Run current file (${ctx.runLabel})` : "Run current file",
+      group: "Code",
+      keywords: ["run", "execute", "start", "python", "node", "script"],
+      icon: PlayIcon,
+      shortcutId: "run.file",
+      disabledReason: runDisabledReason,
+      run: ctx.runActiveFile,
     },
     {
       id: "tab.new",

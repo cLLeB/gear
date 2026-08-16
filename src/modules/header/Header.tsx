@@ -62,6 +62,10 @@ type Props = {
   canClosePane: boolean;
   onCloseOthers: (id: number) => void;
   onCloseTabs: (ids: number[]) => void;
+  /** Run the active editor tab's file from the tab bar's run control. */
+  onRun: () => void;
+  /** Name of the config that would run the active file; null when none does. */
+  runLabel: string | null;
   onActivateAgent: (tabId: number, leafId: number) => void;
   onActivateLocalAgent: () => void;
   onOpenSettings: () => void;
@@ -93,6 +97,8 @@ export function Header({
   canClosePane,
   onCloseOthers,
   onCloseTabs,
+  onRun,
+  runLabel,
   onActivateAgent,
   onActivateLocalAgent,
   onOpenSettings,
@@ -241,7 +247,8 @@ export function Header({
           onReorder={onReorder}
           onCloseOthers={onCloseOthers}
           onCloseTabs={onCloseTabs}
-          
+          onRun={onRun}
+          runLabel={runLabel}
         />
         <div
           data-tauri-drag-region
