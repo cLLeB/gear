@@ -43,6 +43,9 @@ export type EntryRowProps = {
   onOpenGitHistory?: (path: string) => void;
   onAttachToAgent?: (path: string) => void;
   onOpenMarkdownPreview?: (path: string) => void;
+  onRunFile?: (path: string) => void;
+  /** Whether a run config claims this path. Absent hides the Run item. */
+  canRunPath?: (path: string) => boolean;
   onCopyEntries?: (paths: readonly string[]) => void;
   onCutEntries?: (paths: readonly string[]) => void;
   onPasteEntries?: (destDir: string) => void;
@@ -78,6 +81,8 @@ function EntryRowImpl(props: EntryRowProps) {
     onOpenGitHistory,
     onAttachToAgent,
     onOpenMarkdownPreview,
+    onRunFile,
+    canRunPath,
     onCopyEntries,
     onCutEntries,
     onPasteEntries,
@@ -181,6 +186,14 @@ function EntryRowImpl(props: EntryRowProps) {
             onSelect={() => onOpenFile(path, true)}
           >
             Open
+          </ContextMenuItem>
+        )}
+        {!isDir && onRunFile && canRunPath?.(path) && (
+          <ContextMenuItem
+            className={COMPACT_ITEM}
+            onSelect={() => onRunFile(path)}
+          >
+            Run
           </ContextMenuItem>
         )}
         {!isDir && isMarkdownPath(path) && onOpenMarkdownPreview && (

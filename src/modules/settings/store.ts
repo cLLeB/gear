@@ -1,3 +1,4 @@
+import type { RunConfig } from "@/modules/run/lib/types";
 import {
   DEFAULT_AUTOCOMPLETE_MODEL,
   DEFAULT_MODEL_ID,
@@ -122,6 +123,12 @@ export type Preferences = {
   defaultWorkspaceEnv: string;
   lspActivation: Record<string, LspActivation>;
   lspCustomServers: LspCustomServer[];
+  /** User-defined run configs, layered over the built-in RUN_PRESETS. */
+  runCustomConfigs: RunConfig[];
+  /** Workspace roots approved to execute their own project run configs. */
+  trustedRunProjects: string[];
+  /** Pinned run config per workspace root, as a qualified id. */
+  runSelectedConfigs: Record<string, string>;
   terminalLetterSpacing: number;
   terminalFontSize: number;
   terminalScrollback: number;
@@ -200,6 +207,9 @@ const KEY_TERMINAL_SHELL = "terminalShell";
 const KEY_DEFAULT_WORKSPACE_ENV = "defaultWorkspaceEnv";
 const KEY_LSP_ACTIVATION = "lspActivation";
 const KEY_LSP_CUSTOM_SERVERS = "lspCustomServers";
+const KEY_RUN_CUSTOM_CONFIGS = "runCustomConfigs";
+const KEY_TRUSTED_RUN_PROJECTS = "trustedRunProjects";
+const KEY_RUN_SELECTED_CONFIGS = "runSelectedConfigs";
 const KEY_TERMINAL_LETTER_SPACING = "terminalLetterSpacing";
 const KEY_TERMINAL_FONT_SIZE = "terminalFontSize";
 const KEY_TERMINAL_SCROLLBACK = "terminalScrollback";
@@ -288,6 +298,9 @@ export const DEFAULT_PREFERENCES: Preferences = {
   defaultWorkspaceEnv: "local",
   lspActivation: {},
   lspCustomServers: [],
+  runCustomConfigs: [],
+  trustedRunProjects: [],
+  runSelectedConfigs: {},
   terminalLetterSpacing: 0,
   terminalFontSize: TERMINAL_FONT_SIZE_DEFAULT,
   terminalScrollback: TERMINAL_SCROLLBACK_DEFAULT,
@@ -424,6 +437,15 @@ export async function loadPreferences(): Promise<Preferences> {
     lspCustomServers:
       get<LspCustomServer[]>(KEY_LSP_CUSTOM_SERVERS) ??
       DEFAULT_PREFERENCES.lspCustomServers,
+    runCustomConfigs:
+      get<RunConfig[]>(KEY_RUN_CUSTOM_CONFIGS) ??
+      DEFAULT_PREFERENCES.runCustomConfigs,
+    trustedRunProjects:
+      get<string[]>(KEY_TRUSTED_RUN_PROJECTS) ??
+      DEFAULT_PREFERENCES.trustedRunProjects,
+    runSelectedConfigs:
+      get<Record<string, string>>(KEY_RUN_SELECTED_CONFIGS) ??
+      DEFAULT_PREFERENCES.runSelectedConfigs,
     terminalLetterSpacing:
       get<number>(KEY_TERMINAL_LETTER_SPACING) ??
       DEFAULT_PREFERENCES.terminalLetterSpacing,
@@ -729,6 +751,27 @@ export async function setLspCustomServers(
   await writePref(KEY_LSP_CUSTOM_SERVERS, value);
 }
 
+export async function setRunCustomConfigs(value: RunConfig[]): Promise<void> {
+  await writePref(KEY_RUN_CUSTOM_CONFIGS, value);
+}
+
+export async function setTrustedRunProjects(value: string[]): Promise<void> {
+  await writePref(KEY_TRUSTED_RUN_PROJECTS, value);
+}
+
+/** Pin a run config for a workspace root; null clears back to auto-matching. */
+export async function setRunSelectedConfig(
+  workspaceRoot: string,
+  qualifiedId: string | null,
+): Promise<void> {
+  const current =
+    ((await store.get(KEY_RUN_SELECTED_CONFIGS)) as Record<string, string>) ?? {};
+  const next = { ...current };
+  if (qualifiedId === null) delete next[workspaceRoot];
+  else next[workspaceRoot] = qualifiedId;
+  await writePref(KEY_RUN_SELECTED_CONFIGS, next);
+}
+
 export async function setTerminalLetterSpacing(value: number): Promise<void> {
   const clamped = Number.isFinite(value) ? Math.max(-10, Math.min(10, Math.round(value))) : 0;
   await writePref(KEY_TERMINAL_LETTER_SPACING, clamped);
@@ -866,6 +909,9 @@ export async function onPreferencesChange(
     [KEY_DEFAULT_WORKSPACE_ENV]: "defaultWorkspaceEnv",
     [KEY_LSP_ACTIVATION]: "lspActivation",
     [KEY_LSP_CUSTOM_SERVERS]: "lspCustomServers",
+    [KEY_RUN_CUSTOM_CONFIGS]: "runCustomConfigs",
+    [KEY_TRUSTED_RUN_PROJECTS]: "trustedRunProjects",
+    [KEY_RUN_SELECTED_CONFIGS]: "runSelectedConfigs",
     [KEY_TERMINAL_LETTER_SPACING]: "terminalLetterSpacing",
     [KEY_TERMINAL_FONT_SIZE]: "terminalFontSize",
     [KEY_TERMINAL_SCROLLBACK]: "terminalScrollback",

@@ -19,6 +19,8 @@ import { useRewindStore } from "@/modules/rewind";
 import { LspStatusPill } from "@/modules/lsp";
 import { CwdBreadcrumb } from "./CwdBreadcrumb";
 import { LanguagePicker } from "./LanguagePicker";
+import { RunConfigPicker } from "./RunConfigPicker";
+import type { LayeredRunConfig } from "@/modules/run";
 import { WorkspaceEnvSelector } from "./WorkspaceEnvSelector";
 import type { WorkspaceEnv } from "@/modules/workspace";
 import { useUpdaterStore } from "@/modules/updater";
@@ -40,6 +42,13 @@ type Props = {
   editorLanguage?: string | null;
   editorLanguageIsOverride?: boolean;
   onSetEditorLanguage?: (ext: string | undefined) => void;
+  /** Run configs available in this workspace, in precedence order. */
+  runConfigs?: LayeredRunConfig[];
+  /** Pinned run config's qualified id, or null to match on file type. */
+  runSelectedId?: string | null;
+  onSelectRunConfig?: (qualifiedId: string | null) => void;
+  /** The project ships run configs that are withheld pending approval. */
+  runNeedsTrust?: boolean;
 };
 
 export function StatusBar({
@@ -55,6 +64,10 @@ export function StatusBar({
   editorLanguage,
   editorLanguageIsOverride,
   onSetEditorLanguage,
+  runConfigs,
+  runSelectedId,
+  onSelectRunConfig,
+  runNeedsTrust,
 }: Props) {
   const panelOpen = useChatStore((s) => s.panelOpen);
   const openPanel = useChatStore((s) => s.openPanel);
@@ -86,6 +99,14 @@ export function StatusBar({
         ) : null}
       </div>
       <div className="flex shrink-0 items-center gap-1.5">
+        {runConfigs && onSelectRunConfig && (
+          <RunConfigPicker
+            configs={runConfigs}
+            selectedId={runSelectedId ?? null}
+            onSelect={onSelectRunConfig}
+            needsTrust={runNeedsTrust}
+          />
+        )}
         {editorLanguage != null && onSetEditorLanguage && (
           <LanguagePicker
             language={editorLanguage}
