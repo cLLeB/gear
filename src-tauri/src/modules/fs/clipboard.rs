@@ -110,9 +110,8 @@ fn read_files() -> Result<Vec<String>, String> {
         if list.is_null() {
             return Ok(Vec::new());
         }
-        let array: Retained<NSArray<NSString>> = Retained::retain(list.cast()).ok_or_else(|| {
-            "clipboard file list could not be retained".to_string()
-        })?;
+        let array: Retained<NSArray<NSString>> = Retained::retain(list.cast())
+            .ok_or_else(|| "clipboard file list could not be retained".to_string())?;
         Ok(array.iter().map(|s| normalize(s.to_string())).collect())
     }
 }
@@ -126,7 +125,10 @@ fn read_files() -> Result<Vec<String>, String> {
     // caller just falls back to pasting text.
     const CANDIDATES: [(&str, &[&str]); 2] = [
         ("wl-paste", &["--no-newline", "--type", "text/uri-list"]),
-        ("xclip", &["-selection", "clipboard", "-t", "text/uri-list", "-o"]),
+        (
+            "xclip",
+            &["-selection", "clipboard", "-t", "text/uri-list", "-o"],
+        ),
     ];
 
     for (bin, args) in CANDIDATES {
