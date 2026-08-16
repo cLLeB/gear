@@ -78,6 +78,8 @@ export type EditorPaneHandle = {
   redo: () => void;
   /** Open the inline find & replace panel. */
   openFindReplace: () => void;
+  /** Write the buffer to disk, honouring format-on-save. No-op when clean. */
+  save: () => Promise<void>;
 };
 
 type Props = {
@@ -525,6 +527,7 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
           setFindReplaceOpen(true);
           window.setTimeout(() => findInputRef.current?.focus(), 0);
         },
+        save: () => performSaveRef.current(),
       }),
       [path, applyPendingFocus, applyPendingGoto],
     );

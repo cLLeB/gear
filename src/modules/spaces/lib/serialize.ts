@@ -22,6 +22,7 @@ export type SerializedTab =
       kind: "terminal";
       tree: SerializedNode;
       blocks?: boolean;
+      run?: boolean;
       customTitle?: string;
     }
   | { kind: "editor"; path: string; lang?: string }
@@ -85,6 +86,7 @@ function serializeTab(tab: Tab): SerializedTab | null {
         kind: "terminal",
         tree: serializeNode(tab.paneTree, tab.activeLeafId),
         ...(tab.blocks && { blocks: true }),
+        ...(tab.run && { run: true }),
         ...(tab.customTitle !== undefined && { customTitle: tab.customTitle }),
       };
     case "editor":
@@ -172,9 +174,17 @@ function hydrateTab(
   switch (s.kind) {
     case "terminal": {
       const { tree, activeLeafId, firstLeafCwd } = hydrateTree(s.tree, allocId);
+      // A run terminal keeps its name across restore; its cwd moves with
+      // whatever was last run, so a cwd-derived label would be misleading.
       const title =
         s.customTitle ??
-        (firstLeafCwd ? basename(firstLeafCwd) : s.blocks ? "blocks" : "shell");
+        (s.run
+          ? "Run"
+          : firstLeafCwd
+            ? basename(firstLeafCwd)
+            : s.blocks
+              ? "blocks"
+              : "shell");
       return {
         id: allocId(),
         kind: "terminal",
@@ -185,6 +195,7 @@ function hydrateTab(
         paneTree: tree,
         activeLeafId,
         ...(s.blocks && { blocks: true }),
+        ...(s.run && { run: true }),
         ...(s.customTitle !== undefined && { customTitle: s.customTitle }),
       } satisfies TerminalTab;
     }

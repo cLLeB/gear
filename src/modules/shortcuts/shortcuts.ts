@@ -41,6 +41,7 @@ export type ShortcutId =
   | "shortcuts.open"
   | "settings.open"
   | "sidebar.toggle"
+  | "run.file"
   | "terminal.clear"
   | "terminal.toggleInput"
   | "blocks.prev"
@@ -352,6 +353,13 @@ export const SHORTCUTS: Shortcut[] = [
     defaultBindings: IS_MAC
       ? [{ meta: true, shift: true, key: "t" }]
       : [{ ctrl: true, shift: true, key: "t" }],
+  },
+  // --- Run ---
+  {
+    id: "run.file",
+    label: "Run current file",
+    group: "General",
+    defaultBindings: [{ key: "F5" }],
   },
   // --- Terminal ---
   {

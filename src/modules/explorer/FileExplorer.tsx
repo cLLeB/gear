@@ -56,6 +56,8 @@ type Props = {
   onOpenGitHistory?: (path: string) => void;
   onAttachToAgent?: (path: string) => void;
   onOpenMarkdownPreview?: (path: string) => void;
+  onRunFile?: (path: string) => void;
+  canRunPath?: (path: string) => boolean;
 };
 
 type Row =
@@ -183,6 +185,8 @@ export const FileExplorer = forwardRef<FileExplorerHandle, Props>(
       onOpenGitHistory,
       onAttachToAgent,
       onOpenMarkdownPreview,
+      onRunFile,
+      canRunPath,
     },
     ref,
   ) {
@@ -564,6 +568,8 @@ export const FileExplorer = forwardRef<FileExplorerHandle, Props>(
               onOpenGitHistory={onOpenGitHistory}
               onAttachToAgent={onAttachToAgent}
               onOpenMarkdownPreview={onOpenMarkdownPreview}
+              onRunFile={onRunFile}
+              canRunPath={canRunPath}
               onCopyEntries={handleCopyEntries}
               onCutEntries={handleCutEntries}
               onPasteEntries={handlePasteEntries}
