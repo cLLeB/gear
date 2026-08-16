@@ -14,6 +14,10 @@ pub fn clipboard_read_files() -> Result<Vec<String>, String> {
     read_files()
 }
 
+/// Only the Windows and macOS readers hand back backslashed paths. On Linux a
+/// backslash is a legal filename character, so paths from `text/uri-list` are
+/// deliberately left as they are.
+#[cfg(any(target_os = "windows", target_os = "macos"))]
 fn normalize(path: String) -> String {
     path.replace('\\', "/")
 }
