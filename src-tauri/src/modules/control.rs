@@ -8,13 +8,13 @@ use std::sync::{Arc, Mutex, OnceLock};
 use std::thread;
 use std::time::{Duration, SystemTime};
 
-use serde_json::{json, Value};
-use tauri::{Emitter, Manager};
 use gear_control_protocol::{
     ControlDescriptor, ControlRequest, ControlResponse, FrontendRequest, FrontendResponse,
     OpenParams, MAX_MESSAGE_BYTES, METHODS, METHOD_CAPABILITIES, METHOD_IDENTIFY, METHOD_OPEN,
     METHOD_PING, PROTOCOL_VERSION, SERVER_RESPONSE_ID,
 };
+use serde_json::{json, Value};
+use tauri::{Emitter, Manager};
 
 use crate::modules::{fs, workspace};
 
@@ -633,10 +633,7 @@ fn find_bundled_cli() -> Option<PathBuf> {
     if cfg!(debug_assertions) {
         let binaries = Path::new(env!("CARGO_MANIFEST_DIR")).join("binaries");
         let target = option_env!("TAURI_ENV_TARGET_TRIPLE")?;
-        let candidate = binaries.join(format!(
-            "gear-cli-{target}{}",
-            std::env::consts::EXE_SUFFIX
-        ));
+        let candidate = binaries.join(format!("gear-cli-{target}{}", std::env::consts::EXE_SUFFIX));
         return is_cli_candidate(&candidate).then_some(candidate);
     }
     None

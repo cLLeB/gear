@@ -152,7 +152,11 @@ fn no_focus_is_forwarded_to_the_app() {
     let dir = tempfile::tempdir().expect("temp dir");
     let path = probe_file(&dir, "a.txt");
 
-    let output = run_cli(&server.address, Some("3"), &["open", &path, "--no-focus", "--json"]);
+    let output = run_cli(
+        &server.address,
+        Some("3"),
+        &["open", &path, "--no-focus", "--json"],
+    );
 
     let request = server.request();
     assert_eq!(request.params["focus"], json!(false));
@@ -186,7 +190,10 @@ fn a_rejected_request_exits_with_the_request_code() {
     // A server-side rejection answers with the sentinel id, which the CLI must
     // still accept rather than reporting a protocol mismatch.
     assert_eq!(output.status.code(), Some(5));
-    assert_eq!(json_of(&output.stderr)["error"]["code"], json!("unauthorized"));
+    assert_eq!(
+        json_of(&output.stderr)["error"]["code"],
+        json!("unauthorized")
+    );
 }
 
 #[test]
@@ -310,7 +317,10 @@ fn a_directory_is_rejected_locally() {
     );
 
     assert_eq!(output.status.code(), Some(2));
-    assert_eq!(json_of(&output.stderr)["error"]["code"], json!("not_a_file"));
+    assert_eq!(
+        json_of(&output.stderr)["error"]["code"],
+        json!("not_a_file")
+    );
 }
 
 #[test]

@@ -424,7 +424,9 @@ pub fn emit_hook_marker(agent: &str, event: &str) {
                 shim_log(&format!("{diag} pty={pty_id} pipe=ok"));
                 return;
             }
-            Err(e) => diag.push_str(&format!(" pty={pty_id} PIPE_ERR({e}) falling back to CONOUT$")),
+            Err(e) => diag.push_str(&format!(
+                " pty={pty_id} PIPE_ERR({e}) falling back to CONOUT$"
+            )),
         },
         None => diag.push_str(" PTY_ID unset, falling back to CONOUT$"),
     }
@@ -630,7 +632,9 @@ mod tests {
         });
         let out = merge_hooks(input, spec("claude"));
         assert_eq!(hook_count(&out, "Notification"), 1);
-        assert!(command(&out, "Notification", 0).contains(&status_needle(spec("claude"), "attention")));
+        assert!(
+            command(&out, "Notification", 0).contains(&status_needle(spec("claude"), "attention"))
+        );
     }
 
     #[test]

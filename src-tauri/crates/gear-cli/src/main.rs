@@ -7,12 +7,12 @@ use std::process::ExitCode;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use serde_json::{json, Value};
 use gear_control_protocol::{
     CallerContext, ControlDescriptor, ControlRequest, ControlResponse, OpenParams,
     MAX_MESSAGE_BYTES, METHOD_CAPABILITIES, METHOD_IDENTIFY, METHOD_OPEN, METHOD_PING,
     PROTOCOL_VERSION, SERVER_RESPONSE_ID,
 };
+use serde_json::{json, Value};
 
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(2);
 const IO_TIMEOUT: Duration = Duration::from_secs(7);

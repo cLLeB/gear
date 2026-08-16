@@ -134,7 +134,15 @@ pub fn serve(app: AppHandle) {
 fn serve_one(handle: HANDLE) {
     let mut buf = [0u8; BUF];
     let mut read: u32 = 0;
-    let ok = unsafe { ReadFile(handle, buf.as_mut_ptr(), BUF as u32, &mut read, ptr::null_mut()) };
+    let ok = unsafe {
+        ReadFile(
+            handle,
+            buf.as_mut_ptr(),
+            BUF as u32,
+            &mut read,
+            ptr::null_mut(),
+        )
+    };
     if ok == 0 || read == 0 {
         return;
     }

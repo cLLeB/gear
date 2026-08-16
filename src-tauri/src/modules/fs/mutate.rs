@@ -62,10 +62,7 @@ pub fn fs_copy(
             .file_name()
             .ok_or_else(|| format!("invalid source: {source}"))?;
         if src.is_dir() && is_self_or_descendant(&dest, &src) {
-            return Err(format!(
-                "cannot copy {} into itself",
-                src.display()
-            ));
+            return Err(format!("cannot copy {} into itself", src.display()));
         }
         let target = unique_target(&dest, &name.to_string_lossy());
         copy_recursive(&src, &target).map_err(|e| {
