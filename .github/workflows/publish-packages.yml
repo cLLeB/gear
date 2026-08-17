@@ -1,45 +1,127 @@
 name: Publish Packages
 
-# Runs after the Release workflow completes successfully on all platforms.
-# Pushes artifacts to Winget, Homebrew, APT, and RPM channels.
+# Pushes a finished release out to Winget, Homebrew, APT, AUR, and RPM.
+#
+# Three ways in:
+#   1. workflow_call   — release-please chains straight into this after building.
+#   2. workflow_run    — a tag pushed by hand runs "Release", which lands here.
+#   3. workflow_dispatch — re-run one channel against any existing tag, without
+#      rebuilding. This is the escape hatch for a winget submission that got
+#      rejected or timed out: pick the tag, pick `winget`, go.
 on:
   workflow_run:
     workflows: ["Release"]
     types: [completed]
+  workflow_call:
+    inputs:
+      tag:
+        description: "Release tag to publish"
+        required: true
+        type: string
+      channels:
+        description: "Comma-separated channels, or 'all'"
+        required: false
+        default: all
+        type: string
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to publish (defaults to the latest release)"
+        required: false
+        type: string
+      channels:
+        description: "Which channels to publish"
+        required: false
+        default: all
+        type: choice
+        options: [all, winget, homebrew, apt, aur, rpm]
 
 permissions:
   contents: read
 
 jobs:
-  # ── Shared: resolve the release tag once ─────────────────────────────────
+  # ── Shared: resolve the release tag and channel selection once ───────────
   resolve:
-    if: github.event.workflow_run.conclusion == 'success'
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
       version: ${{ steps.tag.outputs.version }}
+      channels: ${{ steps.tag.outputs.channels }}
     steps:
-      - name: Get latest release tag
+      - name: Resolve tag and channels
         id: tag
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          INPUT_TAG: ${{ inputs.tag }}
+          INPUT_CHANNELS: ${{ inputs.channels }}
+          REPO: ${{ github.repository }}
         run: |
-          TAG=$(gh release view --repo ${{ github.repository }} --json tagName -q .tagName)
-          echo "tag=$TAG" >> $GITHUB_OUTPUT
-          echo "version=${TAG#v}" >> $GITHUB_OUTPUT
+          set -euo pipefail
+          TAG="${INPUT_TAG:-}"
+          if [ -z "$TAG" ]; then
+            TAG=$(gh release view --repo "$REPO" --json tagName -q .tagName)
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+          echo "channels=${INPUT_CHANNELS:-all}" >> "$GITHUB_OUTPUT"
+          echo "Publishing $TAG to: ${INPUT_CHANNELS:-all}"
 
   # ── Winget (Windows Package Manager) ─────────────────────────────────────
-  # Submits a PR to microsoft/winget-pkgs automatically.
+  # Submits a PR to microsoft/winget-pkgs automatically. komac carries the
+  # previous version's metadata (description, tags, product codes) forward, so
+  # the only thing a release has to get right is the .msi asset name.
   # Requires: WINGET_TOKEN secret (GitHub PAT, public_repo scope)
   winget:
     needs: resolve
+    if: needs.resolve.outputs.channels == 'all' || contains(needs.resolve.outputs.channels, 'winget')
     runs-on: windows-latest
     steps:
+      # Fail loudly and early. Without this the action dies deep inside komac
+      # with an opaque auth error that reads like a winget-pkgs problem.
+      - name: Check WINGET_TOKEN is present
+        shell: bash
+        env:
+          WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
+        run: |
+          if [ -z "${WINGET_TOKEN}" ]; then
+            echo "::error::WINGET_TOKEN is not set. Create a PAT with public_repo scope and add it as a repository secret."
+            exit 1
+          fi
+
+      # Release assets can lag a few seconds behind the release itself, and
+      # winget-releaser resolves the .msi by URL. Confirm it is fetchable first
+      # rather than letting the submission fail on a 404.
+      - name: Wait for the MSI asset to be downloadable
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.resolve.outputs.tag }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 10); do
+            if gh release view "$TAG" --repo "$REPO" --json assets \
+                 -q '.assets[].name' | grep -q '\.msi$'; then
+              echo "MSI asset present on $TAG"
+              exit 0
+            fi
+            echo "Attempt $attempt: no .msi on $TAG yet, retrying in 30s"
+            sleep 30
+          done
+          echo "::error::No .msi asset found on $TAG after 5 minutes."
+          exit 1
+
       - uses: vedantmgoyal9/winget-releaser@v2
         with:
           identifier: cLLeB.Gear
+          version: ${{ needs.resolve.outputs.version }}
           release-tag: ${{ needs.resolve.outputs.tag }}
+          # Only the MSI. The NSIS setup.exe would collide with it as a second
+          # x64 installer, and the .sig files must never be picked up.
           installers-regex: '\.msi$'
+          max-versions-to-keep: 5
+          release-notes-url: https://github.com/cLLeB/gear/releases/tag/${{ needs.resolve.outputs.tag }}
           token: ${{ secrets.WINGET_TOKEN }}
 
   # ── Homebrew Cask (macOS) ─────────────────────────────────────────────────
@@ -47,6 +129,7 @@ jobs:
   # Requires: HOMEBREW_TAP_TOKEN secret (GitHub PAT, public_repo scope on cLLeB/homebrew-gear)
   homebrew:
     needs: resolve
+    if: needs.resolve.outputs.channels == 'all' || contains(needs.resolve.outputs.channels, 'homebrew')
     runs-on: ubuntu-latest
     env:
       VERSION: ${{ needs.resolve.outputs.version }}
@@ -90,6 +173,7 @@ jobs:
   #   PACKAGES_TOKEN     — GitHub PAT, public_repo scope on cLLeB/gear-packages
   apt:
     needs: resolve
+    if: needs.resolve.outputs.channels == 'all' || contains(needs.resolve.outputs.channels, 'apt')
     runs-on: ubuntu-latest
     env:
       VERSION: ${{ needs.resolve.outputs.version }}
@@ -160,6 +244,7 @@ jobs:
   # Requires: AUR_SSH_KEY secret — contents of ~/.ssh/aur (the private key)
   aur:
     needs: resolve
+    if: needs.resolve.outputs.channels == 'all' || contains(needs.resolve.outputs.channels, 'aur')
     runs-on: ubuntu-latest
     env:
       VERSION: ${{ needs.resolve.outputs.version }}
@@ -243,6 +328,15 @@ jobs:
   #   PACKAGES_TOKEN — GitHub PAT, public_repo scope on cLLeB/gear-packages
   rpm:
     needs: [resolve, apt]  # run after apt so git pushes don't conflict
+    # `always()` is required because apt is skipped when only rpm is selected,
+    # and a skipped dependency would otherwise skip this job too. The explicit
+    # result checks keep the original ordering guarantee: never publish rpm on
+    # top of a *failed* apt push.
+    if: |
+      always()
+      && needs.resolve.result == 'success'
+      && (needs.apt.result == 'success' || needs.apt.result == 'skipped')
+      && (needs.resolve.outputs.channels == 'all' || contains(needs.resolve.outputs.channels, 'rpm'))
     runs-on: ubuntu-latest
     env:
       VERSION: ${{ needs.resolve.outputs.version }}
