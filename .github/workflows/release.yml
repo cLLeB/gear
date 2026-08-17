@@ -115,6 +115,19 @@ jobs:
         if: matrix.platform == 'macos-latest'
         run: rustup target add x86_64-apple-darwin aarch64-apple-darwin
 
+      # release-please bumps src-tauri/Cargo.toml but has no updater for
+      # Cargo.lock — `cargo-lock` is wired only into its `rust` strategy, and a
+      # `generic` x-release-please-version annotation is useless here because
+      # cargo strips comments from the lock on the next write. So the lock still
+      # names the previous version, and `cargo build --locked` in
+      # scripts/build-cli.mjs refuses to proceed. That is exactly what broke the
+      # first v0.1.3 build on all three platforms.
+      #
+      # `--workspace` re-locks only the three local crates, never dependencies,
+      # so this cannot silently drift a dependency version.
+      - name: Sync Cargo.lock with the release version
+        run: cargo update --workspace --manifest-path src-tauri/Cargo.toml
+
       - name: Install JS dependencies
         run: pnpm install --frozen-lockfile
 
