@@ -15,9 +15,39 @@ env:
 jobs:
   release-please:
     runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
     steps:
       - uses: googleapis/release-please-action@v4.1.3
+        id: release
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
+
+  # Merging the release PR tags the repo with GITHUB_TOKEN, and GitHub refuses
+  # to start new workflow runs from GITHUB_TOKEN-created events — so release.yml's
+  # `push: tags` trigger never fires for an automated release. Before this, every
+  # release needed a manual `workflow_dispatch` to actually build (see v0.1.2).
+  # Calling the workflows instead keeps them in *this* run, where no new event is
+  # needed, so merge → build → publish is one unbroken chain and no PAT is involved.
+  build:
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true'
+    uses: ./.github/workflows/release.yml
+    with:
+      tag: ${{ needs.release-please.outputs.tag_name }}
+    permissions:
+      contents: write
+    secrets: inherit
+
+  publish:
+    needs: [release-please, build]
+    if: needs.release-please.outputs.release_created == 'true'
+    uses: ./.github/workflows/publish-packages.yml
+    with:
+      tag: ${{ needs.release-please.outputs.tag_name }}
+    permissions:
+      contents: read
+    secrets: inherit

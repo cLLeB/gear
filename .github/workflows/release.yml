@@ -6,12 +6,51 @@ on:
       - "v*"
       - "Gear-v*"
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to build and publish (defaults to the ref this runs on)"
+        required: false
+        type: string
+  # Called by release-please.yml the moment it cuts a release. A tag pushed by
+  # release-please carries GITHUB_TOKEN, and GITHUB_TOKEN-created events never
+  # start a new workflow run — so the `push: tags` trigger above simply does not
+  # fire for automated releases. Being callable closes that gap without a PAT:
+  # the build runs as part of the release-please run itself.
+  workflow_call:
+    inputs:
+      tag:
+        description: "Tag to build and publish"
+        required: true
+        type: string
 
 permissions:
   contents: write
 
 jobs:
+  # Single source of truth for the tag, so every downstream step works the same
+  # whether we got here from a tag push, a manual dispatch, or release-please.
+  resolve:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - name: Resolve the tag to build
+        id: tag
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          TAG="${INPUT_TAG:-$REF_NAME}"
+          case "$TAG" in
+            v*|Gear-v*) ;;
+            *) echo "::error::'$TAG' is not a release tag. Dispatch this workflow on a tag, or pass one via the 'tag' input."; exit 1 ;;
+          esac
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Building $TAG"
+
   build:
+    needs: resolve
     strategy:
       fail-fast: false
       matrix:
@@ -35,6 +74,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # Explicit: when called by release-please the run's ref is `main`, and
+          # main may already have moved past the release commit.
+          ref: ${{ needs.resolve.outputs.tag }}
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -85,8 +128,8 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: "Gear ${{ github.ref_name }}"
+          tagName: ${{ needs.resolve.outputs.tag }}
+          releaseName: "Gear ${{ needs.resolve.outputs.tag }}"
           releaseDraft: false
           prerelease: false
           args: --bundles ${{ matrix.bundles }} ${{ matrix.extra_args }}
@@ -96,9 +139,10 @@ jobs:
       # (1.22+ symbols), breaking EGL with EGL_BAD_PARAMETER; host copies are
       # ABI-stable and on the AppImage excludelist for exactly this reason.
       - name: Fix AppImage wayland libs and re-sign
-        if: matrix.platform == 'ubuntu-latest' && startsWith(github.ref, 'refs/tags/')
+        if: matrix.platform == 'ubuntu-latest'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.resolve.outputs.tag }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
@@ -126,12 +170,11 @@ jobs:
           # from every matrix job, so a local edit would be overwritten by
           # whichever platform finishes last. The patch-updater-manifest job
           # below runs after all of them and fixes the published manifest.
-          gh release upload "${GITHUB_REF_NAME}" "$APPIMAGE" "$APPIMAGE.sig" \
+          gh release upload "$TAG" "$APPIMAGE" "$APPIMAGE.sig" \
             --clobber --repo "$GITHUB_REPOSITORY"
 
   patch-updater-manifest:
-    needs: build
-    if: startsWith(github.ref, 'refs/tags/')
+    needs: [resolve, build]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -145,9 +188,9 @@ jobs:
       - name: Patch latest.json with the re-signed AppImage
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.resolve.outputs.tag }}
         run: |
           set -euo pipefail
-          TAG="${GITHUB_REF_NAME}"
 
           gh release download "$TAG" --repo "$GITHUB_REPOSITORY" \
             --pattern "latest.json" \

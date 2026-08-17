@@ -1,19 +1,57 @@
 # Distribution Setup Guide
 
-Gear is distributed via GitHub Releases (primary) plus four package manager channels.
-The `publish-packages.yml` workflow handles all four automatically after each release build.
+Gear is distributed via GitHub Releases (primary) plus five package manager
+channels: Winget, Homebrew, APT, AUR, and RPM. The `publish-packages.yml`
+workflow handles all five automatically after each release build.
 
 ---
 
 ## How the pipeline works
 
+Merging the release PR is the only manual step. Everything below it runs inside
+a **single** GitHub Actions run:
+
 ```
 push to main
-  └─► release-please opens PR
-        └─► you merge PR
-              └─► tag v0.x.x created
-                    └─► release.yml builds macOS (universal) + Linux + Windows
-                          └─► publish-packages.yml runs (all 4 channels)
+  └─► release-please opens/updates the release PR
+        └─► you merge it
+              └─► release-please tags v0.x.x and creates the GitHub release
+                    └─► release.yml   (called)  builds macOS universal + Linux + Windows
+                          └─► publish-packages.yml (called)  winget · homebrew · apt · aur · rpm
+```
+
+### Why the workflows are *called*, not triggered
+
+release-please tags the repo using `GITHUB_TOKEN`, and GitHub deliberately
+refuses to start new workflow runs from `GITHUB_TOKEN`-created events. So
+`release.yml`'s `push: tags` trigger **never fires for an automated release** —
+v0.1.2 had to be built by hand with `workflow_dispatch` for exactly this reason.
+
+Rather than introduce a PAT to work around it, `release-please.yml` invokes both
+workflows with `uses:` when its `release_created` output is `true`. A called
+workflow is part of the caller's run, so no new event is needed and the chain
+never breaks.
+
+Both workflows remain independently usable: `release.yml` still runs on a
+hand-pushed tag, and both accept a `workflow_dispatch` with an explicit tag.
+
+### Re-running one channel
+
+If a single channel fails — a rejected winget PR, a transient AUR push error —
+re-publish just that one against an existing tag, with no rebuild:
+
+```bash
+gh workflow run publish-packages.yml -R cLLeB/gear \
+  -f tag=v0.1.3 \
+  -f channels=winget
+```
+
+`channels` accepts `all` (default), `winget`, `homebrew`, `apt`, `aur`, or `rpm`.
+
+### Rebuilding a release
+
+```bash
+gh workflow run release.yml -R cLLeB/gear -f tag=v0.1.3
 ```
 
 ---
@@ -29,20 +67,21 @@ push to main
 2. Grant `contents: write` and `pull-requests: write` on `microsoft/winget-pkgs`
 3. Add as repo secret: `WINGET_TOKEN`
 
-**First submission (manual):**
-Winget requires an initial manual PR for new packages.
-```powershell
-# Install winget-create
-winget install Microsoft.WingetCreate
+**Status:** done. `cLLeB.Gear` is live in winget-pkgs and every release since
+0.1.1 has been submitted automatically.
 
-# Generate manifest from the v0.1.0 release MSI
-wingetcreate new https://github.com/cLLeB/gear/releases/download/v0.1.0/Gear_0.1.0_x64_en-US.msi
+The initial manual `wingetcreate new` PR that winget requires for a brand-new
+package has already been made, so nothing manual is left. On each release,
+`winget-releaser` copies the previous version's manifests forward via komac and
+opens the PR — only the MSI is submitted, since the NSIS `setup.exe` would
+collide with it as a second x64 installer.
 
-# Follow prompts, then submit PR to microsoft/winget-pkgs
-```
-After the first PR is approved, subsequent releases are automated via `publish-packages.yml`.
+The job fails fast with an explicit message if `WINGET_TOKEN` is unset, and
+waits up to 5 minutes for the `.msi` asset to appear on the release before
+submitting.
 
-**Template:** `packaging/winget/manifest.template.yaml` — reference only, `winget-releaser` generates real manifests.
+**See:** [`packaging/winget/README.md`](../packaging/winget/README.md) for the
+full flow, the re-submission command, and the one-time bootstrap steps.
 
 ---
 
@@ -137,6 +176,27 @@ sudo dnf install gear
 **Uses the same `gear-packages` repo and `PACKAGES_TOKEN` secret as APT.**
 No GPG setup needed for basic RPM repos (signing is optional but recommended for production).
 
+The rpm job runs after apt because both push to the same repo; it commits before
+`git pull --rebase` so a dirty tree from `createrepo_c` cannot abort the rebase.
+
+---
+
+### 5. AUR (Arch User Repository)
+
+**Goal:** `yay -S gear-terminal-bin`
+
+The `aur` job rewrites `PKGBUILD` and `.SRCINFO` for the new version — sourcing
+the release `.deb` and extracting it — then pushes to
+`ssh://aur@aur.archlinux.org/gear-terminal-bin.git`.
+
+**Create the SSH key (run once locally):**
+```bash
+ssh-keygen -t ed25519 -f ~/.ssh/aur -C "aur@gear"
+# Add the PUBLIC key (~/.ssh/aur.pub) to your AUR account:
+#   https://aur.archlinux.org/account  →  SSH Public Key
+# Add the PRIVATE key (~/.ssh/aur) as repo secret: AUR_SSH_KEY
+```
+
 ---
 
 ## Secrets summary
@@ -152,14 +212,18 @@ Add these in: **GitHub → your repo → Settings → Secrets and variables → 
 | `GEAR_APT_GPG_KEY` | APT job | GPG private key (base64) |
 | `GEAR_APT_GPG_FP` | APT job | GPG fingerprint |
 | `PACKAGES_TOKEN` | APT + RPM jobs | PAT on `cLLeB/gear-packages` |
+| `AUR_SSH_KEY` | AUR job | Private SSH key registered on the AUR account |
+
+All seven are set. The entire pipeline is automatic on every release merge.
 
 ---
 
 ## Rollout order (recommended)
 
+For anyone setting this up from scratch, cheapest first:
+
 1. **Winget** — zero infrastructure, just a PAT + initial manual PR
 2. **Homebrew** — create one repo, one PAT
-3. **APT** — create one repo, generate GPG key, store 3 secrets
-4. **RPM** — reuses the same repo and PAT as APT
-
-Once all secrets are set, the entire pipeline is automatic on every release merge.
+3. **AUR** — one SSH key, no repo to host
+4. **APT** — create one repo, generate GPG key, store 3 secrets
+5. **RPM** — reuses the same repo and PAT as APT
