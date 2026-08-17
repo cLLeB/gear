@@ -42,6 +42,38 @@ jobs:
       contents: write
     secrets: inherit
 
+  # The release commit leaves src-tauri/Cargo.lock naming the previous version
+  # (see the comment in release.yml). release.yml repairs it in the build tree,
+  # but main would stay inconsistent, so every `cargo --locked` command would
+  # fail for developers until someone happened to re-run cargo. Push the
+  # three-line sync back to main instead. GITHUB_TOKEN is deliberate: its push
+  # cannot trigger another workflow run, so this cannot loop.
+  sync-lockfile:
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Re-lock the workspace crates
+        run: cargo update --workspace --manifest-path src-tauri/Cargo.toml
+      - name: Commit if the lock moved
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- src-tauri/Cargo.lock; then
+            echo "Cargo.lock already in sync."
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add src-tauri/Cargo.lock
+          git commit -m "chore: sync Cargo.lock with ${{ needs.release-please.outputs.tag_name }}"
+          git push origin main
+
   publish:
     needs: [release-please, build]
     if: needs.release-please.outputs.release_created == 'true'
