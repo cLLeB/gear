@@ -77,17 +77,47 @@ jobs:
     if: needs.resolve.outputs.channels == 'all' || contains(needs.resolve.outputs.channels, 'winget')
     runs-on: windows-latest
     steps:
-      # Fail loudly and early. Without this the action dies deep inside komac
-      # with an opaque auth error that reads like a winget-pkgs problem.
-      - name: Check WINGET_TOKEN is present
+      # Fail loudly and early, and say exactly what is wrong. komac's own error
+      # is "<owner> does not have the correct permissions to execute CreateRef",
+      # which is templated from its fork-user input rather than from the token —
+      # so an EXPIRED token reads like a permissions problem and sends you
+      # scope-hunting. That cost a release cycle on v0.1.3; this step tells you
+      # which it actually is. Nothing here prints the token itself.
+      - name: Validate WINGET_TOKEN
         shell: bash
         env:
           WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
         run: |
+          set -uo pipefail
           if [ -z "${WINGET_TOKEN}" ]; then
-            echo "::error::WINGET_TOKEN is not set. Create a PAT with public_repo scope and add it as a repository secret."
+            echo "::error::WINGET_TOKEN is not set. Create a classic PAT with public_repo scope and add it as a repository secret."
             exit 1
           fi
+
+          hdr=$(curl -sS -D - -o /dev/null \
+                 -H "Authorization: Bearer ${WINGET_TOKEN}" \
+                 -H "Accept: application/vnd.github+json" \
+                 https://api.github.com/user)
+          code=$(printf '%s' "$hdr" | awk 'NR==1{print $2}')
+          scopes=$(printf '%s' "$hdr" | tr -d '\r' | awk -F': ' 'tolower($1)=="x-oauth-scopes"{print $2}')
+          expiry=$(printf '%s' "$hdr" | tr -d '\r' | awk -F': ' 'tolower($1)=="github-authentication-token-expiration"{print $2}')
+
+          if [ "$code" != "200" ]; then
+            echo "::error::WINGET_TOKEN was rejected by the GitHub API (HTTP $code). It has most likely EXPIRED — regenerate a classic PAT with public_repo scope and update the secret."
+            exit 1
+          fi
+          echo "Token OK. scopes=[${scopes:-none}] expires=[${expiry:-never}]"
+
+          # komac creates its branch in the FORK, not in microsoft/winget-pkgs,
+          # so push on the fork is the permission that actually matters.
+          perms=$(curl -sS -H "Authorization: Bearer ${WINGET_TOKEN}" \
+                   -H "Accept: application/vnd.github+json" \
+                   "https://api.github.com/repos/${{ github.repository_owner }}/winget-pkgs")
+          if ! grep -q '"push": *true' <<<"$perms"; then
+            echo "::error::WINGET_TOKEN cannot push to ${{ github.repository_owner }}/winget-pkgs. komac branches in your fork first — grant the token write access to that fork (classic PAT: public_repo)."
+            exit 1
+          fi
+          echo "Fork push access confirmed on ${{ github.repository_owner }}/winget-pkgs"
 
       # Release assets can lag a few seconds behind the release itself, and
       # winget-releaser resolves the .msi by URL. Confirm it is fetchable first
