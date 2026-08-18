@@ -40,6 +40,33 @@ collide with it as a second x64 installer entry.
 | `WINGET_TOKEN` repo secret | GitHub PAT with `public_repo` scope, on an account that has a fork of `microsoft/winget-pkgs`. The job fails fast with a clear message if it is missing. |
 | A `.msi` asset on the release | The job polls for up to 5 minutes for it to appear before submitting. |
 | `cLLeB.Gear` already in winget-pkgs | `winget-releaser` updates existing packages; it cannot create the first version. |
+| A reasonably fresh `cLLeB/winget-pkgs` fork | The workflow syncs it automatically before submitting — see below. |
+
+## The stale-fork trap
+
+If you see this, **it is not a token problem**:
+
+```
+cLLeB does not have the correct permissions to execute `CreateRef`
+failed to create branch cLLeB.Gear-<version>-<uuid>
+```
+
+komac branches from your fork's `master`. Once that fork drifts far enough
+behind `microsoft/winget-pkgs`, GitHub refuses the `createRef` and komac
+surfaces it as a permissions error. This cost v0.1.3 two failed runs while the
+token was perfectly valid — the `Validate WINGET_TOKEN` step exists to rule the
+token out quickly.
+
+The workflow now syncs the fork on every run, so it should not recur. To sync by
+hand:
+
+```bash
+gh api -X POST repos/cLLeB/winget-pkgs/merge-upstream -f branch=master
+```
+
+Tracked upstream as [Komac#1142](https://github.com/russellbanks/Komac/issues/1142);
+note that `komac sync` reports success without actually syncing, so prefer the
+API call above.
 
 ## Re-running a submission by hand
 
