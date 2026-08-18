@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.1.4](https://github.com/cLLeB/gear/compare/v0.1.3...v0.1.4) (2026-08-18)
+
+
+### Bug Fixes
+
+* **release:** bump Cargo.lock inside the release PR, not after the tag ([a447af3](https://github.com/cLLeB/gear/commit/a447af3a397140c43f3e951f6b365f67d68835e1))
+* **release:** keep Cargo.lock in step with the release version ([4fcbf48](https://github.com/cLLeB/gear/commit/4fcbf482f2bdf71b0ea5430f1bb12d885e2b1524))
+* **winget:** sync the winget-pkgs fork before every submission ([0c67987](https://github.com/cLLeB/gear/commit/0c679872d6704978325e2f02080fb16704e595c8))
+
 ## [0.1.3](https://github.com/cLLeB/gear/compare/v0.1.2...v0.1.3) (2026-08-17)
 
 
