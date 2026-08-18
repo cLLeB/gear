@@ -18,6 +18,7 @@ jobs:
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
       tag_name: ${{ steps.release.outputs.tag_name }}
+      pr: ${{ steps.release.outputs.pr }}
     steps:
       - uses: googleapis/release-please-action@v4.1.3
         id: release
@@ -42,12 +43,45 @@ jobs:
       contents: write
     secrets: inherit
 
-  # The release commit leaves src-tauri/Cargo.lock naming the previous version
-  # (see the comment in release.yml). release.yml repairs it in the build tree,
-  # but main would stay inconsistent, so every `cargo --locked` command would
-  # fail for developers until someone happened to re-run cargo. Push the
-  # three-line sync back to main instead. GITHUB_TOKEN is deliberate: its push
-  # cannot trigger another workflow run, so this cannot loop.
+  # Bump Cargo.lock inside the release PR, so the release commit — and therefore
+  # the tag — is self-consistent. Without this the tag itself ships a lock naming
+  # the previous version, and `git checkout <tag> && cargo build --locked` fails
+  # forever after, which is exactly the state v0.1.3's tag is in.
+  #
+  # release-please force-pushes this branch whenever it regenerates the PR, which
+  # drops this commit; this job simply re-adds it on the next run, so the branch
+  # converges. Pushing to the release branch (never to main) keeps it harmless.
+  sync-release-pr-lockfile:
+    needs: release-please
+    if: needs.release-please.outputs.pr != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ fromJSON(needs.release-please.outputs.pr).headBranchName }}
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Re-lock the workspace crates
+        run: cargo update --workspace --manifest-path src-tauri/Cargo.toml
+      - name: Commit onto the release branch if the lock moved
+        env:
+          BRANCH: ${{ fromJSON(needs.release-please.outputs.pr).headBranchName }}
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- src-tauri/Cargo.lock; then
+            echo "Cargo.lock already in sync."
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add src-tauri/Cargo.lock
+          git commit -m "chore: sync Cargo.lock with the release version"
+          git push origin "HEAD:${BRANCH}"
+
+  # Fallback for the narrow race where the PR is merged in the gap between
+  # release-please regenerating the branch and the job above re-adding the lock
+  # commit. Normally a no-op that reports "already in sync".
   sync-lockfile:
     needs: release-please
     if: needs.release-please.outputs.release_created == 'true'
