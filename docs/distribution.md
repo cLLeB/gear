@@ -63,9 +63,20 @@ gh workflow run release.yml -R cLLeB/gear -f tag=v0.1.3
 **Goal:** `winget install cLLeB.Gear`
 
 **Create the PAT:**
-1. Go to GitHub → Settings → Developer Settings → Personal Access Tokens → Fine-grained
-2. Grant `contents: write` and `pull-requests: write` on `microsoft/winget-pkgs`
+1. Go to GitHub → Settings → Developer Settings → Personal Access Tokens → **Tokens (classic)**
+2. Grant the **`public_repo`** scope
 3. Add as repo secret: `WINGET_TOKEN`
+
+> The token must be able to **push to your fork, `cLLeB/winget-pkgs`** — komac
+> creates its branch there and only then opens the PR against
+> `microsoft/winget-pkgs`. Scoping a fine-grained token to `microsoft/winget-pkgs`
+> alone does not work.
+>
+> **Watch the expiry.** komac reports a dead token as
+> `cLLeB does not have the correct permissions to execute CreateRef`, which reads
+> like a scope problem but usually means the PAT expired. The `Validate
+> WINGET_TOKEN` step in the workflow distinguishes the two and prints the token's
+> scopes and expiry date.
 
 **Status:** done. `cLLeB.Gear` is live in winget-pkgs and every release since
 0.1.1 has been submitted automatically.
