@@ -38,6 +38,22 @@ export type GrepResponse = {
 export type GlobHit = { path: string; rel: string };
 export type GlobResponse = { hits: GlobHit[]; truncated: boolean };
 
+export type GitBlameCommit = {
+  sha: string;
+  author: string;
+  /** Unix seconds. */
+  authorTime: number;
+  summary: string;
+  /** True for the all-zero sha git uses for not-yet-committed lines. */
+  uncommitted: boolean;
+};
+
+/** Commit-deduplicated blame: `lines[n]` indexes `commits` for line `n + 1`. */
+export type GitBlameResult = {
+  commits: GitBlameCommit[];
+  lines: number[];
+};
+
 export type GitRepoInfo = {
   repoRoot: string;
   branch: string;
@@ -251,6 +267,12 @@ export const native = {
   gitResolveRepo: (cwd: string) =>
     invoke<GitRepoInfo | null>("git_resolve_repo", {
       cwd,
+      workspace: currentWorkspaceEnv(),
+    }),
+  gitBlame: (repoRoot: string, path: string) =>
+    invoke<GitBlameResult>("git_blame", {
+      repoRoot,
+      path,
       workspace: currentWorkspaceEnv(),
     }),
   gitPanelSnapshot: (cwd: string) =>

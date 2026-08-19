@@ -1520,6 +1520,8 @@ export default function App() {
 			"editor.redo": () => editorRefs.current.get(activeId)?.redo(),
 			"editor.findReplace": () =>
 				editorRefs.current.get(activeId)?.openFindReplace(),
+			"editor.toggleBlame": () =>
+				editorRefs.current.get(activeId)?.toggleBlame(),
 			"editor.toggleWordWrap": () => void setWordWrap(!wordWrap),
 			"terminal.clear": () => {
 				clearFocusedTerminal();
@@ -1790,6 +1792,8 @@ export default function App() {
 				openShortcuts: () => setShortcutsOpen(true),
 				runActiveFile: () => void runActiveFile(),
 				runLabel: activeRunLabel,
+				toggleBlame: () => editorRefs.current.get(activeId)?.toggleBlame(),
+				canBlame: activeTab?.kind === "editor",
 			}),
 		[
 			runActiveFile,

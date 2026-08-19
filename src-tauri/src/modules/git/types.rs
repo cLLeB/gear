@@ -115,6 +115,28 @@ pub struct GitPushResult {
     pub pushed: bool,
 }
 
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GitBlameCommit {
+    pub sha: String,
+    pub author: String,
+    /// Author time as a Unix timestamp in seconds.
+    pub author_time: i64,
+    pub summary: String,
+    /// True for the all-zero sha git uses for not-yet-committed lines.
+    pub uncommitted: bool,
+}
+
+/// Blame is stored commit-deduplicated: a 5000-line file usually touches a few
+/// dozen commits, and repeating the author and summary per line would dominate
+/// the IPC payload. `lines[n]` indexes `commits` for file line `n + 1`.
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GitBlameResult {
+    pub commits: Vec<GitBlameCommit>,
+    pub lines: Vec<u32>,
+}
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GitStashEntry {

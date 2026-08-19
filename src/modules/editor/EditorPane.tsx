@@ -40,6 +40,8 @@ import { languageFromExtension } from "@/lib/toolkit/languageFromExtension";
 import { detectIndentUnit } from "./lib/indent";
 import { lspFormatDocument, useLspExtension } from "@/modules/lsp";
 import { toast } from "sonner";
+import { blameGutter } from "./lib/blameGutter";
+import { toggleBlameOnView } from "./lib/blameToggle";
 import {
   applyFormattedContent,
   readFileText,
@@ -84,6 +86,8 @@ export type EditorPaneHandle = {
   redo: () => void;
   /** Open the inline find & replace panel. */
   openFindReplace: () => void;
+  /** Show or hide the git blame gutter for this file. */
+  toggleBlame: () => void;
   /** Write the buffer to disk, honouring format-on-save. No-op when clean. */
   save: () => Promise<void>;
 };
@@ -320,6 +324,7 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
           close: () => onCloseRef.current?.(),
         })),
         ...buildSharedExtensions(),
+        blameGutter(),
         languageCompartment.of([]),
         lspCompartment.of([]),
         inlineCompletion({
@@ -533,6 +538,10 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
         redo: () => {
           const view = cmRef.current?.view;
           if (view) redo(view);
+        },
+        toggleBlame: () => {
+          const view = cmRef.current?.view;
+          if (view) void toggleBlameOnView(view, pathRef.current);
         },
         openFindReplace: () => {
           setFindReplaceOpen(true);

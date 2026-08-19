@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::ffi::{OsStr, OsString};
 use std::path::Path;
 
@@ -8,9 +9,10 @@ use crate::modules::git::process::{
     read_text_file, run_git,
 };
 use crate::modules::git::types::{
-    DiscardEntry, GitCommitFileChange, GitCommitResult, GitDiffContentResult, GitDiffResult,
-    GitLogEntry, GitOutput, GitPanelSnapshot, GitPushResult, GitRepoInfo, GitStashEntry,
-    GitStatusSnapshot, TextSource, DEFAULT_TIMEOUT_SECS, NETWORK_TIMEOUT_SECS,
+    DiscardEntry, GitBlameCommit, GitBlameResult, GitCommitFileChange, GitCommitResult,
+    GitDiffContentResult, GitDiffResult, GitLogEntry, GitOutput, GitPanelSnapshot, GitPushResult,
+    GitRepoInfo, GitStashEntry, GitStatusSnapshot, TextSource, DEFAULT_TIMEOUT_SECS,
+    NETWORK_TIMEOUT_SECS,
 };
 use crate::modules::git::utils::{
     authorized_repo_root, canonical_dir, resolve_within_repo, split_upstream, ResolvedGitDirectory,
@@ -1051,6 +1053,136 @@ fn branch_name_is_safe(name: &str) -> bool {
         .all(|c| c.is_alphanumeric() || matches!(c, '-' | '_' | '.' | '/' | '@'))
 }
 
+// ── Blame ───────────────────────────────────────────────────────────
+
+/// Lines above which a file is not blamed. Blame is O(history x size) and the
+/// gutter is unreadable long before this, so a hard stop beats a hung pane.
+const MAX_BLAME_LINES: usize = 20_000;
+
+pub fn blame(
+    registry: &WorkspaceRegistry,
+    repo_root: &str,
+    path: &str,
+    workspace: &WorkspaceEnv,
+) -> Result<GitBlameResult> {
+    let repo_root = authorized_repo_root(registry, repo_root, workspace)?;
+    ensure_git_available(&repo_root.workspace)?;
+    let worktree_path = resolve_within_repo(&repo_root.local_path, path)?;
+    let rel_path = pathspec(&repo_root.local_path, &worktree_path);
+
+    // --porcelain emits the author block once per commit and only the sha for
+    // later runs of the same commit, which is exactly the shape we store.
+    let output = run_git(
+        &repo_root.workspace,
+        Some(&repo_root.git_path),
+        [
+            OsStr::new("blame"),
+            OsStr::new("--porcelain"),
+            OsStr::new("--"),
+            OsStr::new(rel_path.as_str()),
+        ],
+        DEFAULT_TIMEOUT_SECS,
+    )?;
+    ensure_success(&output, "git blame failed")?;
+    Ok(parse_blame_porcelain(&String::from_utf8_lossy(&output.stdout)))
+}
+
+/// Parses `git blame --porcelain`. Unknown headers are skipped rather than
+/// rejected: git adds fields (boundary, previous, workspace markers) over time
+/// and a blame gutter should degrade, not fail.
+pub fn parse_blame_porcelain(stdout: &str) -> GitBlameResult {
+    let mut commits: Vec<GitBlameCommit> = Vec::new();
+    let mut index_of: HashMap<String, usize> = HashMap::new();
+    let mut lines: Vec<u32> = Vec::new();
+    let mut current: Option<usize> = None;
+
+    for raw in stdout.lines() {
+        // Content lines are TAB-prefixed and close the current header block.
+        if raw.starts_with('\t') {
+            current = None;
+            continue;
+        }
+        if let Some(idx) = current {
+            let (key, value) = match raw.split_once(' ') {
+                Some((k, v)) => (k, v),
+                None => (raw, ""),
+            };
+            match key {
+                "author" => commits[idx].author = value.to_string(),
+                "author-time" => {
+                    commits[idx].author_time = value.trim().parse().unwrap_or(0);
+                }
+                "summary" => commits[idx].summary = value.to_string(),
+                _ => {}
+            }
+            continue;
+        }
+
+        // Header: "<sha> <orig-line> <final-line>[ <num-lines>]".
+        let mut parts = raw.split(' ');
+        let sha = match parts.next() {
+            Some(s) if is_blame_sha(s) => s,
+            _ => continue,
+        };
+        let _orig_line = parts.next();
+        let final_line: usize = match parts.next().and_then(|v| v.parse().ok()) {
+            Some(n) if n >= 1 => n,
+            _ => continue,
+        };
+        let group: usize = parts.next().and_then(|v| v.parse().ok()).unwrap_or(1);
+
+        let idx = match index_of.get(sha) {
+            Some(&i) => i,
+            None => {
+                let i = commits.len();
+                index_of.insert(sha.to_string(), i);
+                commits.push(GitBlameCommit {
+                    sha: sha.to_string(),
+                    author: String::new(),
+                    author_time: 0,
+                    summary: String::new(),
+                    uncommitted: sha.bytes().all(|b| b == b'0'),
+                });
+                i
+            }
+        };
+        // A commit already seen carries no header block, so only remember the
+        // slot to fill when this is the first sighting.
+        if commits[idx].author.is_empty() && commits[idx].summary.is_empty() {
+            current = Some(idx);
+        }
+
+        let end = final_line.saturating_add(group.max(1)).min(MAX_BLAME_LINES + 1);
+        if lines.len() < end.saturating_sub(1) {
+            lines.resize(end - 1, u32::MAX);
+        }
+        for slot in final_line..end {
+            lines[slot - 1] = idx as u32;
+        }
+        if lines.len() >= MAX_BLAME_LINES {
+            break;
+        }
+    }
+
+    // Any gap (a malformed stretch of output) points at no commit; drop the
+    // sentinel by pointing it at the first commit only when one exists.
+    if commits.is_empty() {
+        lines.clear();
+    } else {
+        for slot in lines.iter_mut() {
+            if *slot == u32::MAX {
+                *slot = 0;
+            }
+        }
+    }
+
+    GitBlameResult { commits, lines }
+}
+
+fn is_blame_sha(s: &str) -> bool {
+    s.len() >= 40 && s.bytes().all(|b| b.is_ascii_hexdigit())
+}
+
 // ── Stash operations ───────────────────────────────────────────────────────
 
 pub fn list_stash(
@@ -1144,4 +1276,125 @@ pub fn drop_stash(
         DEFAULT_TIMEOUT_SECS,
     )?;
     ensure_success(&output, "git stash drop failed")
+}
+
+#[cfg(test)]
+mod blame_tests {
+    use super::parse_blame_porcelain;
+
+    const SHA_A: &str = "1111111111111111111111111111111111111111";
+    const SHA_B: &str = "2222222222222222222222222222222222222222";
+    const ZERO: &str = "0000000000000000000000000000000000000000";
+
+    fn porcelain(body: &str) -> String {
+        body.replace("<TAB>", "\t")
+    }
+
+    #[test]
+    fn maps_every_line_to_its_commit() {
+        let out = porcelain(&format!(
+            "{SHA_A} 1 1 2\n\
+             author Ada Lovelace\n\
+             author-time 1700000000\n\
+             summary first commit\n\
+             filename a.rs\n\
+             <TAB>line one\n\
+             {SHA_A} 2 2\n\
+             <TAB>line two\n\
+             {SHA_B} 3 3 1\n\
+             author Grace Hopper\n\
+             author-time 1700000100\n\
+             summary second commit\n\
+             filename a.rs\n\
+             <TAB>line three\n"
+        ));
+        let result = parse_blame_porcelain(&out);
+
+        assert_eq!(result.commits.len(), 2);
+        assert_eq!(result.lines, vec![0, 0, 1]);
+        assert_eq!(result.commits[0].author, "Ada Lovelace");
+        assert_eq!(result.commits[0].summary, "first commit");
+        assert_eq!(result.commits[0].author_time, 1_700_000_000);
+        assert_eq!(result.commits[1].author, "Grace Hopper");
+        assert!(!result.commits[0].uncommitted);
+    }
+
+    #[test]
+    fn does_not_repeat_metadata_for_a_commit_seen_again() {
+        let out = porcelain(&format!(
+            "{SHA_A} 1 1 1\n\
+             author Ada Lovelace\n\
+             author-time 1700000000\n\
+             summary first commit\n\
+             <TAB>one\n\
+             {SHA_B} 2 2 1\n\
+             author Grace Hopper\n\
+             author-time 1700000100\n\
+             summary second commit\n\
+             <TAB>two\n\
+             {SHA_A} 3 3 1\n\
+             <TAB>three\n"
+        ));
+        let result = parse_blame_porcelain(&out);
+
+        assert_eq!(result.commits.len(), 2);
+        assert_eq!(result.lines, vec![0, 1, 0]);
+        assert_eq!(result.commits[0].author, "Ada Lovelace");
+    }
+
+    #[test]
+    fn flags_the_all_zero_sha_as_uncommitted() {
+        let out = porcelain(&format!(
+            "{ZERO} 1 1 1\n\
+             author Not Committed Yet\n\
+             author-time 1700000200\n\
+             summary Version of a.rs from a.rs\n\
+             <TAB>draft\n"
+        ));
+        let result = parse_blame_porcelain(&out);
+
+        assert_eq!(result.commits.len(), 1);
+        assert!(result.commits[0].uncommitted);
+    }
+
+    #[test]
+    fn ignores_headers_it_does_not_understand() {
+        let out = porcelain(&format!(
+            "{SHA_A} 1 1 1\n\
+             author Ada Lovelace\n\
+             author-mail <ada@example.com>\n\
+             author-tz +0000\n\
+             committer Someone Else\n\
+             boundary\n\
+             previous {SHA_B} a.rs\n\
+             summary only summary survives\n\
+             <TAB>one\n"
+        ));
+        let result = parse_blame_porcelain(&out);
+
+        assert_eq!(result.commits[0].author, "Ada Lovelace");
+        assert_eq!(result.commits[0].summary, "only summary survives");
+    }
+
+    #[test]
+    fn returns_nothing_for_empty_output() {
+        let result = parse_blame_porcelain("");
+        assert!(result.commits.is_empty());
+        assert!(result.lines.is_empty());
+    }
+
+    #[test]
+    fn survives_a_truncated_final_block() {
+        let out = porcelain(&format!(
+            "{SHA_A} 1 1 1\n\
+             author Ada Lovelace\n\
+             summary first\n\
+             <TAB>one\n\
+             {SHA_B} 2 2"
+        ));
+        let result = parse_blame_porcelain(&out);
+
+        assert_eq!(result.lines, vec![0, 1]);
+        assert_eq!(result.commits.len(), 2);
+    }
 }
