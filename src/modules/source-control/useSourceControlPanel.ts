@@ -76,6 +76,9 @@ type SourceControlPanelState = {
   status: GitStatusSnapshot | null;
   selected: DiffSelection | null;
   commitMessage: string;
+  /** Rewrite HEAD instead of adding a commit. */
+  amend: boolean;
+  setAmend: (value: boolean) => void;
   actionBusy: string | null;
   statusError: string | null;
   actionError: string | null;
@@ -393,6 +396,8 @@ export function useSourceControlPanel(
   const [status, setStatus] = useState<GitStatusSnapshot | null>(null);
   const [selected, setSelected] = useState<DiffSelection | null>(null);
   const [commitMessage, setCommitMessage] = useState("");
+  /** Rewrite HEAD instead of adding a commit. Cleared after every commit. */
+  const [amend, setAmend] = useState(false);
   const [localActionBusy, setLocalActionBusy] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
@@ -943,10 +948,17 @@ export function useSourceControlPanel(
     setActionMessage(null);
     setActionError(null);
     try {
-      const result = await native.gitCommit(repo.repoRoot, commitMessage);
+      const result = await native.gitCommit(
+        repo.repoRoot,
+        commitMessage,
+        amend,
+      );
       setCommitMessage("");
+      // Amend is a one-shot intent: leaving it armed would silently fold the
+      // next commit into the one just rewritten.
+      setAmend(false);
       setActionMessage(
-        `Committed ${result.commitSha.slice(0, 7)} ${result.summary}`,
+        `${amend ? "Amended" : "Committed"} ${result.commitSha.slice(0, 7)} ${result.summary}`,
       );
       invalidateRepoDiffs(repo.repoRoot);
       await summary.refresh({ remote: "never" });
@@ -955,7 +967,7 @@ export function useSourceControlPanel(
     } finally {
       setLocalActionBusy(null);
     }
-  }, [commitMessage, repo, summary]);
+  }, [amend, commitMessage, repo, summary]);
 
   const push = useCallback(async () => {
     if (!repo) return;
@@ -997,6 +1009,8 @@ export function useSourceControlPanel(
     status,
     selected,
     commitMessage,
+    amend,
+    setAmend,
     actionBusy: localActionBusy ?? summary.busyAction,
     statusError: summary.localError,
     actionError,
