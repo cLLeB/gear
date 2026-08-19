@@ -323,10 +323,11 @@ export const native = {
       entries,
       workspace: currentWorkspaceEnv(),
     }),
-  gitCommit: (repoRoot: string, message: string) =>
+  gitCommit: (repoRoot: string, message: string, amend = false) =>
     invoke<GitCommitResult>("git_commit", {
       repoRoot,
       message,
+      amend,
       workspace: currentWorkspaceEnv(),
     }),
   gitFetch: (repoRoot: string) =>

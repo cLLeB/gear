@@ -146,18 +146,20 @@ pub async fn git_discard(
 pub async fn git_commit(
     repo_root: String,
     message: String,
+    amend: Option<bool>,
     workspace: Option<WorkspaceEnv>,
     app: AppHandle,
 ) -> Result<GitCommitResult, String> {
     let workspace = WorkspaceEnv::from_option(workspace);
+    let amend = amend.unwrap_or(false);
     let app2 = app.clone();
     let root = repo_root.clone();
     let res = blocking(app, move |r| {
-        operations::commit(r, &repo_root, &message, &workspace).map_err(Into::into)
+        operations::commit(r, &repo_root, &message, amend, &workspace).map_err(Into::into)
     })
     .await;
     if res.is_ok() {
-        crate::modules::chronicle::record_git(&app2, &root, "commit", None);
+        crate::modules::chronicle::record_git(&app2, &root, if amend { "amend" } else { "commit" }, None);
     }
     res
 }

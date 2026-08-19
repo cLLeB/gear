@@ -394,6 +394,7 @@ pub fn commit(
     registry: &WorkspaceRegistry,
     repo_root: &str,
     message: &str,
+    amend: bool,
     workspace: &WorkspaceEnv,
 ) -> Result<GitCommitResult> {
     let repo_root = authorized_repo_root(registry, repo_root, workspace)?;
@@ -403,13 +404,22 @@ pub fn commit(
         return Err(GitError::EmptyCommitMessage);
     }
 
+    let mut args: Vec<&OsStr> = vec![OsStr::new("commit")];
+    if amend {
+        // --amend rewrites HEAD, so an empty index is legitimate: the user may
+        // only be fixing the message. --only would re-stage nothing and fail.
+        args.push(OsStr::new("--amend"));
+    }
+    args.push(OsStr::new("-m"));
+    args.push(OsStr::new(trimmed));
+
     let output = run_git(
         &repo_root.workspace,
         Some(&repo_root.git_path),
-        [OsStr::new("commit"), OsStr::new("-m"), OsStr::new(trimmed)],
+        args,
         DEFAULT_TIMEOUT_SECS,
     )?;
-    if output.exit_code != Some(0) && nothing_to_commit(&output) {
+    if !amend && output.exit_code != Some(0) && nothing_to_commit(&output) {
         return Err(GitError::command("git commit", "nothing staged"));
     }
     ensure_success(&output, "git commit failed")?;

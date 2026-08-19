@@ -274,13 +274,15 @@ export const SourceControlPanel = memo(function SourceControlPanel({
 
   const commitShortcut = IS_MAC ? "⌘↩" : "Ctrl+Enter";
   const generateShortcut = IS_MAC ? "⌘G" : "Ctrl+G";
+  // Amending rewrites HEAD, so an empty index is legitimate — the user may be
+  // fixing only the message.
   const canCommit =
-    scm.stagedEntries.length > 0 &&
+    (scm.amend || scm.stagedEntries.length > 0) &&
     scm.commitMessage.trim().length > 0 &&
     !scm.actionBusy;
   const commitDisabledReason = scm.actionBusy
     ? "Wait for the current Git action to finish."
-    : scm.stagedEntries.length === 0
+    : !scm.amend && scm.stagedEntries.length === 0
       ? "Stage changes to enable commit."
       : scm.commitMessage.trim().length === 0
         ? "Enter a commit message to enable commit."
@@ -783,6 +785,37 @@ export const SourceControlPanel = memo(function SourceControlPanel({
                 </span>
               </div>
 
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <label className="flex w-fit cursor-pointer items-center gap-1.5 text-[10.5px] text-muted-foreground select-none">
+                    <Checkbox
+                      checked={scm.amend}
+                      disabled={!!scm.actionBusy}
+                      onCheckedChange={(next) => scm.setAmend(next === true)}
+                      className="size-3"
+                    />
+                    <span
+                      className={cn(
+                        scm.amend && "font-medium text-foreground/85",
+                      )}
+                    >
+                      Amend last commit
+                    </span>
+                  </label>
+                </TooltipTrigger>
+                <TooltipContent
+                  side="bottom"
+                  className={cn(
+                    SOURCE_CONTROL_TOOLTIP_CLASS,
+                    "max-w-64 text-[10.5px]",
+                  )}
+                >
+                  Replaces the previous commit instead of adding one. If it was
+                  already pushed, the remote will reject the next push until you
+                  force it.
+                </TooltipContent>
+              </Tooltip>
+
               <div className="grid w-full grid-cols-2 gap-1.5">
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -792,7 +825,13 @@ export const SourceControlPanel = memo(function SourceControlPanel({
                       disabled={!canCommit}
                       onClick={() => void scm.commit()}
                     >
-                      {scm.actionBusy === "commit" ? "Committing…" : "Commit"}
+                      {scm.actionBusy === "commit"
+                        ? scm.amend
+                          ? "Amending…"
+                          : "Committing…"
+                        : scm.amend
+                          ? "Amend"
+                          : "Commit"}
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent
