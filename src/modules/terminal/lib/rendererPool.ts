@@ -25,6 +25,8 @@ import {
   writeTerminalClipboard,
 } from "./terminalClipboard";
 import { terminalClipboardIntent, terminalReadlineSequence } from "./keymap";
+import { analyzePaste, pasteNeedsConfirmation } from "./pasteGuard";
+import { usePastePromptStore } from "./pastePrompt";
 import { createTerminalLinkHandler } from "./terminalLinks";
 
 export const POOL_MAX_SIZE = 5;
@@ -217,6 +219,26 @@ export function applyBackgroundActive(active: boolean): void {
   }
 }
 
+/**
+ * The single funnel every paste goes through — Ctrl+V, Cmd+V, the context menu
+ * and middle-click all land here. Escape sequences are stripped before the text
+ * can reach the shell, and anything the shell would treat as more than typing
+ * is confirmed first.
+ */
+async function pasteIntoSlot(slot: Slot, raw: string): Promise<void> {
+  if (!raw) return;
+  const targetLeafId = slot.currentLeafId;
+  const analysis = analyzePaste(raw);
+  if (!analysis.text) return;
+  if (pasteNeedsConfirmation(analysis, { isAlternateScreen: isAltScreen(slot) })) {
+    const approved = await usePastePromptStore.getState().confirm(analysis);
+    if (!approved) return;
+  }
+  // The pane may have been swapped out while the dialog was open.
+  if (slot.currentLeafId !== targetLeafId) return;
+  slot.term.paste(analysis.text);
+}
+
 function createSlot(): Slot {
   // The link handler is needed to construct the Terminal, so focus is bound
   // through a mutable thunk that closes over `term` once it exists.
@@ -270,6 +292,20 @@ function createSlot(): Slot {
     lastUsedAt: 0,
     imeState: createImeBridgeState(),
   };
+
+  // Capture on the host fires before xterm's own textarea listener, so the
+  // native paste path (Cmd+V, context menu, middle click) is routed through
+  // the same guard as Ctrl+V instead of reaching the PTY unchecked.
+  host.addEventListener(
+    "paste",
+    (event) => {
+      const text = (event as ClipboardEvent).clipboardData?.getData("text");
+      event.preventDefault();
+      event.stopPropagation();
+      if (text) void pasteIntoSlot(slot, text);
+    },
+    true,
+  );
 
   // Some WKWebView builds bypass xterm's composition events. The pure bridge
   // repairs that path and stands down when native composition is observed.
@@ -356,10 +392,7 @@ function createSlot(): Slot {
     }
     if (clip === "paste") {
       if (event.type === "keydown") {
-        const targetLeafId = slot.currentLeafId;
-        void readTerminalClipboard().then((text) => {
-          if (text && slot.currentLeafId === targetLeafId) slot.term.paste(text);
-        });
+        void readTerminalClipboard().then((text) => pasteIntoSlot(slot, text));
       }
       event.preventDefault();
       return false;
