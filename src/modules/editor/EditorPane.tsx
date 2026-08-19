@@ -61,8 +61,14 @@ import {
 import { getKey } from "@/modules/ai/lib/keyring";
 import { onKeysChanged } from "@/modules/settings/store";
 
+export type EditorSearchFlags = {
+  caseSensitive: boolean;
+  wholeWord: boolean;
+  regex: boolean;
+};
+
 export type EditorPaneHandle = {
-  setQuery: (q: string) => void;
+  setQuery: (q: string, flags?: EditorSearchFlags) => void;
   findNext: () => void;
   findPrevious: () => void;
   clearQuery: () => void;
@@ -473,12 +479,17 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
     useImperativeHandle(
       ref,
       () => ({
-        setQuery: (q: string) => {
+        setQuery: (q: string, flags?: EditorSearchFlags) => {
           const view = cmRef.current?.view;
           if (!view) return;
           view.dispatch({
             effects: setSearchQuery.of(
-              new SearchQuery({ search: q, caseSensitive: false }),
+              new SearchQuery({
+                search: q,
+                caseSensitive: flags?.caseSensitive ?? false,
+                wholeWord: flags?.wholeWord ?? false,
+                regexp: flags?.regex ?? false,
+              }),
             ),
           });
           if (q) findNext(view);
