@@ -16,6 +16,16 @@ import { findClones } from "@/lib/lang/cloneDetection";
 import { deadStores } from "@/lib/lang/dataflow";
 import { analyzeComplexity } from "@/lib/lang/complexity";
 import { parseJson5 } from "@/lib/lang/json5";
+import {
+  isNoop,
+  joinLines,
+  removeBlankLines,
+  reverseLines,
+  sortLines,
+  sortLinesIgnoreCase,
+  trimTrailingWhitespace,
+  uniqueLines,
+} from "./lineOps";
 
 import { getActiveEditor } from "./activeEditor";
 
@@ -92,17 +102,72 @@ export function expandEmmetCmd(view: EditorView): boolean {
   return true;
 }
 
-export function sortLinesCmd(view: EditorView): boolean {
+// --- line actions ----------------------------------------------------------
+
+/**
+ * Applies a transform to the lines the selection touches, or to the whole
+ * document when nothing is selected — the latter is what makes "trim trailing
+ * whitespace" and "remove blank lines" useful as one-shot cleanups.
+ *
+ * The rewritten range is left selected so a follow-up action can chain onto it.
+ */
+function transformLines(
+  view: EditorView,
+  transform: (lines: string[]) => string[],
+): boolean {
   const sel = view.state.selection.main;
-  const startLine = view.state.doc.lineAt(sel.from);
-  const endLine = view.state.doc.lineAt(sel.to);
-  if (startLine.number === endLine.number) return false; // nothing to sort
+  const doc = view.state.doc;
+  const wholeDoc = sel.empty;
+  const startLine = wholeDoc ? doc.line(1) : doc.lineAt(sel.from);
+  const endLine = wholeDoc ? doc.line(doc.lines) : doc.lineAt(sel.to);
+
   const lines: string[] = [];
-  for (let n = startLine.number; n <= endLine.number; n++) lines.push(view.state.doc.line(n).text);
-  const sorted = [...lines].sort((a, b) => a.localeCompare(b));
-  view.dispatch({ changes: { from: startLine.from, to: endLine.to, insert: sorted.join("\n") } });
+  for (let n = startLine.number; n <= endLine.number; n++) {
+    lines.push(doc.line(n).text);
+  }
+
+  const next = transform(lines);
+  if (isNoop(lines, next)) return false;
+
+  const insert = next.join("\n");
+  view.dispatch({
+    changes: { from: startLine.from, to: endLine.to, insert },
+    selection: EditorSelection.range(startLine.from, startLine.from + insert.length),
+  });
   view.focus();
   return true;
+}
+
+export function sortLinesCmd(view: EditorView): boolean {
+  return transformLines(view, (lines) => sortLines(lines, "asc"));
+}
+
+export function sortLinesDescCmd(view: EditorView): boolean {
+  return transformLines(view, (lines) => sortLines(lines, "desc"));
+}
+
+export function sortLinesIgnoreCaseCmd(view: EditorView): boolean {
+  return transformLines(view, (lines) => sortLinesIgnoreCase(lines, "asc"));
+}
+
+export function uniqueLinesCmd(view: EditorView): boolean {
+  return transformLines(view, uniqueLines);
+}
+
+export function reverseLinesCmd(view: EditorView): boolean {
+  return transformLines(view, reverseLines);
+}
+
+export function trimTrailingWhitespaceCmd(view: EditorView): boolean {
+  return transformLines(view, trimTrailingWhitespace);
+}
+
+export function removeBlankLinesCmd(view: EditorView): boolean {
+  return transformLines(view, removeBlankLines);
+}
+
+export function joinLinesCmd(view: EditorView): boolean {
+  return transformLines(view, (lines) => joinLines(lines));
 }
 
 function reformatJson(view: EditorView, minify: boolean): boolean {
@@ -198,7 +263,14 @@ export const CODE_ACTIONS: CodeActionDescriptor[] = [
   { id: "code.toKebabCase", label: "Convert to kebab-case", keywords: ["case", "rename", "identifier"], run: (v) => toKebabCase(v) },
   { id: "code.toConstantCase", label: "Convert to CONSTANT_CASE", keywords: ["case", "rename", "identifier", "screaming"], run: (v) => toConstantCase(v) },
   { id: "code.expandEmmet", label: "Expand Emmet abbreviation", keywords: ["emmet", "html", "expand"], run: (v) => expandEmmetCmd(v) },
-  { id: "code.sortLines", label: "Sort selected lines", keywords: ["sort", "lines", "alphabetical"], run: (v) => sortLinesCmd(v) },
+  { id: "code.sortLines", label: "Sort lines", keywords: ["sort", "lines", "alphabetical", "ascending"], run: (v) => sortLinesCmd(v) },
+  { id: "code.sortLinesDesc", label: "Sort lines descending", keywords: ["sort", "lines", "reverse", "descending"], run: (v) => sortLinesDescCmd(v) },
+  { id: "code.sortLinesIgnoreCase", label: "Sort lines ignoring case", keywords: ["sort", "lines", "case", "insensitive"], run: (v) => sortLinesIgnoreCaseCmd(v) },
+  { id: "code.uniqueLines", label: "Remove duplicate lines", keywords: ["unique", "dedupe", "duplicate", "lines"], run: (v) => uniqueLinesCmd(v) },
+  { id: "code.reverseLines", label: "Reverse lines", keywords: ["reverse", "flip", "lines", "order"], run: (v) => reverseLinesCmd(v) },
+  { id: "code.trimTrailingWhitespace", label: "Trim trailing whitespace", keywords: ["trim", "whitespace", "trailing", "clean"], run: (v) => trimTrailingWhitespaceCmd(v) },
+  { id: "code.removeBlankLines", label: "Remove blank lines", keywords: ["blank", "empty", "lines", "clean"], run: (v) => removeBlankLinesCmd(v) },
+  { id: "code.joinLines", label: "Join lines", keywords: ["join", "merge", "lines", "single"], run: (v) => joinLinesCmd(v) },
   { id: "code.formatJson", label: "Format JSON", keywords: ["json", "pretty", "beautify"], jsonOnly: true, run: (v) => formatJsonCmd(v) },
   { id: "code.minifyJson", label: "Minify JSON", keywords: ["json", "compact"], jsonOnly: true, run: (v) => minifyJsonCmd(v) },
   { id: "code.findClones", label: "Find duplicate code", keywords: ["clone", "duplicate", "copy paste"], run: findClonesCmd },
