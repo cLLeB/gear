@@ -2,8 +2,9 @@ use tauri::{AppHandle, Manager};
 
 use crate::modules::git::operations;
 use crate::modules::git::types::{
-    DiscardEntry, GitCommitFileChange, GitCommitResult, GitDiffContentResult, GitDiffResult,
-    GitLogEntry, GitPanelSnapshot, GitPushResult, GitRepoInfo, GitStashEntry, GitStatusSnapshot,
+    DiscardEntry, GitBlameResult, GitCommitFileChange, GitCommitResult, GitDiffContentResult,
+    GitDiffResult, GitLogEntry, GitPanelSnapshot, GitPushResult, GitRepoInfo, GitStashEntry,
+    GitStatusSnapshot,
 };
 
 use crate::modules::workspace::{WorkspaceEnv, WorkspaceRegistry};
@@ -397,6 +398,20 @@ pub async fn git_drop_stash(
     let workspace = WorkspaceEnv::from_option(workspace);
     blocking(app, move |r| {
         operations::drop_stash(r, &repo_root, index, &workspace).map_err(Into::into)
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn git_blame(
+    repo_root: String,
+    path: String,
+    workspace: Option<WorkspaceEnv>,
+    app: AppHandle,
+) -> Result<GitBlameResult, String> {
+    let workspace = WorkspaceEnv::from_option(workspace);
+    blocking(app, move |r| {
+        operations::blame(r, &repo_root, &path, &workspace).map_err(Into::into)
     })
     .await
 }

@@ -70,6 +70,10 @@ export type CommandPaletteActionContext = {
   toggleSidebar: () => void;
   toggleAi: () => void;
   askAiSelection: () => void;
+  /** Toggle the git blame gutter in the active editor. */
+  toggleBlame: () => void;
+  /** True when a file is open that blame can run against. */
+  canBlame: boolean;
   openSettings: () => void;
   openShortcuts: () => void;
   runActiveFile: () => void;
@@ -275,6 +279,16 @@ export function createCommandPaletteActions(
       shortcutId: "search.focus",
       disabledReason: ctx.searchTarget ? undefined : "No searchable view",
       run: ctx.focusSearch,
+      deferRun: true,
+    },
+    {
+      id: "editor.toggleBlame",
+      label: "Toggle git blame",
+      group: "Code",
+      keywords: ["blame", "annotate", "git", "author", "history"],
+      icon: CodeIcon,
+      disabledReason: ctx.canBlame ? undefined : "No file open",
+      run: ctx.toggleBlame,
       deferRun: true,
     },
     {

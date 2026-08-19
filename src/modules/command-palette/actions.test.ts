@@ -61,6 +61,8 @@ function baseContext(
     toggleSidebar: noop,
     toggleAi: noop,
     askAiSelection: noop,
+    toggleBlame: noop,
+    canBlame: false,
     openSettings: noop,
     openShortcuts: noop,
     runActiveFile: noop,

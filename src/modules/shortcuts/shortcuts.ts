@@ -57,7 +57,8 @@ export type ShortcutId =
   | "editor.moveLineDown"
   | "editor.deleteLine"
   | "editor.gotoLine"
-  | "editor.toggleWordWrap";
+  | "editor.toggleWordWrap"
+  | "editor.toggleBlame";
 
 export type ShortcutGroup =
   | "General"
@@ -432,6 +433,12 @@ export const SHORTCUTS: Shortcut[] = [
     label: "Toggle word wrap",
     group: "Editor",
     defaultBindings: [{ alt: true, key: "z" }],
+  },
+  {
+    id: "editor.toggleBlame",
+    label: "Toggle git blame",
+    group: "Editor",
+    defaultBindings: [{ alt: true, key: "b" }],
   },
 ];
 

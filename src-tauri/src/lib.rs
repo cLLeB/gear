@@ -243,6 +243,7 @@ pub fn run() {
             git::commands::git_push_stash,
             git::commands::git_pop_stash,
             git::commands::git_drop_stash,
+            git::commands::git_blame,
             shell::shell_run_command,
             shell::shell_session_open,
             shell::shell_session_run,
