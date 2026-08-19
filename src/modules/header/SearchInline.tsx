@@ -4,6 +4,16 @@ import { KEY_SEP } from "@/lib/platform";
 import type { EditorPaneHandle } from "@/modules/editor";
 import { usePreferencesStore } from "@/modules/settings/preferences";
 import { getBindingTokens, SHORTCUTS } from "@/modules/shortcuts/shortcuts";
+import { cn } from "@/lib/utils";
+import {
+  DEFAULT_SEARCH_FLAGS,
+  formatSearchResults,
+  isSearchQueryValid,
+  SEARCH_FLAG_META,
+  type SearchFlags,
+  type SearchResults,
+  toggleSearchFlag,
+} from "./lib/searchOptions";
 import { Cancel01Icon, Search01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import type { SearchAddon } from "@xterm/addon-search";
@@ -46,6 +56,8 @@ type Props = {
 export const SearchInline = forwardRef<SearchInlineHandle, Props>(
   function SearchInline({ target, compact }, ref) {
     const [q, setQ] = useState("");
+    const [flags, setFlags] = useState<SearchFlags>(DEFAULT_SEARCH_FLAGS);
+    const [results, setResults] = useState<SearchResults>(null);
     // In compact mode the field is hidden behind an icon until activated.
     // In normal mode the field is always present.
     const [openInCompact, setOpenInCompact] = useState(false);
@@ -104,26 +116,48 @@ export const SearchInline = forwardRef<SearchInlineHandle, Props>(
     // Target switched (terminal ↔ editor) or removed → drop highlights.
     useEffect(() => clearTarget, [clearTarget]);
 
-    const applyIncremental = (next: string) => {
-      if (!target) return;
-      if (target.kind === "terminal") {
-        if (next) {
-          target.addon.findNext(next, {
-            incremental: true,
-            decorations: TERM_DECORATIONS,
-          });
-        } else {
-          target.addon.clearDecorations();
-        }
-      } else {
-        target.handle.setQuery(next);
+    const valid = isSearchQueryValid(q, flags);
+
+    // The addon reports counts asynchronously as it scans the scrollback.
+    useEffect(() => {
+      if (target?.kind !== "terminal") {
+        setResults(null);
+        return;
       }
-    };
+      const sub = target.addon.onDidChangeResults((e) =>
+        setResults({ index: e.resultIndex, count: e.resultCount }),
+      );
+      return () => sub.dispose();
+    }, [target]);
+
+    const applySearch = useCallback(
+      (next: string, nextFlags: SearchFlags) => {
+        if (!target) return;
+        if (!isSearchQueryValid(next, nextFlags)) return;
+        if (target.kind === "terminal") {
+          if (next) {
+            target.addon.findNext(next, {
+              ...nextFlags,
+              incremental: true,
+              decorations: TERM_DECORATIONS,
+            });
+          } else {
+            target.addon.clearDecorations();
+            setResults(null);
+          }
+        } else if (target.kind === "editor") {
+          target.handle.setQuery(next, nextFlags);
+        } else {
+          target.handle.setQuery(next);
+        }
+      },
+      [target],
+    );
 
     const findDirection = (forward: boolean) => {
-      if (!target || !q) return;
+      if (!target || !q || !valid) return;
       if (target.kind === "terminal") {
-        const opts = { decorations: TERM_DECORATIONS };
+        const opts = { ...flags, decorations: TERM_DECORATIONS };
         if (forward) target.addon.findNext(q, opts);
         else target.addon.findPrevious(q, opts);
       } else if (target.kind === "editor") {
@@ -133,11 +167,14 @@ export const SearchInline = forwardRef<SearchInlineHandle, Props>(
       // git-history: the list filters live; Enter has no next/prev semantics.
     };
 
+    const supportsFlags = target?.kind !== "git-history";
+    const resultLabel = formatSearchResults(results, { query: q, valid });
+
     return (
       <motion.div
         layout
         initial={false}
-        animate={{ width: expanded ? 192 : 28 }}
+        animate={{ width: expanded ? 288 : 28 }}
         transition={{ type: "spring", stiffness: 380, damping: 34 }}
         className="relative h-7 shrink-0"
       >
@@ -161,11 +198,15 @@ export const SearchInline = forwardRef<SearchInlineHandle, Props>(
                 ref={setInputRef}
                 value={q}
                 placeholder={placeholder}
-                className="h-7 w-full bg-muted/80 pr-7 pl-7 text-[13px]! placeholder:text-muted-foreground/70 focus-visible:ring-0"
+                className={cn(
+                  "h-7 w-full bg-muted/80 pl-7 text-[13px]! placeholder:text-muted-foreground/70 focus-visible:ring-0",
+                  supportsFlags ? "pr-[92px]" : "pr-7",
+                  !valid && "text-destructive",
+                )}
                 onChange={(e) => {
                   const next = e.target.value;
                   setQ(next);
-                  applyIncremental(next);
+                  applySearch(next, flags);
                 }}
                 onBlur={() => {
                   if (compact && !q) setOpenInCompact(false);
@@ -178,6 +219,7 @@ export const SearchInline = forwardRef<SearchInlineHandle, Props>(
                     e.preventDefault();
                     clearTarget();
                     setQ("");
+                    setResults(null);
                     if (compact) {
                       setOpenInCompact(false);
                     }
@@ -185,24 +227,61 @@ export const SearchInline = forwardRef<SearchInlineHandle, Props>(
                   }
                 }}
               />
-              {q && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setQ("");
-                    clearTarget();
-                    inputRef.current?.focus();
-                  }}
-                  className="absolute top-1/2 right-1.5 -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
-                  aria-label="Clear search"
-                >
-                  <HugeiconsIcon
-                    icon={Cancel01Icon}
-                    size={11}
-                    strokeWidth={2}
-                  />
-                </button>
-              )}
+              <div className="absolute top-1/2 right-1 flex -translate-y-1/2 items-center gap-0.5">
+                {resultLabel && (
+                  <span
+                    className={cn(
+                      "mr-0.5 shrink-0 text-[10px] tabular-nums",
+                      valid ? "text-muted-foreground" : "text-destructive",
+                    )}
+                  >
+                    {resultLabel}
+                  </span>
+                )}
+                {supportsFlags &&
+                  SEARCH_FLAG_META.map((meta) => (
+                    <button
+                      key={meta.key}
+                      type="button"
+                      title={meta.label}
+                      aria-label={meta.label}
+                      aria-pressed={flags[meta.key]}
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => {
+                        const next = toggleSearchFlag(flags, meta.key);
+                        setFlags(next);
+                        applySearch(q, next);
+                      }}
+                      className={cn(
+                        "rounded px-1 py-0.5 font-mono text-[10px] leading-none",
+                        flags[meta.key]
+                          ? "bg-accent text-foreground"
+                          : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+                      )}
+                    >
+                      {meta.short}
+                    </button>
+                  ))}
+                {q && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setQ("");
+                      clearTarget();
+                      setResults(null);
+                      inputRef.current?.focus();
+                    }}
+                    className="rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+                    aria-label="Clear search"
+                  >
+                    <HugeiconsIcon
+                      icon={Cancel01Icon}
+                      size={11}
+                      strokeWidth={2}
+                    />
+                  </button>
+                )}
+              </div>
             </motion.div>
           ) : (
             <motion.div
