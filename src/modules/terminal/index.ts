@@ -34,5 +34,6 @@ export {
 	whenSessionReady,
 	writeToSession,
 } from "./lib/useTerminalSession";
+export { PasteConfirmDialog } from "./PasteConfirmDialog";
 export { TerminalPane, type TerminalPaneHandle } from "./TerminalPane";
 export { TerminalStack } from "./TerminalStack";

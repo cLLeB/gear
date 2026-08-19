@@ -144,6 +144,7 @@ import {
 	leafIds,
 	type PaneBounds,
 	type PaneDirection,
+	PasteConfirmDialog,
 	ptyIdForLeaf,
 	respawnSession,
 	type TerminalPaneHandle,
@@ -2310,6 +2311,7 @@ export default function App() {
 					)}
 
 					<RunTrustDialog />
+					<PasteConfirmDialog />
 
 					<RewindPanel />
 
