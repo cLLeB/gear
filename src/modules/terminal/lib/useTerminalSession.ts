@@ -11,6 +11,7 @@ import {
   type VisibleBlocks,
 } from "../block/lib/blockDecorations";
 import type { BlockMode } from "../block/lib/modeMachine";
+import { confirmClipboardWrite } from "./clipboardConfirm";
 import { DormantRing } from "./dormantRing";
 import {
   createShellIntegrationState,
@@ -688,7 +689,11 @@ function bindLeafToSlot(leafId: number, s: Session): void {
         },
         shellState,
       );
-      const osc52 = registerOsc52ClipboardHandler(term);
+      const osc52 = registerOsc52ClipboardHandler(term, undefined, {
+        state: shellState,
+        isAlternateScreen: () => term.buffer.active.type === "alternate",
+        onConfirm: (text, apply) => confirmClipboardWrite(text, apply),
+      });
       return [prompt.dispose, cwd, osc52];
     },
     onSearchReady: (addon) => s.callbacks.onSearchReady?.(addon),

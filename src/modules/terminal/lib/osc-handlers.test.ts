@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { Terminal } from "@xterm/xterm";
 import {
   createShellIntegrationState,
+  osc52Decision,
   registerCwdHandler,
   registerOsc52ClipboardHandler,
   registerPromptTracker,
@@ -216,5 +217,99 @@ describe("OSC 52 clipboard handler", () => {
     await flushClipboardQueue();
 
     expect(writeClipboard).not.toHaveBeenCalled();
+  });
+});
+
+describe("OSC 52 provenance gate", () => {
+  it("allows anything a full-screen app yanks", () => {
+    expect(
+      osc52Decision({ isAlternateScreen: true, inCommand: true }),
+    ).toBe("allow");
+  });
+
+  it("allows writes the shell makes between commands", () => {
+    expect(
+      osc52Decision({ isAlternateScreen: false, inCommand: false }),
+    ).toBe("allow");
+  });
+
+  it("asks before letting running command output take the clipboard", () => {
+    expect(
+      osc52Decision({ isAlternateScreen: false, inCommand: true }),
+    ).toBe("confirm");
+  });
+
+  it("routes an in-command payload to the confirmation hook, not the clipboard", async () => {
+    const { term, handlers } = makeFakeTerm();
+    const writeClipboard = vi.fn();
+    const onConfirm = vi.fn();
+    const state = createShellIntegrationState();
+    registerPromptTracker(term, state);
+    registerOsc52ClipboardHandler(term, writeClipboard, {
+      state,
+      isAlternateScreen: () => false,
+      onConfirm,
+    });
+
+    handlers.get(133)?.("C;curl evil.sh");
+    handlers.get(52)?.("c;SGVsbG8=");
+    await flushClipboardQueue();
+
+    expect(writeClipboard).not.toHaveBeenCalled();
+    expect(onConfirm).toHaveBeenCalledWith("Hello", expect.any(Function));
+  });
+
+  it("performs the write once the user opts in", async () => {
+    const { term, handlers } = makeFakeTerm();
+    const writeClipboard = vi.fn();
+    const applied: (() => void)[] = [];
+    const state = createShellIntegrationState();
+    registerPromptTracker(term, state);
+    registerOsc52ClipboardHandler(term, writeClipboard, {
+      state,
+      isAlternateScreen: () => false,
+      onConfirm: (_text, fn) => {
+        applied.push(fn);
+      },
+    });
+
+    handlers.get(133)?.("C;curl evil.sh");
+    handlers.get(52)?.("c;SGVsbG8=");
+    await flushClipboardQueue();
+    for (const fn of applied) fn();
+    await flushClipboardQueue();
+
+    expect(writeClipboard).toHaveBeenCalledWith("Hello");
+  });
+
+  it("still writes directly while a full-screen app owns the screen", async () => {
+    const { term, handlers } = makeFakeTerm();
+    const writeClipboard = vi.fn();
+    const onConfirm = vi.fn();
+    const state = createShellIntegrationState();
+    registerPromptTracker(term, state);
+    registerOsc52ClipboardHandler(term, writeClipboard, {
+      state,
+      isAlternateScreen: () => true,
+      onConfirm,
+    });
+
+    handlers.get(133)?.("C;nvim");
+    handlers.get(52)?.("c;SGVsbG8=");
+    await flushClipboardQueue();
+
+    expect(onConfirm).not.toHaveBeenCalled();
+    expect(writeClipboard).toHaveBeenCalledWith("Hello");
+  });
+
+  it("writes without asking when no shell integration state is supplied", async () => {
+    const { term, handlers } = makeFakeTerm();
+    const writeClipboard = vi.fn();
+    registerOsc52ClipboardHandler(term, writeClipboard);
+
+    handlers.get(52)?.("c;SGVsbG8=");
+    await flushClipboardQueue();
+
+    expect(writeClipboard).toHaveBeenCalledWith("Hello");
   });
 });

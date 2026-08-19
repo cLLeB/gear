@@ -118,18 +118,57 @@ export function registerPromptTracker(
 
 export type ClipboardWriter = (text: string) => void | Promise<void>;
 
+export type Osc52Decision = "allow" | "confirm";
+
+/**
+ * OSC 52 lets whatever is writing to the terminal replace the system
+ * clipboard. That is exactly what vim/tmux/helix need for yank-over-SSH, and
+ * exactly what makes `cat` of an attacker-controlled file dangerous: the next
+ * paste into a shell, a chat window or a password field is theirs, silently.
+ *
+ * The split follows the OSC 7 gate above. Full-screen apps own the alternate
+ * screen, so a yank from one is the intended use and goes through. On the
+ * normal screen the local shell emits OSC 52 between commands (a `pbcopy`
+ * shim, a completion widget); anything arriving while a command is running is
+ * ordinary program output and is surfaced for confirmation instead of applied.
+ */
+export function osc52Decision(ctx: {
+  isAlternateScreen: boolean;
+  inCommand: boolean;
+}): Osc52Decision {
+  if (ctx.isAlternateScreen) return "allow";
+  return ctx.inCommand ? "confirm" : "allow";
+}
+
+export type Osc52Options = {
+  /** Shared OSC 133 state; without it every write is treated as trusted. */
+  state?: ShellIntegrationState;
+  isAlternateScreen?: () => boolean;
+  /** Called instead of writing when the payload needs the user to opt in. */
+  onConfirm?: (text: string, apply: () => void) => void;
+};
+
 export function registerOsc52ClipboardHandler(
   term: Terminal,
   writeClipboard: ClipboardWriter = writeSystemClipboard,
+  options: Osc52Options = {},
 ): () => void {
-  const d = term.parser.registerOscHandler(52, (data) => {
-    const text = parseOsc52Clipboard(data);
-    if (text === null) return true;
+  const write = (text: string) => {
     queueMicrotask(() => {
       try {
         void Promise.resolve(writeClipboard(text)).catch(() => {});
       } catch {}
     });
+  };
+  const d = term.parser.registerOscHandler(52, (data) => {
+    const text = parseOsc52Clipboard(data);
+    if (text === null) return true;
+    const decision = osc52Decision({
+      isAlternateScreen: options.isAlternateScreen?.() ?? false,
+      inCommand: options.state?.inCommand ?? false,
+    });
+    if (decision === "allow" || !options.onConfirm) write(text);
+    else options.onConfirm(text, () => write(text));
     return true;
   });
   return () => d.dispose();
