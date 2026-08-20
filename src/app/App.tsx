@@ -147,6 +147,7 @@ import {
 	PasteConfirmDialog,
 	ptyIdForLeaf,
 	respawnSession,
+	setBroadcastPeerResolver,
 	type TerminalPaneHandle,
 	TerminalStack,
 	useAgentActivityStore,
@@ -606,6 +607,16 @@ export default function App() {
 			.then(setLaunchCwd)
 			.catch(() => setLaunchCwd(null))
 			.finally(() => setLaunchCwdResolved(true));
+	}, []);
+
+	useEffect(() => {
+		setBroadcastPeerResolver((leafId) => {
+			const tab = tabsRef.current.find(
+				(t) => t.kind === "terminal" && hasLeaf(t.paneTree, leafId),
+			);
+			if (!tab || tab.kind !== "terminal") return [];
+			return leafIds(tab.paneTree);
+		});
 	}, []);
 
 	// ── Session restore ────────────────────────────────────────────────────────

@@ -37,3 +37,12 @@ export {
 export { PasteConfirmDialog } from "./PasteConfirmDialog";
 export { TerminalPane, type TerminalPaneHandle } from "./TerminalPane";
 export { TerminalStack } from "./TerminalStack";
+export {
+	isBroadcastEnabled,
+	setBroadcastEnabled,
+	toggleBroadcast,
+	subscribeBroadcast,
+	useBroadcastEnabled,
+	setBroadcastPeerResolver,
+	broadcastPeers,
+} from "./lib/broadcast";
