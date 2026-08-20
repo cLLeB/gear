@@ -28,6 +28,7 @@ import { terminalClipboardIntent, terminalReadlineSequence } from "./keymap";
 import { analyzePaste, pasteNeedsConfirmation } from "./pasteGuard";
 import { usePastePromptStore } from "./pastePrompt";
 import { createTerminalLinkHandler } from "./terminalLinks";
+import { broadcastPeers } from "./broadcast";
 
 export const POOL_MAX_SIZE = 5;
 const FIT_DEBOUNCE_MS = 8;
@@ -239,6 +240,13 @@ async function pasteIntoSlot(slot: Slot, raw: string): Promise<void> {
   slot.term.paste(analysis.text);
 }
 
+function broadcastToPty(sourceLeafId: number, data: string): void {
+  adapter?.resolveLeaf(sourceLeafId)?.writeToPty(data);
+  for (const peerId of broadcastPeers(sourceLeafId)) {
+    adapter?.resolveLeaf(peerId)?.writeToPty(data);
+  }
+}
+
 function createSlot(): Slot {
   // The link handler is needed to construct the Terminal, so focus is bound
   // through a mutable thunk that closes over `term` once it exists.
@@ -335,7 +343,7 @@ function createSlot(): Slot {
             keyPressHandled: core?._keyPressHandled ?? false,
           },
         );
-        if (out) adapter?.resolveLeaf(slot.currentLeafId)?.writeToPty(out);
+        if (out) broadcastToPty(slot.currentLeafId, out);
       });
       // Native composition means xterm owns this slot's IME delivery.
       ta.addEventListener("compositionstart", () =>
@@ -366,12 +374,12 @@ function createSlot(): Slot {
     });
     if (readlineSequence) {
       event.preventDefault();
-      if (event.type === "keydown") bridge.writeToPty(readlineSequence);
+      if (event.type === "keydown") broadcastToPty(leafId, readlineSequence);
       return false;
     }
     if (isShiftEnter(event)) {
       event.preventDefault();
-      if (event.type === "keydown") bridge.writeToPty("\x1b\r");
+      if (event.type === "keydown") broadcastToPty(leafId, "\x1b\r");
       return false;
     }
     const clip = terminalClipboardIntent(event, {
@@ -403,7 +411,7 @@ function createSlot(): Slot {
   term.onData((data) => {
     const leafId = slot.currentLeafId;
     if (leafId === null) return;
-    adapter?.resolveLeaf(leafId)?.writeToPty(data);
+    broadcastToPty(leafId, data);
   });
 
   slots.push(slot);

@@ -21,6 +21,7 @@ import {
   TerminalIcon,
 } from "@hugeicons/core-free-icons";
 import { CODE_ACTIONS, runCodeActionOnActiveEditor } from "@/modules/editor/lib/codeActions";
+import { toggleBroadcast } from "@/modules/terminal";
 
 type CommandIcon = typeof TerminalIcon;
 
@@ -249,6 +250,14 @@ export function createCommandPaletteActions(
       shortcutId: "pane.focusPrev",
       disabledReason: focusPaneDisabledReason,
       run: ctx.focusPreviousPane,
+    },
+    {
+      id: "terminal.toggleBroadcast",
+      label: "Terminal: Toggle Broadcast Input",
+      group: "Panes",
+      keywords: ["broadcast", "sync", "terminals", "type all"],
+      icon: KeyboardIcon,
+      run: toggleBroadcast,
     },
     {
       id: "sidebar.toggle",
