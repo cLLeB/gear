@@ -1094,7 +1094,9 @@ pub fn blame(
         DEFAULT_TIMEOUT_SECS,
     )?;
     ensure_success(&output, "git blame failed")?;
-    Ok(parse_blame_porcelain(&String::from_utf8_lossy(&output.stdout)))
+    Ok(parse_blame_porcelain(&String::from_utf8_lossy(
+        &output.stdout,
+    )))
 }
 
 /// Parses `git blame --porcelain`. Unknown headers are skipped rather than
@@ -1162,7 +1164,9 @@ pub fn parse_blame_porcelain(stdout: &str) -> GitBlameResult {
             current = Some(idx);
         }
 
-        let end = final_line.saturating_add(group.max(1)).min(MAX_BLAME_LINES + 1);
+        let end = final_line
+            .saturating_add(group.max(1))
+            .min(MAX_BLAME_LINES + 1);
         if lines.len() < end.saturating_sub(1) {
             lines.resize(end - 1, u32::MAX);
         }

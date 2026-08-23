@@ -159,7 +159,12 @@ pub async fn git_commit(
     })
     .await;
     if res.is_ok() {
-        crate::modules::chronicle::record_git(&app2, &root, if amend { "amend" } else { "commit" }, None);
+        crate::modules::chronicle::record_git(
+            &app2,
+            &root,
+            if amend { "amend" } else { "commit" },
+            None,
+        );
     }
     res
 }
