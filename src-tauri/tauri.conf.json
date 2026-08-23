@@ -4,9 +4,9 @@
   "version": "0.1.3",
   "identifier": "app.clleb.gear",
   "build": {
-    "beforeDevCommand": "pnpm build:cli:dev && pnpm dev",
+    "beforeDevCommand": "npm run build:cli:dev && npm run dev",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "pnpm build:cli && pnpm build",
+    "beforeBuildCommand": "npm run build:cli && npm run build",
     "frontendDist": "../dist",
     "removeUnusedCommands": true
   },

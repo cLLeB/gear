@@ -1153,35 +1153,66 @@ export default function App() {
 	);
 
 	const handleOpenFile = useCallback(
-		(path: string, pin?: boolean) => {
+		(path: string, pin?: boolean): number | null => {
 			// Markdown opens rendered by default; the preview has an "Edit raw"
 			// button that reopens it in the code editor.
 			const ext = path.split(".").pop()?.toLowerCase();
 			if (ext === "md" || ext === "markdown") {
-				newMarkdownTab(path);
-				return;
+				return newMarkdownTab(path) ?? null;
 			}
 			// Explorer defaults to preview (pin=false); explicit actions like
 			// context-menu "Open" pass pin=true for a persistent tab.
 			// We default to pin=true so files open in new persistent tabs instead of replacing.
-			openFileTab(path, pin ?? true);
+			return openFileTab(path, pin ?? true) ?? null;
 		},
 		[openFileTab, newMarkdownTab],
 	);
 
-	// Files handed to Gear by the OS "Open With" action, drained once on mount.
-	// The backend already authorized each file's parent as the workspace, and
-	// openFileTab dedupes by path, so a repeat drain can't double-open a tab.
+	// Register OS-level "open with" event listeners immediately so no event is
+	// missed between app start and boot completing.
 	useEffect(() => {
+		let cancelled = false;
+		let unlistenFile: (() => void) | undefined;
+		let unlistenDir: (() => void) | undefined;
+
+		import("@tauri-apps/api/event").then(({ listen }) => {
+			if (cancelled) return;
+			listen<string>("gear:launch-file", (event) => {
+				const id = handleOpenFile(event.payload, true);
+				if (id != null) setActiveId(id);
+			}).then((un) => {
+				unlistenFile = un;
+			});
+			listen<string>("gear:launch-dir", (event) => {
+				cdInNewTab(event.payload);
+			}).then((un) => {
+				unlistenDir = un;
+			});
+		});
+
+		return () => {
+			cancelled = true;
+			unlistenFile?.();
+			unlistenDir?.();
+		};
+	}, [handleOpenFile, cdInNewTab, setActiveId]);
+
+	// Drain files passed via OS "Open With" on first launch. Must wait until
+	// booted so useSpacesBoot's replaceTabs() doesn't wipe the opened tabs.
+	useEffect(() => {
+		if (!booted) return;
 		let cancelled = false;
 		void consumeLaunchFiles().then((paths) => {
 			if (cancelled) return;
-			for (const path of paths) handleOpenFile(path, true);
+			for (const path of paths) {
+				const id = handleOpenFile(path, true);
+				if (id != null) setActiveId(id);
+			}
 		});
 		return () => {
 			cancelled = true;
 		};
-	}, [handleOpenFile]);
+	}, [booted, handleOpenFile, setActiveId]);
 
 	const handlePathRenamed = useCallback(
 		(from: string, to: string) => {
