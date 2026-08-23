@@ -5,7 +5,7 @@ use modules::{
     agent, chronicle, control, fs, git, history, lsp, net, pty, secrets, shell, workspace,
 };
 use std::sync::Mutex;
-use tauri::{Manager, State};
+use tauri::{Emitter, Manager, State};
 use tauri_plugin_window_state::StateFlags;
 
 /// Drained on first read so HMR / re-mounts can't replay the launch dir.
@@ -60,8 +60,8 @@ fn resolve_launch_target(entries: Vec<LaunchEntry>) -> LaunchTarget {
     LaunchTarget { dir, files }
 }
 
-fn parse_launch_target() -> LaunchTarget {
-    let entries = std::env::args()
+fn parse_launch_target(args: impl Iterator<Item = String>) -> LaunchTarget {
+    let entries = args
         .skip(1)
         .filter(|arg| !arg.starts_with('-'))
         .filter_map(|arg| std::fs::canonicalize(arg).ok())
@@ -114,7 +114,7 @@ pub fn run() {
     // Parsed once: canonicalizing argv touches the filesystem, and the dir must
     // be identical across init_launch_cwd, the registry authorization, and the
     // LaunchDir state or the frontend and backend disagree about the workspace.
-    let launch = parse_launch_target();
+    let launch = parse_launch_target(std::env::args());
     let launch_dir = launch.dir.clone();
     workspace::init_launch_cwd(launch_dir.as_deref());
 
@@ -124,7 +124,29 @@ pub fn run() {
     // For Microsoft Store builds this binary is compiled with --no-default-features
     // which drops the `updater` feature. The Store manages updates itself.
     #[allow(unused_mut)]
-    let mut builder = tauri::Builder::default().plugin(tauri_plugin_process::init());
+    let mut builder = tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
+            let target = parse_launch_target(argv.into_iter());
+            let has_files = !target.files.is_empty();
+            for file in target.files {
+                let _ = app.emit("gear:launch-file", file);
+            }
+            // Only navigate to a directory when the user explicitly opened one
+            // (no files). When a file is opened, target.dir is just the file's
+            // parent set as workspace context — not something the user asked for.
+            if !has_files {
+                if let Some(dir) = target.dir {
+                    let _ = app.emit("gear:launch-dir", dir);
+                }
+            }
+            // Bring the existing window to the front so the user sees it.
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.show();
+                let _ = window.unminimize();
+                let _ = window.set_focus();
+            }
+        }))
+        .plugin(tauri_plugin_process::init());
 
     #[cfg(not(feature = "store-build"))]
     {

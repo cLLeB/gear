@@ -66,6 +66,7 @@ zstd = "0.13"
 blake3 = "1"
 which = "8"
 nucleo-matcher = "0.3"
+tauri-plugin-single-instance = "2"
 
 [dev-dependencies]
 proptest = "1"

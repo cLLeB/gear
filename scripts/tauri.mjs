@@ -21,7 +21,7 @@ if (existsSync(envPath)) {
 const args = process.argv.slice(2);
 const tauriArgs = args.length > 0 ? args : ["build"];
 
-const result = spawnSync("pnpm", ["exec", "tauri", ...tauriArgs], {
+const result = spawnSync("npx", ["tauri", ...tauriArgs], {
   stdio: "inherit",
   shell: true,
   env: process.env,
