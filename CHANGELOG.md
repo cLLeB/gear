@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.1.4](https://github.com/cLLeB/gear/compare/v0.1.3...v0.1.4) (2026-08-23)
+
+
+### Features
+
+* complete broadcast input to all panes in a tab ([a4abd4d](https://github.com/cLLeB/gear/commit/a4abd4dc46037b7863f704f67db41977ed631f3d))
+* **editor:** line operations for sorting, dedupe and cleanup ([573ab2f](https://github.com/cLLeB/gear/commit/573ab2ffda23101f67dd714af81031873ad27238))
+* **git:** amend the last commit from the source control panel ([f0cd6e8](https://github.com/cLLeB/gear/commit/f0cd6e856965cb15ed95330128093c7d47b66165))
+* **git:** blame gutter in the editor ([dc57f6a](https://github.com/cLLeB/gear/commit/dc57f6a52a1c6b3412adfd0cfbcd5eb553683df4))
+* **search:** match case, whole word, regex and a result counter ([4f1cf79](https://github.com/cLLeB/gear/commit/4f1cf794fec8a723fb46f377fbcd49ac58406219))
+* **terminal:** gate OSC 52 clipboard writes from command output ([1e1cef9](https://github.com/cLLeB/gear/commit/1e1cef912623200c9274005b51d6a135b5f225be))
+* **terminal:** sanitize and confirm risky pastes ([4aa2b87](https://github.com/cLLeB/gear/commit/4aa2b8702cf1ed89c710d9b90c813d7fe943285b))
+
+
+### Bug Fixes
+
+* open from explorer ([73d019f](https://github.com/cLLeB/gear/commit/73d019f3a5f64ba3e0e5956b751f96f43d7a58c0))
+* **release:** bump Cargo.lock inside the release PR, not after the tag ([a447af3](https://github.com/cLLeB/gear/commit/a447af3a397140c43f3e951f6b365f67d68835e1))
+* **release:** keep Cargo.lock in step with the release version ([4fcbf48](https://github.com/cLLeB/gear/commit/4fcbf482f2bdf71b0ea5430f1bb12d885e2b1524))
+* **winget:** sync the winget-pkgs fork before every submission ([0c67987](https://github.com/cLLeB/gear/commit/0c679872d6704978325e2f02080fb16704e595c8))
+
 ## [0.1.3](https://github.com/cLLeB/gear/compare/v0.1.2...v0.1.3) (2026-08-17)
 
 
