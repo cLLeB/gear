@@ -42,7 +42,8 @@ permissions:
 jobs:
   # ── Shared: resolve the release tag and channel selection once ───────────
   resolve:
-    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    # Test builds (v1.2.3-rc.N / -test.N) are draft prereleases: never push them to package managers.
+    if: (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success') && !contains(github.event.workflow_run.head_branch || inputs.tag || '', '-rc') && !contains(github.event.workflow_run.head_branch || inputs.tag || '', '-test')
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
