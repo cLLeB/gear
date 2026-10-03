@@ -189,6 +189,28 @@ function attachCommandMarks(
   };
 }
 
+const cwdListeners = new Set<(leafId: number, cwd: string, isPrivate: boolean) => void>();
+
+/** Subscribe to shell-reported directory changes (OSC 7) in any pane. */
+export function onTerminalCwd(
+  cb: (leafId: number, cwd: string, isPrivate: boolean) => void,
+): () => void {
+  cwdListeners.add(cb);
+  return () => {
+    cwdListeners.delete(cb);
+  };
+}
+
+function emitCwd(leafId: number, cwd: string, isPrivate: boolean): void {
+  for (const l of cwdListeners) {
+    try {
+      l(leafId, cwd, isPrivate);
+    } catch (e) {
+      console.error("[gear] cwd listener failed:", e);
+    }
+  }
+}
+
 /** The most recent finished command in `leafId`, if shell integration saw one. */
 export function lastFinishedCommand(leafId: number): FinishedCommand | null {
   return sessions.get(leafId)?.lastCommand ?? null;
@@ -790,6 +812,7 @@ function bindLeafToSlot(leafId: number, s: Session): void {
             if (s.lastCwd === next) return;
             s.lastCwd = next;
             s.callbacks.onCwd?.(next);
+            emitCwd(leafId, next, s.isPrivate);
           },
           onMode: (mode) => applyBlockMode(leafId, mode),
           onViewport: () => {
@@ -846,6 +869,7 @@ function bindLeafToSlot(leafId: number, s: Session): void {
           if (s.lastCwd === next) return;
           s.lastCwd = next;
           s.callbacks.onCwd?.(next);
+          emitCwd(leafId, next, s.isPrivate);
         },
         shellState,
       );
