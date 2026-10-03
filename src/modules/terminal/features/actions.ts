@@ -8,6 +8,7 @@ import { explainLastCommandWithAi } from "../ai/explainFailure";
 import { suggestCommandWithAi } from "../ai/suggestCommand";
 import { armMonitor } from "./monitor";
 import { pasteSpecial } from "./pasteSpecial";
+import { searchHistory } from "./historySearch";
 import { forgetDirectoryHistory, jumpToDirectory } from "./dirJump";
 import {
   deleteSavedWorkflow,
@@ -17,6 +18,12 @@ import {
 import { pickProblem, stepProblem } from "./terminalProblems";
 
 export const TERMINAL_FEATURE_ACTIONS: TerminalActionDescriptor[] = [
+  {
+    id: "terminal.searchHistory",
+    label: "Terminal: Search command history…",
+    keywords: ["history", "atuin", "ctrl-r", "reverse search", "previous", "commands", "recall"],
+    run: searchHistory,
+  },
   {
     id: "terminal.pasteSpecial",
     label: "Terminal: Paste special…",
