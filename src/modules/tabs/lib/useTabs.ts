@@ -23,6 +23,7 @@ import {
 import { planRunTarget } from "@/modules/run/lib/plan";
 import type { RunSpec } from "@/modules/run/lib/types";
 import { planCommitHistoryOpen } from "./planCommitHistoryOpen";
+import { recordClosedTabs, reidTree, takeClosedTab } from "./closedTabs";
 import {
 	type GitDiffOpenInput,
 	planGitDiffOpen,
@@ -763,6 +764,9 @@ export function useTabs() {
 	);
 
 	const closeTab = useCallback((id: number) => {
+		if (tabsRef.current.length > 1) {
+			recordClosedTabs(tabsRef.current.filter((t) => t.id === id));
+		}
 		let toDispose: number[] = [];
 		setTabs((curr) => {
 			if (curr.length <= 1) return curr;
@@ -786,6 +790,7 @@ export function useTabs() {
 	const closeTabs = useCallback((ids: number[]): void => {
 		if (ids.length === 0) return;
 		const idSet = new Set(ids);
+		recordClosedTabs(tabsRef.current.filter((t) => idSet.has(t.id)));
 		// Reserve ids up front so the setTabs updater stays side-effect free
 		// (unused if no fresh tab is needed — a skipped id is harmless).
 		const freshTabId = nextIdRef.current++;
@@ -830,6 +835,9 @@ export function useTabs() {
 	}, []);
 
 	const closeOtherTabs = useCallback((keepId: number): void => {
+		if (tabsRef.current.some((t) => t.id === keepId)) {
+			recordClosedTabs(tabsRef.current.filter((t) => t.id !== keepId));
+		}
 		const toDispose: number[] = [];
 		setTabs((curr) => {
 			const keep = curr.find((t) => t.id === keepId);
@@ -844,6 +852,48 @@ export function useTabs() {
 		setActiveId(keepId);
 		for (const lid of toDispose) disposeSession(lid);
 	}, []);
+
+	/** Reopen a recently closed tab (most recent by default). */
+	const reopenClosedTab = useCallback(
+		(index = 0): boolean => {
+			const entry = takeClosedTab(index);
+			if (!entry) return false;
+			if (entry.kind === "editor") {
+				openFileTab(entry.path, true);
+				return true;
+			}
+			if (entry.kind === "markdown") {
+				newMarkdownTab(entry.path);
+				return true;
+			}
+			if (entry.kind === "preview") {
+				newPreviewTab(entry.url);
+				return true;
+			}
+			const tabId = nextIdRef.current++;
+			const { tree, leaves } = reidTree(entry.tree, () => nextIdRef.current++);
+			const activeLeafId = leaves[Math.min(entry.activeIndex, leaves.length - 1)];
+			const firstCwd = findLeafCwd(tree, leaves[0]);
+			setTabs((curr) => [
+				...curr,
+				{
+					id: tabId,
+					kind: "terminal",
+					spaceId: activeSpaceIdRef.current,
+					title: entry.title,
+					customTitle: entry.customTitle,
+					cwd: firstCwd,
+					shellPath: entry.shellPath,
+					blocks: entry.blocks,
+					paneTree: tree,
+					activeLeafId,
+				},
+			]);
+			setActiveId(tabId);
+			return true;
+		},
+		[openFileTab, newMarkdownTab, newPreviewTab],
+	);
 
 	const updateTab = useCallback((id: number, patch: TabPatch) => {
 		setTabs((t) =>
@@ -1189,6 +1239,7 @@ export function useTabs() {
 		closeTab,
 		closeOtherTabs,
 		closeTabs,
+		reopenClosedTab,
 		updateTab,
 		selectByIndex,
 		setLeafCwd,
