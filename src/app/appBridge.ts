@@ -5,6 +5,7 @@
 // implementation on mount; until then every call is a safe no-op.
 
 import type { Tab } from "@/modules/tabs";
+import type { PaneNode } from "@/modules/terminal/lib/panes";
 
 export interface OpenTerminalOptions {
   cwd?: string | null;
@@ -27,6 +28,8 @@ export interface AppBridge {
   activateTab: (id: number) => void;
   /** Renames the active tab (empty string clears the custom title). */
   renameTab: (id: number, title: string) => void;
+  /** Replace a terminal tab's pane layout (same leaves, new arrangement). */
+  setPaneTree: (tabId: number, tree: PaneNode) => void;
 }
 
 const noop: AppBridge = {
@@ -40,6 +43,7 @@ const noop: AppBridge = {
   activeTabId: () => -1,
   activateTab: () => {},
   renameTab: () => {},
+  setPaneTree: () => {},
 };
 
 let bridge: AppBridge = noop;

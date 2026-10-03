@@ -21,7 +21,7 @@ import {
   TerminalIcon,
 } from "@hugeicons/core-free-icons";
 import { CODE_ACTIONS, runCodeActionOnActiveEditor } from "@/modules/editor/lib/codeActions";
-import { TERMINAL_ACTIONS, toggleBroadcast } from "@/modules/terminal";
+import { PANE_ACTIONS, TERMINAL_ACTIONS, toggleBroadcast } from "@/modules/terminal";
 import { TERMINAL_FEATURE_ACTIONS } from "@/modules/terminal/features";
 import { RUN_TASK_ACTIONS } from "@/modules/run/taskActions";
 import { WORKSPACE_ACTIONS } from "@/modules/workspace/actions";
@@ -270,6 +270,16 @@ export function createCommandPaletteActions(
       disabledReason: focusPaneDisabledReason,
       run: ctx.focusPreviousPane,
     },
+    ...PANE_ACTIONS.map((action): CommandPaletteAction => ({
+      id: action.id,
+      label: action.label,
+      group: "Panes",
+      keywords: ["pane", "split", ...action.keywords],
+      icon: LayoutTwoColumnIcon,
+      shortcutId: action.id === "pane.toggleZoom" ? "pane.toggleZoom" : undefined,
+      run: () => void action.run(),
+      deferRun: true,
+    })),
     {
       id: "terminal.toggleBroadcast",
       label: "Terminal: Toggle Broadcast Input",

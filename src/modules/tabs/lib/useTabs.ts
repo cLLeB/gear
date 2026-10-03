@@ -200,6 +200,8 @@ export type TabPatch = Partial<{
 	cold: boolean;
 	/** Empty string resets a terminal tab to its cwd-derived name. */
 	customTitle: string;
+	/** Terminal tabs: replace the pane layout (must keep the same leaves). */
+	paneTree: PaneNode;
 }>;
 
 function basename(path: string): string {
@@ -856,6 +858,7 @@ export function useTabs() {
 							customTitle:
 								patch.customTitle === "" ? undefined : patch.customTitle,
 						}),
+						...(patch.paneTree !== undefined && { paneTree: patch.paneTree }),
 					};
 				}
 				if (x.kind === "preview") {
