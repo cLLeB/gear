@@ -46,12 +46,18 @@ export const FEATURE_DEFAULTS = {
   "terminal.typoCorrection": true,
   "terminal.commandGuard": true,
   "terminal.commandGuardCaution": false,
+  "editor.colorSwatches": true,
 } satisfies Record<string, boolean | number | string>;
 
 export type FeatureKey = keyof typeof FEATURE_DEFAULTS;
 export type FeatureValues = { [K in FeatureKey]: (typeof FEATURE_DEFAULTS)[K] };
 
 export const FEATURE_META: Record<FeatureKey, Meta> = {
+  "editor.colorSwatches": {
+    label: "Colour swatches",
+    description: "Show a swatch before CSS colour literals (#hex, rgb(), hsl()); click it to convert between notations.",
+    section: "Editor",
+  },
   "terminal.commandGuard": {
     label: "Confirm destructive commands",
     description:
