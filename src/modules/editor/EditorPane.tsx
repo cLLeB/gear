@@ -371,7 +371,7 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
         }),
         // Semantic selection expand/shrink (Shift+Alt+Arrow), from the toolkit.
         keymap.of(codeActionsKeymap(() => analyzableLangRef.current)),
-        keymap.of(textToolsKeymap()),
+        keymap.of(textToolsKeymap(() => analyzableLangRef.current)),
         colorSwatches(),
         todoHighlight(),
         bookmarks(() => pathRef.current),

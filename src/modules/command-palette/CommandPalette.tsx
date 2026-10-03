@@ -38,6 +38,8 @@ type Props = {
   actions: CommandPaletteAction[];
   workspaceRoot: string | null;
   onOpenFile: (path: string) => void;
+  /** Typing "@" or ":" as the first character hands off to these modes. */
+  onPrefixMode?: (mode: "symbol" | "line") => void;
 };
 
 const SHORTCUTS_BY_ID = new Map(SHORTCUTS.map((s) => [s.id, s]));
@@ -48,6 +50,7 @@ export function CommandPalette({
   actions,
   workspaceRoot,
   onOpenFile,
+  onPrefixMode,
 }: Props) {
   const [query, setQuery] = useState("");
   const [selectedValue, setSelectedValue] = useState("");
@@ -219,8 +222,17 @@ export function CommandPalette({
         <CommandInput
           id="gear-command-palette-input"
           value={query}
-          onValueChange={setQuery}
-          placeholder="Run a command or open a file..."
+          onValueChange={(v) => {
+            // VS Code-style prefixes: "@" symbols in file, ":" go to line.
+            const mode = v === "@" ? "symbol" : v === ":" ? "line" : null;
+            if (mode && onPrefixMode) {
+              handleOpenChange(false);
+              window.setTimeout(() => onPrefixMode(mode), 0);
+              return;
+            }
+            setQuery(v);
+          }}
+          placeholder="Run a command or open a file…  (@ symbol, : line)"
           autoFocus
         />
         <ScrollArea className="max-h-[420px]">

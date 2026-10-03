@@ -3,7 +3,7 @@
 // only maps it onto selections.
 
 import { EditorSelection, type EditorState, type SelectionRange } from "@codemirror/state";
-import type { EditorView, KeyBinding } from "@codemirror/view";
+import { EditorView, type KeyBinding } from "@codemirror/view";
 import type { CodeActionDescriptor } from "../codeActions";
 import { incrementAt } from "./increment";
 import { cycleToken, tokenAt } from "./cycleWord";
@@ -27,6 +27,8 @@ import {
   toggleBookmark,
 } from "../bookmarks";
 import { app } from "@/app/appBridge";
+import { documentOutline, markdownHeadings } from "./outline";
+import { getActiveEditor } from "../activeEditor";
 import {
   alignDelimited,
   csvToMarkdown,
@@ -462,7 +464,78 @@ export function clearEveryBookmark(): void {
   toast.success("All bookmarks cleared", { description: "Open editors keep theirs until closed." });
 }
 
+const KIND_ICON: Record<string, string> = {
+  function: "ƒ",
+  method: "ƒ",
+  class: "◇",
+  interface: "◈",
+  type: "τ",
+  enum: "∈",
+  struct: "▣",
+  trait: "◈",
+  module: "▤",
+  variable: "𝑥",
+};
+
+export async function goToSymbolCmd(view: EditorView, languageId: string): Promise<boolean> {
+  const source = view.state.doc.toString();
+  let items = documentOutline(source, languageId);
+  if (items.length === 0) items = markdownHeadings(source);
+  if (items.length === 0) {
+    toast.info("No symbols found in this file");
+    return false;
+  }
+  const pick = await quickPick(
+    items.map((it) => ({
+      label: `${"  ".repeat(it.depth)}${KIND_ICON[it.kind] ?? "#"} ${it.name}`,
+      description: `${it.kind} · line ${view.state.doc.lineAt(it.from).number}`,
+      detail: it.container || undefined,
+      keywords: [it.name, it.container, it.kind],
+      value: it,
+    })),
+    { title: "Go to symbol in file", placeholder: "Type a symbol name…" },
+  );
+  if (!pick) return false;
+  // Select the name itself when it can be found on the declaration line.
+  const line = view.state.doc.lineAt(pick.from);
+  const at = line.text.indexOf(pick.name, pick.from - line.from);
+  const anchor = at === -1 ? pick.from : line.from + at;
+  view.dispatch({
+    selection: at === -1 ? { anchor } : { anchor, head: anchor + pick.name.length },
+    effects: EditorView.scrollIntoView(anchor, { y: "center" }),
+  });
+  view.focus();
+  return true;
+}
+
+/** Prompt for "line" or "line:column" and jump there in the active editor. */
+export async function goToLinePrompt(): Promise<void> {
+  const active = getActiveEditor();
+  if (!active) {
+    toast.error("Open a file in the editor first");
+    return;
+  }
+  const { view } = active;
+  const total = view.state.doc.lines;
+  const current = view.state.doc.lineAt(view.state.selection.main.head).number;
+  const value = await inputBox({
+    title: "Go to line",
+    placeholder: `1–${total}, optionally :column (current ${current})`,
+    validate: (v) => (/^\s*[-+]?\d+(\s*[:,]\s*\d+)?\s*$/.test(v) || v.trim() === "" ? null : "Use line or line:column"),
+  });
+  if (!value?.trim()) return;
+  const [rawLine, rawCol] = value.split(/[:,]/).map((x) => x.trim());
+  // "+5" / "-5" are relative to the current line, like Vim and Sublime.
+  let line = /^[+-]/.test(rawLine) ? current + Number(rawLine) : Number(rawLine);
+  line = Math.min(Math.max(1, line), total);
+  const l = view.state.doc.line(line);
+  const pos = Math.min(l.to, l.from + Math.max(0, Number(rawCol ?? 1) - 1));
+  view.dispatch({ selection: { anchor: pos }, effects: EditorView.scrollIntoView(pos, { y: "center" }) });
+  view.focus();
+}
+
 export const TEXT_ACTIONS: CodeActionDescriptor[] = [
+  { id: "text.goToSymbol", label: "Go to symbol in file…", keywords: ["outline", "symbol", "function", "class", "heading", "navigate", "@"], run: (v, lang) => void goToSymbolCmd(v, lang) },
   { id: "text.toggleBookmark", label: "Toggle bookmark", keywords: ["bookmark", "mark", "line", "pin"], run: (v) => toggleBookmark(v) },
   { id: "text.nextBookmark", label: "Go to next bookmark", keywords: ["bookmark", "jump", "next"], run: (v) => gotoBookmark(v, 1) },
   { id: "text.prevBookmark", label: "Go to previous bookmark", keywords: ["bookmark", "jump", "previous"], run: (v) => gotoBookmark(v, -1) },
@@ -505,8 +578,9 @@ export const TEXT_ACTIONS: CodeActionDescriptor[] = [
   { id: "text.decrement10", label: "Decrement number by 10", keywords: ["decrease", "minus", "ten"], run: (v) => incrementCmd(-10)(v) },
 ];
 
-export function textToolsKeymap(): KeyBinding[] {
+export function textToolsKeymap(getLanguageId: () => string = () => ""): KeyBinding[] {
   return [
+    { key: "Mod-Shift-o", preventDefault: true, run: (v) => (void goToSymbolCmd(v, getLanguageId()), true) },
     { key: "Mod-Alt-=", preventDefault: true, run: incrementCmd(1) },
     { key: "Mod-Alt--", preventDefault: true, run: incrementCmd(-1) },
     { key: "Mod-Alt-t", preventDefault: true, run: cycleWordCmd(1) },
