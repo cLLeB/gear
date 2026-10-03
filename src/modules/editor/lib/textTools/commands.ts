@@ -31,6 +31,7 @@ import { documentOutline, markdownHeadings } from "./outline";
 import { getActiveEditor } from "../activeEditor";
 import { computeRename, prepareRename } from "@/lib/lang/rename";
 import { parseSequenceSpec } from "./sequence";
+import { toggleWrap, upsertToc } from "./markdown";
 import {
   alignDelimited,
   csvToMarkdown,
@@ -609,7 +610,62 @@ export function cursorsAtLineEnds(view: EditorView): boolean {
   return true;
 }
 
+export function markdownTocCmd(view: EditorView): boolean {
+  const doc = view.state.doc.toString();
+  // Without markers, insert before the first second-level heading (after the intro).
+  const firstH2 = doc.search(/^##\s/m);
+  const { text, updated } = upsertToc(doc, firstH2 === -1 ? view.state.selection.main.head : firstH2);
+  if (text === doc) return false;
+  view.dispatch({ changes: { from: 0, to: doc.length, insert: text }, userEvent: "input" });
+  toast.success(updated ? "Table of contents updated" : "Table of contents inserted");
+  return true;
+}
+
+export function toggleMarkdownWrap(marker: string) {
+  return (view: EditorView): boolean => {
+    const doc = view.state.doc.toString();
+    const tr = view.state.changeByRange((range) => {
+      let { from, to } = range;
+      if (range.empty) {
+        const w = view.state.wordAt(range.head);
+        if (w) ({ from, to } = w);
+      }
+      const r = toggleWrap(doc, from, to, marker);
+      return {
+        changes: { from: r.from, to: r.to, insert: r.insert },
+        range: EditorSelection.range(r.selFrom, r.selTo),
+      };
+    });
+    view.dispatch(view.state.update(tr, { userEvent: "input" }));
+    return true;
+  };
+}
+
+export async function markdownLinkCmd(view: EditorView): Promise<boolean> {
+  const sel = view.state.selection.main;
+  const text = view.state.sliceDoc(sel.from, sel.to);
+  const clip = await navigator.clipboard.readText().catch(() => "");
+  const url = await inputBox({
+    title: "Link URL",
+    value: /^https?:\/\//.test(clip.trim()) ? clip.trim() : "https://",
+  });
+  if (!url) return false;
+  view.focus();
+  const label = text || "link";
+  view.dispatch({
+    changes: { from: sel.from, to: sel.to, insert: `[${label}](${url})` },
+    selection: EditorSelection.range(sel.from + 1, sel.from + 1 + label.length),
+  });
+  return true;
+}
+
 export const TEXT_ACTIONS: CodeActionDescriptor[] = [
+  { id: "md.toc", label: "Markdown: Insert / update table of contents", keywords: ["markdown", "toc", "contents", "headings", "readme"], run: (v) => markdownTocCmd(v) },
+  { id: "md.bold", label: "Markdown: Toggle bold", keywords: ["markdown", "bold", "strong", "**"], run: (v) => toggleMarkdownWrap("**")(v) },
+  { id: "md.italic", label: "Markdown: Toggle italic", keywords: ["markdown", "italic", "emphasis", "_"], run: (v) => toggleMarkdownWrap("_")(v) },
+  { id: "md.code", label: "Markdown: Toggle inline code", keywords: ["markdown", "code", "backtick"], run: (v) => toggleMarkdownWrap("`")(v) },
+  { id: "md.strike", label: "Markdown: Toggle strikethrough", keywords: ["markdown", "strike", "~~"], run: (v) => toggleMarkdownWrap("~~")(v) },
+  { id: "md.link", label: "Markdown: Insert link", keywords: ["markdown", "link", "url", "anchor"], run: (v) => void markdownLinkCmd(v) },
   { id: "text.insertSequence", label: "Insert sequence at cursors…", keywords: ["numbers", "multi-cursor", "increment", "enumerate", "counter", "letters"], run: (v) => void insertSequenceCmd(v) },
   { id: "text.cursorsAtLineEnds", label: "Add cursors to line ends", keywords: ["multi-cursor", "multiple", "selection", "lines", "column"], run: (v) => cursorsAtLineEnds(v) },
   { id: "text.renameSymbol", label: "Rename symbol (in file)", keywords: ["rename", "refactor", "identifier", "variable", "f2"], run: (v, lang) => void renameSymbolLocal(v, lang) },
