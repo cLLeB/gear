@@ -37,6 +37,7 @@ import { formatMarkup, minifyMarkup } from "./markup";
 import { convertQuotes, nextQuote, stringAt } from "./quotes";
 import { sortJsImports, sortPythonImports } from "./sortImports";
 import { rewrap } from "./rewrap";
+import { alignLines } from "./align";
 import { usePreferencesStore } from "@/modules/settings/preferences";
 import {
   alignDelimited,
@@ -735,7 +736,31 @@ export function rewrapCmd(view: EditorView): boolean {
   return true;
 }
 
+/** Align the selected lines (or the block around the cursor) on =, :, => … */
+export function alignCmd(view: EditorView): boolean {
+  const { state } = view;
+  const sel = state.selection.main;
+  let first = state.doc.lineAt(sel.from).number;
+  let last = state.doc.lineAt(sel.to > sel.from && state.doc.lineAt(sel.to).from === sel.to ? sel.to - 1 : sel.to).number;
+  if (sel.empty) {
+    const indent = (n: number) => /^\s*/.exec(state.doc.line(n).text)![0];
+    const base = indent(first);
+    const same = (n: number) => state.doc.line(n).text.trim() !== "" && indent(n) === base;
+    while (first > 1 && same(first - 1)) first--;
+    while (last < state.doc.lines && same(last + 1)) last++;
+  }
+  const lines: string[] = [];
+  for (let n = first; n <= last; n++) lines.push(state.doc.line(n).text);
+  const next = alignLines(lines).join("\n");
+  const from = state.doc.line(first).from;
+  const to = state.doc.line(last).to;
+  if (next === state.sliceDoc(from, to)) return false;
+  view.dispatch({ changes: { from, to, insert: next }, userEvent: "input" });
+  return true;
+}
+
 export const TEXT_ACTIONS: CodeActionDescriptor[] = [
+  { id: "text.align", label: "Align on = / : / => …", keywords: ["align", "columns", "assignments", "tabular", "better align", "beautify"], run: (v) => alignCmd(v) },
   { id: "text.rewrap", label: "Rewrap paragraph / comment", keywords: ["wrap", "reflow", "gq", "fill", "paragraph", "comment", "column"], run: (v) => rewrapCmd(v) },
   { id: "text.sortImports", label: "Organize imports (sort, group, merge)", keywords: ["imports", "sort", "isort", "organize", "group", "javascript", "typescript", "python"], run: (v, lang) => sortImportsCmd(v, lang) },
   { id: "text.cycleQuotes", label: "Switch quote style (' → \" → `)", keywords: ["quotes", "string", "single", "double", "backtick", "template"], run: (v) => cycleQuotesCmd(v) },
@@ -806,5 +831,6 @@ export function textToolsKeymap(getLanguageId: () => string = () => ""): KeyBind
     { key: "Mod-Alt-'", preventDefault: true, run: cycleQuotesCmd },
     { key: "Shift-Alt-o", preventDefault: true, run: (v) => sortImportsCmd(v, getLanguageId()) },
     { key: "Alt-q", preventDefault: true, run: rewrapCmd },
+    { key: "Mod-Alt-a", preventDefault: true, run: alignCmd },
   ];
 }
