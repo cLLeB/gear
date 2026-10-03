@@ -30,6 +30,15 @@ export interface AppBridge {
   renameTab: (id: number, title: string) => void;
   /** Reopen the n-th most recently closed tab; false when there is none. */
   reopenClosedTab: (index?: number) => boolean;
+  /** Open one file's diff at a commit (the git-history file view). */
+  openCommitFileDiff: (input: {
+    repoRoot: string;
+    sha: string;
+    shortSha: string;
+    subject: string;
+    path: string;
+    originalPath: string | null;
+  }) => void;
   /** Replace a terminal tab's pane layout (same leaves, new arrangement). */
   setPaneTree: (tabId: number, tree: PaneNode) => void;
 }
@@ -47,6 +56,7 @@ const noop: AppBridge = {
   renameTab: () => {},
   setPaneTree: () => {},
   reopenClosedTab: () => false,
+  openCommitFileDiff: () => {},
 };
 
 let bridge: AppBridge = noop;

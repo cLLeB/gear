@@ -1886,6 +1886,7 @@ export default function App() {
 		setActiveId,
 		updateTab,
 		reopenClosedTab,
+		openCommitFileDiffTab,
 		explorerRoot,
 		launchCwd,
 		home,
@@ -1899,6 +1900,7 @@ export default function App() {
 		setActiveId,
 		updateTab,
 		reopenClosedTab,
+		openCommitFileDiffTab,
 		explorerRoot,
 		launchCwd,
 		home,
@@ -1963,6 +1965,7 @@ export default function App() {
 			activateTab: (id) => d().setActiveId(id),
 			renameTab: (id, title) => d().updateTab(id, { customTitle: title.trim() }),
 			reopenClosedTab: (index) => d().reopenClosedTab(index),
+			openCommitFileDiff: (input) => d().openCommitFileDiffTab(input),
 			setPaneTree: (id, tree) => d().updateTab(id, { paneTree: tree }),
 		});
 	}, []);
