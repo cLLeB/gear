@@ -3,6 +3,9 @@ import { native } from "@/modules/ai/lib/native";
 import { toast } from "sonner";
 import { getActiveEditor } from "../activeEditor";
 import { buildPermalink } from "./permalink";
+import { pathReferences } from "./pathRefs";
+import { quickPick } from "@/modules/quick-pick";
+import { app } from "@/app/appBridge";
 
 async function permalinkForActiveEditor(): Promise<string | null> {
   const active = getActiveEditor();
@@ -58,4 +61,30 @@ export async function copyPermalink(): Promise<void> {
 export async function openPermalink(): Promise<void> {
   const url = await permalinkForActiveEditor();
   if (url) await openExternalUrl(url);
+}
+
+export async function copyReference(): Promise<void> {
+  const active = getActiveEditor();
+  if (!active?.path) {
+    toast.error("Open a file in the editor first");
+    return;
+  }
+  const { view, path } = active;
+  const sel = view.state.selection.main;
+  const line = view.state.doc.lineAt(sel.from);
+  const endPos = sel.to > sel.from && view.state.doc.lineAt(sel.to).from === sel.to ? sel.to - 1 : sel.to;
+  const refs = pathReferences({
+    path,
+    root: app().workspaceRoot(),
+    line: line.number,
+    column: sel.from - line.from + 1,
+    endLine: view.state.doc.lineAt(endPos).number,
+  });
+  const value = await quickPick(
+    refs.map((r) => ({ label: r.value, description: r.label, value: r.value })),
+    { title: "Copy reference", placeholder: "Pick a format" },
+  );
+  if (!value) return;
+  await navigator.clipboard.writeText(value).catch(() => {});
+  toast.success("Copied", { description: value });
 }
