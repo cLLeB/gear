@@ -219,6 +219,30 @@ export function isLeafCommandRunning(leafId: number): boolean {
   return !!s && s.commandRunning;
 }
 
+/** Scrollback of a bound pane as plain text, ANSI or standalone HTML. */
+export function serializeLeaf(
+  leafId: number,
+  format: "text" | "ansi" | "html",
+): string | null {
+  const slot = getSlotForLeaf(leafId);
+  if (!slot) return null;
+  if (format === "html") {
+    return slot.serializeAddon.serializeAsHTML({ includeGlobalBackground: true });
+  }
+  if (format === "ansi") return slot.serializeAddon.serialize();
+  const buf = slot.term.buffer.active;
+  const lines: string[] = [];
+  for (let y = 0; y < buf.length; y++) {
+    const line = buf.getLine(y);
+    if (!line) continue;
+    const text = line.translateToString(true);
+    if (line.isWrapped && lines.length > 0) lines[lines.length - 1] += text;
+    else lines.push(text);
+  }
+  while (lines.length > 0 && lines[lines.length - 1] === "") lines.pop();
+  return lines.join("\n");
+}
+
 /** Clear scrollback and screen of one pane, keeping the prompt line. */
 export function clearLeafScrollback(leafId: number): boolean {
   const slot = getSlotForLeaf(leafId);
