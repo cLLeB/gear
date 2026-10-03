@@ -29,6 +29,18 @@ import { analyzePaste, pasteNeedsConfirmation } from "./pasteGuard";
 import { usePastePromptStore } from "./pastePrompt";
 import { createTerminalLinkHandler } from "./terminalLinks";
 import { broadcastPeers } from "./broadcast";
+import { createPathLinkProvider } from "./pathLinks";
+import { app } from "@/app/appBridge";
+import { invoke } from "@tauri-apps/api/core";
+import { homeDir } from "@tauri-apps/api/path";
+import { currentWorkspaceEnv } from "@/modules/workspace";
+
+let cachedHome: string | null = null;
+void homeDir()
+  .then((h) => {
+    cachedHome = h;
+  })
+  .catch(() => {});
 
 export const POOL_MAX_SIZE = 5;
 const FIT_DEBOUNCE_MS = 8;
@@ -44,6 +56,8 @@ export type SlotAdapter = {
   isLeafVisible(leafId: number): boolean;
   isLeafPowerShell(leafId: number): boolean;
   storeSnapshot(leafId: number, out: SerializeOutput): void;
+  /** Working directory of a leaf, for resolving relative file links. */
+  leafCwd?(leafId: number): string | null;
 };
 
 export type LeafBridge = {
@@ -268,6 +282,25 @@ function createSlot(): Slot {
     }),
   );
 
+  // Declared before `slot` exists; the provider only runs on hover, by which
+  // point `slotRef` is set.
+  let slotRef: Slot | null = null;
+  term.registerLinkProvider(
+    createPathLinkProvider(term, {
+      cwd: () => {
+        const leaf = slotRef?.currentLeafId;
+        return leaf == null ? null : (adapter?.leafCwd?.(leaf) ?? null);
+      },
+      home: () => cachedHome,
+      exists: (path) =>
+        invoke<{ kind: string }>("fs_stat", {
+          path,
+          workspace: currentWorkspaceEnv(),
+        }).then((st) => st.kind !== "dir"),
+      open: (path, line) => app().openFile(path, line ?? undefined),
+    }),
+  );
+
   const host = document.createElement("div");
   host.style.cssText = "width:100%;height:100%;";
   host.setAttribute("data-gear-slot", String(slots.length));
@@ -300,6 +333,7 @@ function createSlot(): Slot {
     lastUsedAt: 0,
     imeState: createImeBridgeState(),
   };
+  slotRef = slot;
 
   // Capture on the host fires before xterm's own textarea listener, so the
   // native paste path (Cmd+V, context menu, middle click) is routed through

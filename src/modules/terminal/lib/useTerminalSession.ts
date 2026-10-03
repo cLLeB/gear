@@ -552,6 +552,10 @@ configureRendererPool({
       s.shellPath || usePreferencesStore.getState().terminalShell || undefined;
     return isPowerShellShellPath(shell, IS_WINDOWS);
   },
+  leafCwd(leafId) {
+    const s = sessions.get(leafId);
+    return s ? (s.lastCwd ?? s.initialCwd ?? null) : null;
+  },
   storeSnapshot(leafId, out) {
     const s = sessions.get(leafId);
     if (!s) return;
