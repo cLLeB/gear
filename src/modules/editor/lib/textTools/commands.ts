@@ -16,6 +16,7 @@ import { CODECS, type CodecId } from "./encoding";
 import { allHashes } from "./hash";
 import { convertTimestamp, nanoid, ulid, uuidV4, uuidV7 } from "./ids";
 import { findJwt, inspectJwt } from "./jwtInspect";
+import { calculate, formatResult, sumNumbers } from "./calc";
 import {
   alignDelimited,
   csvToMarkdown,
@@ -356,7 +357,24 @@ export async function inspectJwtCmd(view: EditorView | null): Promise<boolean> {
   return true;
 }
 
+export function sumSelectionsCmd(view: EditorView): boolean {
+  const texts = view.state.selection.ranges.map((r) =>
+    r.empty ? view.state.doc.lineAt(r.head).text : view.state.sliceDoc(r.from, r.to),
+  );
+  const { sum, count } = sumNumbers(texts);
+  if (count === 0) {
+    toast.info("No numbers in the selection");
+    return false;
+  }
+  const avg = formatResult(sum / count);
+  toast.info(`Sum ${formatResult(sum)}`, { description: `${count} number${count === 1 ? "" : "s"} · average ${avg}` });
+  return true;
+}
+
 export const TEXT_ACTIONS: CodeActionDescriptor[] = [
+  { id: "text.evaluate", label: "Evaluate math (replace)", keywords: ["calculate", "calculator", "math", "expression", "compute"], run: (v) => transformSelections(v, "Evaluate", calculate) },
+  { id: "text.evaluateAppend", label: "Evaluate math (append = result)", keywords: ["calculate", "calculator", "math", "expression", "equals"], run: (v) => transformSelections(v, "Evaluate", (t) => `${t.replace(/\s*=\s*$/, "")} = ${calculate(t)}`) },
+  { id: "text.sum", label: "Sum numbers in selections", keywords: ["sum", "total", "average", "add up", "statistics"], run: (v) => sumSelectionsCmd(v) },
   { id: "text.inspectJwt", label: "Inspect JWT", keywords: ["jwt", "token", "decode", "claims", "bearer", "auth", "expiry"], run: (v) => void inspectJwtCmd(v) },
   { id: "text.uuidV4", label: "Insert UUID v4", keywords: ["uuid", "guid", "random", "id", "generate"], run: (v) => insertGenerated(() => uuidV4())(v) },
   { id: "text.uuidV7", label: "Insert UUID v7 (time-ordered)", keywords: ["uuid", "guid", "sortable", "id", "generate"], run: (v) => insertGenerated(() => uuidV7())(v) },
