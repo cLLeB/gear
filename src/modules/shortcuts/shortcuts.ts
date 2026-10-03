@@ -365,9 +365,8 @@ export const SHORTCUTS: Shortcut[] = [
     id: "view.rewind",
     label: "Toggle session timeline (Rewind)",
     group: "View",
-    defaultBindings: IS_MAC
-      ? [{ meta: true, shift: true, key: "t" }]
-      : [{ ctrl: true, shift: true, key: "t" }],
+    // Mod+Shift+T belongs to "New block terminal"; H for history.
+    defaultBindings: [{ [MOD_PROP]: true, shift: true, key: "h" }],
   },
   // --- Run ---
   {
@@ -381,7 +380,10 @@ export const SHORTCUTS: Shortcut[] = [
     id: "terminal.clear",
     label: "Clear terminal",
     group: "General",
-    defaultBindings: [{ ctrl: true, key: "k" }],
+    // macOS: Ctrl+K (Cmd+K opens the shortcuts sheet). Elsewhere Ctrl+K is
+    // taken by that sheet, so clearing uses Ctrl+Shift+L (screen-clear key in
+    // readline is Ctrl+L, plus Shift so the shell still gets plain Ctrl+L).
+    defaultBindings: IS_MAC ? [{ ctrl: true, key: "k" }] : [{ ctrl: true, shift: true, key: "l" }],
   },
   {
     id: "terminal.toggleInput",
