@@ -12,13 +12,15 @@ export interface ActiveEditor {
   view: EditorView;
   /** Analyzable language id (e.g. "javascript"), as used by src/lib/lang. */
   languageId: string;
+  /** Absolute path of the file in this editor, when known. */
+  path?: string;
 }
 
 let active: ActiveEditor | null = null;
 
 /** Record the editor the user is working in (called on focus). */
-export function setActiveEditor(view: EditorView, languageId: string): void {
-  active = { view, languageId };
+export function setActiveEditor(view: EditorView, languageId: string, path?: string): void {
+  active = { view, languageId, path };
 }
 
 /** Forget an editor when it unmounts, if it was the active one. */
