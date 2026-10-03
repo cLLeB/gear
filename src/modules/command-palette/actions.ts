@@ -22,7 +22,7 @@ import {
 } from "@hugeicons/core-free-icons";
 import { CODE_ACTIONS, runCodeActionOnActiveEditor } from "@/modules/editor/lib/codeActions";
 import { clearEveryBookmark, listBookmarks, TEXT_ACTIONS } from "@/modules/editor/lib/textTools/commands";
-import { copyPermalink, openPermalink } from "@/modules/editor/lib/textTools/permalinkAction";
+import { copyPermalink, copyReference, openPermalink } from "@/modules/editor/lib/textTools/permalinkAction";
 import { PANE_ACTIONS, TERMINAL_ACTIONS, toggleBroadcast } from "@/modules/terminal";
 import { TERMINAL_FEATURE_ACTIONS } from "@/modules/terminal/features";
 import { RUN_TASK_ACTIONS } from "@/modules/run/taskActions";
@@ -400,6 +400,15 @@ export function createCommandPaletteActions(
       run: () => runCodeActionOnActiveEditor(action),
       deferRun: true,
     })),
+    {
+      id: "text.copyReference",
+      label: "Copy reference to file / lines…",
+      group: "Text",
+      keywords: ["path", "relative", "absolute", "line", "markdown", "mention", "copy", "filename"],
+      icon: FileEditIcon,
+      run: () => void copyReference(),
+      deferRun: true,
+    },
     {
       id: "git.copyPermalink",
       label: "Git: Copy permalink to line(s)",
