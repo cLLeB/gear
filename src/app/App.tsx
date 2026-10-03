@@ -175,6 +175,8 @@ import {
 import { appCloseMessage, useAppCloseGuard } from "./hooks/useAppCloseGuard";
 import { registerAppBridge } from "./appBridge";
 import { QuickPickHost } from "@/modules/quick-pick";
+import { goToLinePrompt, goToSymbolCmd } from "@/modules/editor/lib/textTools/commands";
+import { getActiveEditor } from "@/modules/editor/lib/activeEditor";
 import { installTerminalFeatures } from "@/modules/terminal/features";
 
 type TuiWaitResult = "ready" | "gone" | "timeout";
@@ -2509,6 +2511,18 @@ export default function App() {
 						actions={commandPaletteActions}
 						workspaceRoot={explorerRoot}
 						onOpenFile={handleOpenFile}
+						onPrefixMode={(mode) => {
+							if (mode === "line") {
+								void goToLinePrompt();
+								return;
+							}
+							const active = getActiveEditor();
+							if (!active) {
+								toast.error("Open a file in the editor first");
+								return;
+							}
+							void goToSymbolCmd(active.view, active.languageId);
+						}}
 					/>
 					<QuickPickHost />
 
