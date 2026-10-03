@@ -9,6 +9,7 @@ import { suggestCommandWithAi } from "../ai/suggestCommand";
 import { armMonitor } from "./monitor";
 import { pasteSpecial } from "./pasteSpecial";
 import { searchHistory } from "./historySearch";
+import { explainCommandAction } from "./explainCommand";
 import { forgetDirectoryHistory, jumpToDirectory } from "./dirJump";
 import {
   deleteSavedWorkflow,
@@ -18,6 +19,12 @@ import {
 import { pickProblem, stepProblem } from "./terminalProblems";
 
 export const TERMINAL_FEATURE_ACTIONS: TerminalActionDescriptor[] = [
+  {
+    id: "terminal.explainCommand",
+    label: "Terminal: Explain a command (offline)…",
+    keywords: ["explain", "explainshell", "flags", "options", "man", "what does", "help"],
+    run: explainCommandAction,
+  },
   {
     id: "terminal.searchHistory",
     label: "Terminal: Search command history…",
