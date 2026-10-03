@@ -12,7 +12,14 @@ import { handleProblemsForCommand } from "./terminalProblems";
 import { onTerminalOutputLines } from "../lib/outputTap";
 import { detectServer, ServerAnnouncer } from "./portDetect";
 import { scanForSecrets } from "./secretScan";
-import { clearLeafScrollback } from "../lib/useTerminalSession";
+import {
+  clearLeafScrollback,
+  isLeafCommandRunning,
+  submitToLeaf,
+} from "../lib/useTerminalSession";
+import { commandProgram } from "./commandNotify";
+import { suggestCorrection } from "./typoFix";
+import { setPendingCorrection } from "./corrections";
 import { openExternalUrl } from "@/lib/external-link";
 import { toast } from "sonner";
 
@@ -95,6 +102,32 @@ export function installTerminalFeatures(): () => void {
       if (!notify || cmd.durationMs === null) return;
       const { title, body } = formatCommandNotification(cmd.command, cmd.exitCode, cmd.durationMs);
       void osNotify(title, body);
+    }),
+  );
+
+  const knownPrograms = new Set<string>();
+  disposers.push(
+    onTerminalCommandFinished((cmd) => {
+      const program = commandProgram(cmd.command);
+      if (cmd.exitCode === 0 && program) knownPrograms.add(program);
+      if (!getFeature("terminal.typoCorrection")) return;
+      const fixed = suggestCorrection({
+        command: cmd.command,
+        exitCode: cmd.exitCode,
+        output: cmd.output ?? "",
+        knownPrograms,
+      });
+      if (!fixed) return;
+      setPendingCorrection(cmd.leafId, fixed);
+      toast.message(`Did you mean \`${fixed}\`?`, {
+        duration: 10_000,
+        action: {
+          label: "Run",
+          onClick: () => {
+            if (!isLeafCommandRunning(cmd.leafId)) submitToLeaf(cmd.leafId, fixed);
+          },
+        },
+      });
     }),
   );
 

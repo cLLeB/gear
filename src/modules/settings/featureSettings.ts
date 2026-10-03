@@ -43,12 +43,19 @@ export const FEATURE_DEFAULTS = {
   "terminal.problemToast": true,
   "terminal.detectServers": true,
   "terminal.secretWarnings": true,
+  "terminal.typoCorrection": true,
 } satisfies Record<string, boolean | number | string>;
 
 export type FeatureKey = keyof typeof FEATURE_DEFAULTS;
 export type FeatureValues = { [K in FeatureKey]: (typeof FEATURE_DEFAULTS)[K] };
 
 export const FEATURE_META: Record<FeatureKey, Meta> = {
+  "terminal.typoCorrection": {
+    label: "Suggest corrections for mistyped commands",
+    description:
+      "After \"command not found\" or an unknown subcommand (git, npm, cargo, docker, kubectl…), offer the likely intended command, ready to run.",
+    section: "Commands",
+  },
   "terminal.secretWarnings": {
     label: "Warn when secrets are printed",
     description:
