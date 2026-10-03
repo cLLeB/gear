@@ -36,6 +36,8 @@ import { formatSql } from "./sql";
 import { formatMarkup, minifyMarkup } from "./markup";
 import { convertQuotes, nextQuote, stringAt } from "./quotes";
 import { sortJsImports, sortPythonImports } from "./sortImports";
+import { rewrap } from "./rewrap";
+import { usePreferencesStore } from "@/modules/settings/preferences";
 import {
   alignDelimited,
   csvToMarkdown,
@@ -710,7 +712,31 @@ export function sortImportsCmd(view: EditorView, languageId: string): boolean {
   return true;
 }
 
+/** Rewrap the selected lines, or the paragraph around the cursor, at the wrap column. */
+export function rewrapCmd(view: EditorView): boolean {
+  const { state } = view;
+  const width = usePreferencesStore.getState().wordWrapColumn || 80;
+  const sel = state.selection.main;
+  let first = state.doc.lineAt(sel.from).number;
+  let last = state.doc.lineAt(sel.to > sel.from && state.doc.lineAt(sel.to).from === sel.to ? sel.to - 1 : sel.to).number;
+  if (sel.empty) {
+    const blank = (n: number) => /^\s*(\/\/+|#+|\*|--|;+|>+)?\s*$/.test(state.doc.line(n).text);
+    if (blank(first)) return false;
+    while (first > 1 && !blank(first - 1)) first--;
+    while (last < state.doc.lines && !blank(last + 1)) last++;
+  }
+  const lines: string[] = [];
+  for (let n = first; n <= last; n++) lines.push(state.doc.line(n).text);
+  const next = rewrap(lines, width).join("\n");
+  const from = state.doc.line(first).from;
+  const to = state.doc.line(last).to;
+  if (next === state.sliceDoc(from, to)) return false;
+  view.dispatch({ changes: { from, to, insert: next }, userEvent: "input" });
+  return true;
+}
+
 export const TEXT_ACTIONS: CodeActionDescriptor[] = [
+  { id: "text.rewrap", label: "Rewrap paragraph / comment", keywords: ["wrap", "reflow", "gq", "fill", "paragraph", "comment", "column"], run: (v) => rewrapCmd(v) },
   { id: "text.sortImports", label: "Organize imports (sort, group, merge)", keywords: ["imports", "sort", "isort", "organize", "group", "javascript", "typescript", "python"], run: (v, lang) => sortImportsCmd(v, lang) },
   { id: "text.cycleQuotes", label: "Switch quote style (' → \" → `)", keywords: ["quotes", "string", "single", "double", "backtick", "template"], run: (v) => cycleQuotesCmd(v) },
   { id: "text.formatMarkup", label: "Format XML / HTML", keywords: ["xml", "html", "svg", "pretty", "indent", "beautify"], run: (v) => replaceTarget(v, "Format markup", (t) => formatMarkup(t) + (t.endsWith("\n") ? "\n" : "")) },
@@ -779,5 +805,6 @@ export function textToolsKeymap(getLanguageId: () => string = () => ""): KeyBind
     { key: "Shift-Alt-i", preventDefault: true, run: cursorsAtLineEnds },
     { key: "Mod-Alt-'", preventDefault: true, run: cycleQuotesCmd },
     { key: "Shift-Alt-o", preventDefault: true, run: (v) => sortImportsCmd(v, getLanguageId()) },
+    { key: "Alt-q", preventDefault: true, run: rewrapCmd },
   ];
 }
