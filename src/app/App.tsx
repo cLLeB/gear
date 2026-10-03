@@ -148,6 +148,7 @@ import {
 	ptyIdForLeaf,
 	respawnSession,
 	setBroadcastPeerResolver,
+	submitToLeaf,
 	type TerminalPaneHandle,
 	TerminalStack,
 	useAgentActivityStore,
@@ -170,6 +171,8 @@ import {
 	WorkspaceInputBar,
 } from "./components/WorkspaceInputBar";
 import { appCloseMessage, useAppCloseGuard } from "./hooks/useAppCloseGuard";
+import { registerAppBridge } from "./appBridge";
+import { QuickPickHost } from "@/modules/quick-pick";
 
 type TuiWaitResult = "ready" | "gone" | "timeout";
 
@@ -1861,6 +1864,91 @@ export default function App() {
 
 	const activeCwd = activeTerminalLeafCwd;
 
+	// Late-bound App capabilities for feature modules (see appBridge.ts). Reads
+	// go through refs so the registration never goes stale between renders.
+	const bridgeDeps = useRef({
+		handleOpenFile,
+		openControlFile,
+		newTab,
+		openPreviewTab,
+		setActiveId,
+		updateTab,
+		explorerRoot,
+		launchCwd,
+		home,
+		activeSpaceId,
+	});
+	bridgeDeps.current = {
+		handleOpenFile,
+		openControlFile,
+		newTab,
+		openPreviewTab,
+		setActiveId,
+		updateTab,
+		explorerRoot,
+		launchCwd,
+		home,
+		activeSpaceId,
+	};
+	useEffect(() => {
+		const d = () => bridgeDeps.current;
+		const workspaceRoot = () =>
+			d().explorerRoot ?? d().launchCwd ?? d().home ?? null;
+		const activeTerminalLeaf = () => {
+			const t = tabsRef.current.find((x) => x.id === activeIdRef.current);
+			return t?.kind === "terminal" ? t.activeLeafId : null;
+		};
+		return registerAppBridge({
+			openFile: (path, line) => {
+				if (line === undefined) {
+					d().handleOpenFile(path, true);
+					return;
+				}
+				d().openControlFile({
+					path,
+					line,
+					focus: true,
+					spaceId: d().activeSpaceId,
+				});
+			},
+			openTerminal: (options = {}) => {
+				const tabId = d().newTab(options.cwd ?? workspaceRoot() ?? undefined);
+				const command = options.command;
+				if (!command) return;
+				// The tab lands in state on the next render; poll briefly for it.
+				let tries = 0;
+				const tick = () => {
+					const tab = tabsRef.current.find((x) => x.id === tabId);
+					if (tab?.kind !== "terminal") {
+						if (tries++ < 40) setTimeout(tick, 25);
+						return;
+					}
+					const leaf = tab.activeLeafId;
+					void whenSessionReady(leaf).then(() => submitToLeaf(leaf, command));
+				};
+				tick();
+			},
+			openPreview: (url) => {
+				d().openPreviewTab(url);
+			},
+			activeTerminalLeaf,
+			workspaceRoot,
+			activeCwd: () => {
+				const t = tabsRef.current.find((x) => x.id === activeIdRef.current);
+				if (t?.kind === "terminal") {
+					return (
+						findLeafCwd(t.paneTree, t.activeLeafId) ?? t.cwd ?? workspaceRoot()
+					);
+				}
+				return workspaceRoot();
+			},
+			tabs: () => tabsRef.current,
+			activeTabId: () => activeIdRef.current,
+			activateTab: (id) => d().setActiveId(id),
+			renameTab: (id, title) => d().updateTab(id, { customTitle: title.trim() }),
+		});
+	}, []);
+
 	useEffect(() => {
 		const findCwd = () => {
 			const active = tabs.find((x) => x.id === activeId);
@@ -2406,6 +2494,7 @@ export default function App() {
 						workspaceRoot={explorerRoot}
 						onOpenFile={handleOpenFile}
 					/>
+					<QuickPickHost />
 
 					<AgentNotificationsBridge
 						tabs={tabs}
