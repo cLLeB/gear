@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { detectJsonIndent, parseYaml, sortKeysDeep, toYaml } from "./yaml";
 import { CODECS, type CodecId } from "./encoding";
 import { allHashes } from "./hash";
+import { convertTimestamp, nanoid, ulid, uuidV4, uuidV7 } from "./ids";
 import {
   alignDelimited,
   csvToMarkdown,
@@ -271,7 +272,62 @@ export async function hashSelectionCmd(view: EditorView): Promise<boolean> {
   return true;
 }
 
+/** Insert a freshly generated value at every cursor (replacing selections). */
+function insertGenerated(gen: () => string) {
+  return (view: EditorView): boolean =>
+    editEachRange(view, (range) => ({ from: range.from, to: range.to, insert: gen(), select: "end" }));
+}
+
+export async function insertTimestampCmd(view: EditorView): Promise<boolean> {
+  const now = new Date();
+  const choice = await quickPick(
+    [
+      { label: now.toISOString(), description: "ISO-8601 UTC", value: now.toISOString() },
+      { label: String(Math.floor(now.getTime() / 1000)), description: "Unix seconds", value: String(Math.floor(now.getTime() / 1000)) },
+      { label: String(now.getTime()), description: "Unix milliseconds", value: String(now.getTime()) },
+      { label: now.toISOString().slice(0, 10), description: "Date", value: now.toISOString().slice(0, 10) },
+      { label: now.toUTCString(), description: "RFC 7231 (HTTP)", value: now.toUTCString() },
+    ],
+    { title: "Insert timestamp" },
+  );
+  if (!choice) return false;
+  view.focus();
+  return insertGenerated(() => choice)(view);
+}
+
+/** Epoch ⇄ ISO for each selection, or the timestamp-looking token at the cursor. */
+export function convertTimestampCmd(view: EditorView): boolean {
+  let failed = false;
+  const changed = editEachRange(view, (range, state) => {
+    let from = range.from;
+    let to = range.to;
+    if (range.empty) {
+      const line = state.doc.lineAt(range.head);
+      const rel = range.head - line.from;
+      const re = /\d{4}-\d{2}-\d{2}T[\d:.]+(?:Z|[+-]\d{2}:?\d{2})?|\d{9,19}/g;
+      const m = [...line.text.matchAll(re)].find((x) => x.index! <= rel && rel <= x.index! + x[0].length);
+      if (!m) return null;
+      from = line.from + m.index!;
+      to = from + m[0].length;
+    }
+    const out = convertTimestamp(state.sliceDoc(from, to));
+    if (out === null) {
+      failed = true;
+      return null;
+    }
+    return { from, to, insert: out, select: "all" };
+  });
+  if (!changed && failed) toast.error("Not a timestamp", { description: "Select a Unix epoch or an ISO-8601 date." });
+  return changed;
+}
+
 export const TEXT_ACTIONS: CodeActionDescriptor[] = [
+  { id: "text.uuidV4", label: "Insert UUID v4", keywords: ["uuid", "guid", "random", "id", "generate"], run: (v) => insertGenerated(() => uuidV4())(v) },
+  { id: "text.uuidV7", label: "Insert UUID v7 (time-ordered)", keywords: ["uuid", "guid", "sortable", "id", "generate"], run: (v) => insertGenerated(() => uuidV7())(v) },
+  { id: "text.ulid", label: "Insert ULID", keywords: ["ulid", "sortable", "id", "generate"], run: (v) => insertGenerated(() => ulid())(v) },
+  { id: "text.nanoid", label: "Insert NanoID", keywords: ["nanoid", "short", "id", "generate"], run: (v) => insertGenerated(() => nanoid())(v) },
+  { id: "text.insertTimestamp", label: "Insert timestamp…", keywords: ["date", "time", "now", "epoch", "iso"], run: (v) => void insertTimestampCmd(v) },
+  { id: "text.convertTimestamp", label: "Convert timestamp (epoch ⇄ ISO)", keywords: ["epoch", "unix", "iso", "date", "time", "convert"], run: (v) => convertTimestampCmd(v) },
   { id: "text.hash", label: "Hash selection (SHA-256, SHA-1, MD5, CRC32…)", keywords: ["hash", "digest", "checksum", "sha", "md5", "crc", "fingerprint"], run: (v) => void hashSelectionCmd(v) },
   { id: "text.encode", label: "Encode selection…", keywords: ["base64", "url", "html", "entities", "escape", "hex", "unicode", "json"], run: (v) => void codecCmd(v, "encode") },
   { id: "text.decode", label: "Decode selection…", keywords: ["base64", "url", "html", "entities", "unescape", "hex", "unicode", "json"], run: (v) => void codecCmd(v, "decode") },
