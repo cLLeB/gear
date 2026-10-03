@@ -39,6 +39,8 @@ export interface AppBridge {
     path: string;
     originalPath: string | null;
   }) => void;
+  /** Open a new terminal tab from a layout template; returns leaf ids in tree order. */
+  openTerminalLayout: (template: PaneNode, title: string) => number[];
   /** Replace a terminal tab's pane layout (same leaves, new arrangement). */
   setPaneTree: (tabId: number, tree: PaneNode) => void;
 }
@@ -57,6 +59,7 @@ const noop: AppBridge = {
   setPaneTree: () => {},
   reopenClosedTab: () => false,
   openCommitFileDiff: () => {},
+  openTerminalLayout: () => [],
 };
 
 let bridge: AppBridge = noop;

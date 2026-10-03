@@ -853,6 +853,33 @@ export function useTabs() {
 		for (const lid of toDispose) disposeSession(lid);
 	}, []);
 
+	/**
+	 * Open a terminal tab from a layout template (saved layouts). Returns the
+	 * new leaf ids in tree order so callers can start commands in them.
+	 */
+	const openTerminalLayout = useCallback(
+		(template: PaneNode, title: string): { tabId: number; leaves: number[] } => {
+			const tabId = nextIdRef.current++;
+			const { tree, leaves } = reidTree(template, () => nextIdRef.current++);
+			setTabs((curr) => [
+				...curr,
+				{
+					id: tabId,
+					kind: "terminal",
+					spaceId: activeSpaceIdRef.current,
+					title,
+					customTitle: title,
+					cwd: findLeafCwd(tree, leaves[0]),
+					paneTree: tree,
+					activeLeafId: leaves[0],
+				},
+			]);
+			setActiveId(tabId);
+			return { tabId, leaves };
+		},
+		[],
+	);
+
 	/** Reopen a recently closed tab (most recent by default). */
 	const reopenClosedTab = useCallback(
 		(index = 0): boolean => {
@@ -1240,6 +1267,7 @@ export function useTabs() {
 		closeOtherTabs,
 		closeTabs,
 		reopenClosedTab,
+		openTerminalLayout,
 		updateTab,
 		selectByIndex,
 		setLeafCwd,

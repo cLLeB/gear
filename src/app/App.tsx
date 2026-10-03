@@ -293,6 +293,7 @@ export default function App() {
 		closeOtherTabs,
 		closeTabs,
 		reopenClosedTab,
+		openTerminalLayout,
 		closePaneByLeaf,
 		resetWorkspace,
 		openSettingsTab,
@@ -1888,6 +1889,7 @@ export default function App() {
 		updateTab,
 		reopenClosedTab,
 		openCommitFileDiffTab,
+		openTerminalLayout,
 		explorerRoot,
 		launchCwd,
 		home,
@@ -1902,6 +1904,7 @@ export default function App() {
 		updateTab,
 		reopenClosedTab,
 		openCommitFileDiffTab,
+		openTerminalLayout,
 		explorerRoot,
 		launchCwd,
 		home,
@@ -1970,6 +1973,7 @@ export default function App() {
 			renameTab: (id, title) => d().updateTab(id, { customTitle: title.trim() }),
 			reopenClosedTab: (index) => d().reopenClosedTab(index),
 			openCommitFileDiff: (input) => d().openCommitFileDiffTab(input),
+			openTerminalLayout: (template, title) => d().openTerminalLayout(template, title).leaves,
 			setPaneTree: (id, tree) => d().updateTab(id, { paneTree: tree }),
 		});
 	}, []);
