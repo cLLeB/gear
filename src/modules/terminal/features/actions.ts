@@ -6,6 +6,7 @@ import { quickSelectInTerminal } from "./quickSelectAction";
 import { copyScrollbackAsHtml, saveScrollback } from "./exportScrollback";
 import { explainLastCommandWithAi } from "../ai/explainFailure";
 import { suggestCommandWithAi } from "../ai/suggestCommand";
+import { armMonitor } from "./monitor";
 import { forgetDirectoryHistory, jumpToDirectory } from "./dirJump";
 import {
   deleteSavedWorkflow,
@@ -15,6 +16,12 @@ import {
 import { pickProblem, stepProblem } from "./terminalProblems";
 
 export const TERMINAL_FEATURE_ACTIONS: TerminalActionDescriptor[] = [
+  {
+    id: "terminal.monitor",
+    label: "Terminal: Monitor pane for activity / silence…",
+    keywords: ["monitor", "watch", "notify", "silence", "activity", "tmux", "alert", "done"],
+    run: armMonitor,
+  },
   {
     id: "terminal.aiSuggestCommand",
     label: "Terminal: Generate a command with AI…",
