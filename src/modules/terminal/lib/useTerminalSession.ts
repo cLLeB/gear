@@ -219,6 +219,14 @@ export function isLeafCommandRunning(leafId: number): boolean {
   return !!s && s.commandRunning;
 }
 
+/** Clear scrollback and screen of one pane, keeping the prompt line. */
+export function clearLeafScrollback(leafId: number): boolean {
+  const slot = getSlotForLeaf(leafId);
+  if (!slot) return false;
+  slot.term.clear();
+  return true;
+}
+
 /** Live xterm instance for a leaf, when it is bound to a renderer slot. */
 export function leafTerminal(leafId: number) {
   return getSlotForLeaf(leafId)?.term ?? null;

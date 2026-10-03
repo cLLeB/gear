@@ -42,12 +42,19 @@ export const FEATURE_DEFAULTS = {
   "terminal.problemMatchers": true,
   "terminal.problemToast": true,
   "terminal.detectServers": true,
+  "terminal.secretWarnings": true,
 } satisfies Record<string, boolean | number | string>;
 
 export type FeatureKey = keyof typeof FEATURE_DEFAULTS;
 export type FeatureValues = { [K in FeatureKey]: (typeof FEATURE_DEFAULTS)[K] };
 
 export const FEATURE_META: Record<FeatureKey, Meta> = {
+  "terminal.secretWarnings": {
+    label: "Warn when secrets are printed",
+    description:
+      "Detect API keys, tokens, private keys and credentialed database URLs in terminal output and offer to clear the scrollback before it is shared or sent to AI.",
+    section: "Terminal output",
+  },
   "terminal.detectServers": {
     label: "Offer to preview local dev servers",
     description:
