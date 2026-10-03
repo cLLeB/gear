@@ -51,6 +51,16 @@ import {
 } from "./rendererPool";
 import { isPowerShellShellPath } from "./keymap";
 import { forgetTapLeaf, tapPtyOutput } from "./outputTap";
+import { allowUserInput, usePaneLockStore } from "./paneLock";
+import { toast } from "sonner";
+
+let lockedToastAt = 0;
+function notifyLocked(): void {
+  const now = Date.now();
+  if (now - lockedToastAt < 4000) return;
+  lockedToastAt = now;
+  toast.info("This pane is read-only", { description: "Unlock it from the palette: Terminal: Toggle read-only pane." });
+}
 import {
   adjacentPromptLine,
   type CommandMarks,
@@ -592,6 +602,10 @@ configureRendererPool({
     if (!s) return null;
     return {
       writeToPty: (data) => {
+        if (!allowUserInput(leafId, data)) {
+          notifyLocked();
+          return;
+        }
         // Shell spawn failed (bad cwd, missing binary): Enter retries.
         if (s.spawnFailed) {
           if (data.includes("\r")) void respawnSession(leafId);
@@ -1069,6 +1083,7 @@ export function disposeSession(leafId: number): void {
   s.pendingInput = "";
   sessions.delete(leafId);
   forgetTapLeaf(leafId);
+  usePaneLockStore.getState().unlock(leafId);
   blockViewportListeners.delete(leafId);
   readyLeaves.delete(leafId);
   const waiters = readyWaiters.get(leafId);

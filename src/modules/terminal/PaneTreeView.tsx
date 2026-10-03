@@ -9,6 +9,7 @@ import type { SearchAddon } from "@xterm/addon-search";
 import { Fragment, useEffect, useRef, useState } from "react";
 import { useGroupRef } from "react-resizable-panels";
 import { equalSizes } from "./lib/paneLayout";
+import { usePaneLockStore } from "./lib/paneLock";
 import { useTerminalDropStore } from "./lib/dropStore";
 import { firstLeafSlotId, type PaneNode } from "./lib/panes";
 import { formatDroppedPaths } from "./lib/quoteShellPath";
@@ -122,6 +123,7 @@ export function PaneTreeView(props: Props) {
             onExit={b.onExit}
           />
           <DropOverlay leafId={node.id} />
+          <LockBadge leafId={node.id} />
         </div>
       </div>
     );
@@ -253,6 +255,19 @@ function PaneLabel({
           ×
         </button>
       )}
+    </div>
+  );
+}
+
+function LockBadge({ leafId }: { leafId: number }) {
+  const locked = usePaneLockStore((s) => !!s.locked[leafId]);
+  if (!locked) return null;
+  return (
+    <div
+      className="pointer-events-none absolute right-2 top-1.5 z-10 rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400"
+      title="Read-only: keyboard input and pastes are blocked"
+    >
+      🔒 read-only
     </div>
   );
 }
