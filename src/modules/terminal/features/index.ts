@@ -9,6 +9,10 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { onTerminalCommandFinished } from "../lib/useTerminalSession";
 import { formatCommandNotification, shouldNotifyCommand } from "./commandNotify";
 import { handleProblemsForCommand } from "./terminalProblems";
+import { onTerminalOutputLines } from "../lib/outputTap";
+import { detectServer, ServerAnnouncer } from "./portDetect";
+import { openExternalUrl } from "@/lib/external-link";
+import { toast } from "sonner";
 
 export { TERMINAL_FEATURE_ACTIONS } from "./actions";
 
@@ -28,6 +32,24 @@ export function installTerminalFeatures(): () => void {
     .catch(() => {});
 
   disposers.push(onTerminalCommandFinished(handleProblemsForCommand));
+
+  const servers = new ServerAnnouncer();
+  disposers.push(
+    onTerminalOutputLines((leafId, lines) => {
+      if (!getFeature("terminal.detectServers")) return;
+      for (const line of lines) {
+        const hit = detectServer(line);
+        if (!hit || !servers.firstSighting(leafId, hit.port)) continue;
+        toast.message(`Server running on port ${hit.port}`, {
+          description: hit.url,
+          duration: 12_000,
+          action: { label: "Preview", onClick: () => app().openPreview(hit.url) },
+          cancel: { label: "Browser", onClick: () => void openExternalUrl(hit.url) },
+        });
+      }
+    }),
+  );
+  disposers.push(onTerminalCommandFinished((cmd) => servers.reset(cmd.leafId)));
 
   disposers.push(
     onTerminalCommandFinished((cmd) => {

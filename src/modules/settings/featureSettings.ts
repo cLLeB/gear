@@ -41,12 +41,19 @@ export const FEATURE_DEFAULTS = {
   "terminal.notifyIgnore": "vim nvim vi nano emacs less more man top htop btop ssh mosh tmux screen watch tail claude codex gemini",
   "terminal.problemMatchers": true,
   "terminal.problemToast": true,
+  "terminal.detectServers": true,
 } satisfies Record<string, boolean | number | string>;
 
 export type FeatureKey = keyof typeof FEATURE_DEFAULTS;
 export type FeatureValues = { [K in FeatureKey]: (typeof FEATURE_DEFAULTS)[K] };
 
 export const FEATURE_META: Record<FeatureKey, Meta> = {
+  "terminal.detectServers": {
+    label: "Offer to preview local dev servers",
+    description:
+      "When a program prints a local URL or says it is listening on a port (Vite, Next, Django, uvicorn, Rails…), offer to open it in a preview tab.",
+    section: "Terminal output",
+  },
   "terminal.problemMatchers": {
     label: "Detect problems in command output",
     description:

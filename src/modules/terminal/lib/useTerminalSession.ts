@@ -50,6 +50,7 @@ import {
   setSlotFocused,
 } from "./rendererPool";
 import { isPowerShellShellPath } from "./keymap";
+import { forgetTapLeaf, tapPtyOutput } from "./outputTap";
 import {
   adjacentPromptLine,
   type CommandMarks,
@@ -626,6 +627,7 @@ function ensureSession(
 function deliverPtyBytes(leafId: number, bytes: Uint8Array): void {
   const s = sessions.get(leafId);
   if (!s) return;
+  tapPtyOutput(leafId, bytes);
   // Retained slots keep parsing live (render paused); the ring is only for
   // leaves whose buffer was stolen or never bound.
   const slot = getLiveSlotForLeaf(leafId);
@@ -970,6 +972,7 @@ export function disposeSession(leafId: number): void {
   s.pty = null;
   s.pendingInput = "";
   sessions.delete(leafId);
+  forgetTapLeaf(leafId);
   blockViewportListeners.delete(leafId);
   readyLeaves.delete(leafId);
   const waiters = readyWaiters.get(leafId);
