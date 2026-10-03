@@ -39,12 +39,25 @@ export const FEATURE_DEFAULTS = {
   "terminal.notifyLongCommands": true,
   "terminal.notifyLongCommandsSeconds": 10,
   "terminal.notifyIgnore": "vim nvim vi nano emacs less more man top htop btop ssh mosh tmux screen watch tail claude codex gemini",
+  "terminal.problemMatchers": true,
+  "terminal.problemToast": true,
 } satisfies Record<string, boolean | number | string>;
 
 export type FeatureKey = keyof typeof FEATURE_DEFAULTS;
 export type FeatureValues = { [K in FeatureKey]: (typeof FEATURE_DEFAULTS)[K] };
 
 export const FEATURE_META: Record<FeatureKey, Meta> = {
+  "terminal.problemMatchers": {
+    label: "Detect problems in command output",
+    description:
+      "Recognise compiler, linter and test failures (tsc, eslint, rustc, gcc/clang, go, mypy, pytest, Python tracebacks, Node stacks) so you can jump to them.",
+    section: "Terminal output",
+  },
+  "terminal.problemToast": {
+    label: "Show a toast when a failed command reports problems",
+    description: "Offers to open the first error right away.",
+    section: "Terminal output",
+  },
   "terminal.notifyLongCommands": {
     label: "Notify when long commands finish",
     description:

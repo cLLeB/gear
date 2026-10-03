@@ -22,6 +22,7 @@ import {
 } from "@hugeicons/core-free-icons";
 import { CODE_ACTIONS, runCodeActionOnActiveEditor } from "@/modules/editor/lib/codeActions";
 import { TERMINAL_ACTIONS, toggleBroadcast } from "@/modules/terminal";
+import { TERMINAL_FEATURE_ACTIONS } from "@/modules/terminal/features";
 
 type CommandIcon = typeof TerminalIcon;
 
@@ -334,7 +335,7 @@ export function createCommandPaletteActions(
       shortcutId: "ai.askSelection",
       run: ctx.askAiSelection,
     },
-    ...TERMINAL_ACTIONS.map((action): CommandPaletteAction => ({
+    ...[...TERMINAL_ACTIONS, ...TERMINAL_FEATURE_ACTIONS].map((action): CommandPaletteAction => ({
       id: action.id,
       label: action.label,
       group: "Terminal",

@@ -8,6 +8,9 @@ import { getFeature } from "@/modules/settings/useFeature";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { onTerminalCommandFinished } from "../lib/useTerminalSession";
 import { formatCommandNotification, shouldNotifyCommand } from "./commandNotify";
+import { handleProblemsForCommand } from "./terminalProblems";
+
+export { TERMINAL_FEATURE_ACTIONS } from "./actions";
 
 let installed = false;
 let windowFocused = typeof document !== "undefined" ? document.hasFocus() : true;
@@ -23,6 +26,8 @@ export function installTerminalFeatures(): () => void {
     })
     .then((u) => disposers.push(u))
     .catch(() => {});
+
+  disposers.push(onTerminalCommandFinished(handleProblemsForCommand));
 
   disposers.push(
     onTerminalCommandFinished((cmd) => {
