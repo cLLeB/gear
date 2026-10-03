@@ -5,6 +5,11 @@ import { applyPendingCorrection } from "./corrections";
 import { quickSelectInTerminal } from "./quickSelectAction";
 import { copyScrollbackAsHtml, saveScrollback } from "./exportScrollback";
 import { forgetDirectoryHistory, jumpToDirectory } from "./dirJump";
+import {
+  deleteSavedWorkflow,
+  runWorkflow,
+  saveLastCommandAsWorkflow,
+} from "../workflows/runner";
 import { pickProblem, stepProblem } from "./terminalProblems";
 
 export const TERMINAL_FEATURE_ACTIONS: TerminalActionDescriptor[] = [
@@ -61,5 +66,23 @@ export const TERMINAL_FEATURE_ACTIONS: TerminalActionDescriptor[] = [
     label: "Terminal: Clear directory history",
     keywords: ["zoxide", "privacy", "forget", "frecency"],
     run: forgetDirectoryHistory,
+  },
+  {
+    id: "terminal.workflows",
+    label: "Terminal: Run workflow…",
+    keywords: ["template", "snippet", "recipe", "command library", "warp", "cheatsheet"],
+    run: runWorkflow,
+  },
+  {
+    id: "terminal.saveWorkflow",
+    label: "Terminal: Save last command as workflow…",
+    keywords: ["template", "snippet", "bookmark", "favorite"],
+    run: saveLastCommandAsWorkflow,
+  },
+  {
+    id: "terminal.deleteWorkflow",
+    label: "Terminal: Delete saved workflow…",
+    keywords: ["template", "snippet", "remove"],
+    run: deleteSavedWorkflow,
   },
 ];
