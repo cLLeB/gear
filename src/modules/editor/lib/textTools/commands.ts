@@ -17,6 +17,7 @@ import { allHashes } from "./hash";
 import { convertTimestamp, nanoid, ulid, uuidV4, uuidV7 } from "./ids";
 import { findJwt, inspectJwt } from "./jwtInspect";
 import { calculate, formatResult, sumNumbers } from "./calc";
+import { describeCron, findCron, upcomingRuns } from "./cronExplain";
 import {
   alignDelimited,
   csvToMarkdown,
@@ -371,7 +372,42 @@ export function sumSelectionsCmd(view: EditorView): boolean {
   return true;
 }
 
+export async function explainCronCmd(view: EditorView): Promise<boolean> {
+  const sel = view.state.selection.main;
+  const text = sel.empty ? view.state.doc.lineAt(sel.head).text : view.state.sliceDoc(sel.from, sel.to);
+  const expr = sel.empty ? findCron(text) : (findCron(text) ?? text.trim());
+  if (!expr) {
+    toast.error("No cron expression on this line");
+    return false;
+  }
+  let description: string;
+  let runs: Date[];
+  try {
+    description = describeCron(expr);
+    runs = upcomingRuns(expr, 8);
+  } catch (e) {
+    toast.error(`Invalid cron expression: ${expr}`, { description: e instanceof Error ? e.message : String(e) });
+    return false;
+  }
+  await quickPick(
+    [
+      { label: description, description: expr, group: "Meaning", value: description },
+      ...runs.map((d) => ({
+        label: d.toISOString().replace("T", " ").slice(0, 16) + " UTC",
+        description: d.toLocaleString(undefined, { weekday: "short", hour: "2-digit", minute: "2-digit", month: "short", day: "numeric" }),
+        group: "Next runs",
+        value: d.toISOString(),
+      })),
+    ],
+    { title: `cron: ${expr}`, placeholder: "Enter copies the selected line" },
+  ).then((v) => {
+    if (v) void navigator.clipboard.writeText(v).catch(() => {});
+  });
+  return true;
+}
+
 export const TEXT_ACTIONS: CodeActionDescriptor[] = [
+  { id: "text.explainCron", label: "Explain cron expression", keywords: ["cron", "crontab", "schedule", "next run", "github actions"], run: (v) => void explainCronCmd(v) },
   { id: "text.evaluate", label: "Evaluate math (replace)", keywords: ["calculate", "calculator", "math", "expression", "compute"], run: (v) => transformSelections(v, "Evaluate", calculate) },
   { id: "text.evaluateAppend", label: "Evaluate math (append = result)", keywords: ["calculate", "calculator", "math", "expression", "equals"], run: (v) => transformSelections(v, "Evaluate", (t) => `${t.replace(/\s*=\s*$/, "")} = ${calculate(t)}`) },
   { id: "text.sum", label: "Sum numbers in selections", keywords: ["sum", "total", "average", "add up", "statistics"], run: (v) => sumSelectionsCmd(v) },
