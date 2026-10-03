@@ -13,6 +13,7 @@ import { parseJson5 } from "@/lib/lang/json5";
 import { toast } from "sonner";
 import { detectJsonIndent, parseYaml, sortKeysDeep, toYaml } from "./yaml";
 import { CODECS, type CodecId } from "./encoding";
+import { allHashes } from "./hash";
 import {
   alignDelimited,
   csvToMarkdown,
@@ -232,7 +233,46 @@ async function codecCmd(view: EditorView, mode: "encode" | "decode"): Promise<bo
   return transformSelections(view, `${mode === "encode" ? "Encode" : "Decode"} ${label}`, codec[mode]);
 }
 
+export async function hashSelectionCmd(view: EditorView): Promise<boolean> {
+  const sel = view.state.selection.main;
+  const whole = sel.empty;
+  const text = whole ? view.state.doc.toString() : view.state.sliceDoc(sel.from, sel.to);
+  const pick = await quickPick(
+    allHashes(text).then((list) =>
+      list.map((h) => ({ label: h.digest, description: h.algo, keywords: [h.algo], value: h })),
+    ),
+    {
+      title: `Hashes of ${whole ? "the whole file" : `the selection (${text.length} chars)`}`,
+      placeholder: "Pick a digest to copy",
+    },
+  );
+  if (!pick) return false;
+  const action = await quickPick(
+    [
+      { label: "Copy to clipboard", value: "copy" as const },
+      ...(whole ? [] : [{ label: "Replace selection", value: "replace" as const }]),
+      { label: "Insert after selection", value: "insert" as const },
+    ],
+    { title: `${pick.algo}: ${pick.digest}` },
+  );
+  if (!action) return false;
+  if (action === "copy") {
+    await navigator.clipboard.writeText(pick.digest).catch(() => {});
+    toast.success(`Copied ${pick.algo}`, { description: pick.digest });
+    return true;
+  }
+  const at = whole ? view.state.doc.length : sel.to;
+  view.dispatch(
+    action === "replace"
+      ? { changes: { from: sel.from, to: sel.to, insert: pick.digest } }
+      : { changes: { from: at, insert: ` ${pick.digest}` } },
+  );
+  view.focus();
+  return true;
+}
+
 export const TEXT_ACTIONS: CodeActionDescriptor[] = [
+  { id: "text.hash", label: "Hash selection (SHA-256, SHA-1, MD5, CRC32…)", keywords: ["hash", "digest", "checksum", "sha", "md5", "crc", "fingerprint"], run: (v) => void hashSelectionCmd(v) },
   { id: "text.encode", label: "Encode selection…", keywords: ["base64", "url", "html", "entities", "escape", "hex", "unicode", "json"], run: (v) => void codecCmd(v, "encode") },
   { id: "text.decode", label: "Decode selection…", keywords: ["base64", "url", "html", "entities", "unescape", "hex", "unicode", "json"], run: (v) => void codecCmd(v, "decode") },
   { id: "text.base64Encode", label: "Base64 encode", keywords: ["base64", "encode"], run: (v) => transformSelections(v, "Base64 encode", CODECS.base64.codec.encode) },
