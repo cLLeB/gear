@@ -211,6 +211,43 @@ function emitCwd(leafId: number, cwd: string, isPrivate: boolean): void {
   }
 }
 
+/**
+ * Per-terminal hooks that features attach whenever a pane binds to an xterm
+ * instance (OSC handlers, bell listeners, decorations). Returned disposers
+ * run when the pane releases the instance.
+ */
+export type TerminalExtension = (
+  leafId: number,
+  term: Parameters<typeof registerCommandMarks>[0],
+) => (() => void) | void;
+
+const terminalExtensions = new Set<TerminalExtension>();
+
+export function registerTerminalExtension(ext: TerminalExtension): () => void {
+  terminalExtensions.add(ext);
+  return () => {
+    terminalExtensions.delete(ext);
+  };
+}
+
+function attachExtensions(
+  leafId: number,
+  term: Parameters<typeof registerCommandMarks>[0],
+): () => void {
+  const disposers: Array<() => void> = [];
+  for (const ext of terminalExtensions) {
+    try {
+      const d = ext(leafId, term);
+      if (d) disposers.push(d);
+    } catch (e) {
+      console.error("[gear] terminal extension failed:", e);
+    }
+  }
+  return () => {
+    for (const d of disposers) d();
+  };
+}
+
 /** The most recent finished command in `leafId`, if shell integration saw one. */
 export function lastFinishedCommand(leafId: number): FinishedCommand | null {
   return sessions.get(leafId)?.lastCommand ?? null;
@@ -827,8 +864,10 @@ function bindLeafToSlot(leafId: number, s: Session): void {
         term.textarea?.addEventListener("focus", onGridFocus);
         // Registered last so its non-consuming OSC 133 handler runs first.
         const marks = attachCommandMarks(leafId, s, term);
+        const exts = attachExtensions(leafId, term);
         return [
           marks,
+          exts,
           () => {
             s.blockDecorations = null;
             osc52();
@@ -879,7 +918,8 @@ function bindLeafToSlot(leafId: number, s: Session): void {
         onConfirm: (text, apply) => confirmClipboardWrite(text, apply),
       });
       const marks = attachCommandMarks(leafId, s, term);
-      return [prompt.dispose, cwd, osc52, marks];
+      const exts = attachExtensions(leafId, term);
+      return [prompt.dispose, cwd, osc52, marks, exts];
     },
     onSearchReady: (addon) => s.callbacks.onSearchReady?.(addon),
   });

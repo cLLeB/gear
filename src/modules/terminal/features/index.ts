@@ -21,6 +21,11 @@ import { commandProgram } from "./commandNotify";
 import { suggestCorrection } from "./typoFix";
 import { setPendingCorrection } from "./corrections";
 import { installDirTracking } from "./dirJump";
+import { installOscNotifications } from "./oscNotify";
+
+// Per-terminal extensions must be registered before panes bind, so they are
+// installed at import time rather than in installTerminalFeatures().
+installOscNotifications();
 import { openExternalUrl } from "@/lib/external-link";
 import { toast } from "sonner";
 

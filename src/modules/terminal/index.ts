@@ -29,6 +29,7 @@ export {
 	leafCwd,
 	leafTerminal,
 	onTerminalCommandFinished,
+	registerTerminalExtension,
 	scrollLeafToPrompt,
 	type FinishedCommand,
 	leafHasForegroundProcess,
