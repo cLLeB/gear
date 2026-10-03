@@ -178,6 +178,7 @@ import { QuickPickHost } from "@/modules/quick-pick";
 import { goToLinePrompt, goToSymbolCmd } from "@/modules/editor/lib/textTools/commands";
 import { getActiveEditor } from "@/modules/editor/lib/activeEditor";
 import { installTerminalFeatures } from "@/modules/terminal/features";
+import { useLastCommandStore } from "@/modules/terminal/features/lastCommandStore";
 
 type TuiWaitResult = "ready" | "gone" | "timeout";
 
@@ -1907,6 +1908,9 @@ export default function App() {
 		activeSpaceId,
 	};
 	useEffect(() => installTerminalFeatures(), []);
+	useEffect(() => {
+		useLastCommandStore.getState().setActiveLeaf(isTerminalTab ? activeLeafId : null);
+	}, [isTerminalTab, activeLeafId]);
 
 	useEffect(() => {
 		const d = () => bridgeDeps.current;
