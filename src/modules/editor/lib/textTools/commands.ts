@@ -7,6 +7,8 @@ import type { EditorView, KeyBinding } from "@codemirror/view";
 import type { CodeActionDescriptor } from "../codeActions";
 import { incrementAt } from "./increment";
 import { cycleToken, tokenAt } from "./cycleWord";
+import { findEnclosingPair, pairFor, wrap, type Pair } from "./surround";
+import { inputBox, quickPick } from "@/modules/quick-pick";
 
 type RangeEdit = { from: number; to: number; insert: string; select?: "all" | "end" };
 
@@ -67,7 +69,80 @@ export function cycleWordCmd(direction: 1 | -1) {
     });
 }
 
+const SURROUND_CHOICES = ['"', "'", "`", "(", "[", "{", "<>", "**", "_", "~~"];
+
+async function choosePair(title: string): Promise<Pair | undefined> {
+  const choice = await quickPick(
+    [
+      ...SURROUND_CHOICES.map((c) => {
+        const p = c === "<>" ? { open: "<", close: ">" } : pairFor(c);
+        return { label: `${p.open} … ${p.close}`, value: p as Pair | "tag" };
+      }),
+      { label: "HTML/XML tag…", detail: "e.g. div, span class=\"x\", a href=\"#\"", value: "tag" as const },
+    ],
+    { title, placeholder: "Pick a pair or type a tag name", allowCustom: false },
+  );
+  if (choice === "tag") {
+    const tag = await inputBox({ title: "Tag", placeholder: 'div class="box"', validate: (v) => (/^[A-Za-z]/.test(v.trim()) ? null : "Enter a tag name") });
+    return tag ? pairFor(`<${tag.trim()}>`) : undefined;
+  }
+  return choice;
+}
+
+export async function surroundSelection(view: EditorView): Promise<boolean> {
+  if (view.state.selection.ranges.every((r) => r.empty)) {
+    // Like vim-surround's `ysiw`: wrap the word under each cursor.
+    view.dispatch({
+      selection: EditorSelection.create(
+        view.state.selection.ranges.map((r) => {
+          const w = view.state.wordAt(r.head);
+          return w ? EditorSelection.range(w.from, w.to) : r;
+        }),
+        view.state.selection.mainIndex,
+      ),
+    });
+  }
+  const pair = await choosePair("Surround with");
+  if (!pair) return false;
+  view.focus();
+  return editEachRange(view, (range, state) =>
+    range.empty ? null : { from: range.from, to: range.to, insert: wrap(state.sliceDoc(range.from, range.to), pair), select: "all" },
+  );
+}
+
+/** Remove (or, with `replacement`, change) the innermost pair around each range. */
+function editEnclosing(view: EditorView, replacement: Pair | null): boolean {
+  const doc = view.state.doc.toString();
+  const changes: Array<{ from: number; to: number; insert: string }> = [];
+  const seen = new Set<number>();
+  for (const r of view.state.selection.ranges) {
+    const p = findEnclosingPair(doc, r.from, r.to);
+    if (!p || seen.has(p.openFrom)) continue;
+    seen.add(p.openFrom);
+    changes.push({ from: p.openFrom, to: p.openTo, insert: replacement?.open ?? "" });
+    changes.push({ from: p.closeFrom, to: p.closeTo, insert: replacement?.close ?? "" });
+  }
+  if (changes.length === 0) return false;
+  view.dispatch({ changes, scrollIntoView: true, userEvent: "input" });
+  return true;
+}
+
+export const removeSurroundCmd = (view: EditorView) => editEnclosing(view, null);
+
+export async function changeSurround(view: EditorView): Promise<boolean> {
+  const doc = view.state.doc.toString();
+  const r = view.state.selection.main;
+  if (!findEnclosingPair(doc, r.from, r.to)) return false;
+  const pair = await choosePair("Change surrounding pair to");
+  if (!pair) return false;
+  view.focus();
+  return editEnclosing(view, pair);
+}
+
 export const TEXT_ACTIONS: CodeActionDescriptor[] = [
+  { id: "text.surround", label: "Surround with…", keywords: ["wrap", "quotes", "brackets", "tag", "vim-surround", "ys"], run: (v) => void surroundSelection(v) },
+  { id: "text.removeSurround", label: "Remove surrounding pair", keywords: ["unwrap", "delete", "quotes", "brackets", "tag", "ds"], run: (v) => removeSurroundCmd(v) },
+  { id: "text.changeSurround", label: "Change surrounding pair…", keywords: ["replace", "quotes", "brackets", "tag", "cs"], run: (v) => void changeSurround(v) },
   { id: "text.cycleWord", label: "Toggle word (true/false, let/const, ===/!==…)", keywords: ["cycle", "toggle", "boolean", "flip", "opposite", "switch"], run: (v) => cycleWordCmd(1)(v) },
   { id: "text.cycleWordBack", label: "Toggle word backwards", keywords: ["cycle", "toggle", "previous"], run: (v) => cycleWordCmd(-1)(v) },
   { id: "text.increment", label: "Increment number", keywords: ["increase", "plus", "ctrl-a", "counter", "date"], run: (v) => incrementCmd(1)(v) },
@@ -82,5 +157,6 @@ export function textToolsKeymap(): KeyBinding[] {
     { key: "Mod-Alt--", preventDefault: true, run: incrementCmd(-1) },
     { key: "Mod-Alt-t", preventDefault: true, run: cycleWordCmd(1) },
     { key: "Mod-Alt-Shift-t", preventDefault: true, run: cycleWordCmd(-1) },
+    { key: "Mod-Alt-s", preventDefault: true, run: (v) => (void surroundSelection(v), true) },
   ];
 }
