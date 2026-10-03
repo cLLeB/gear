@@ -6,6 +6,7 @@ import { EditorSelection, type EditorState, type SelectionRange } from "@codemir
 import type { EditorView, KeyBinding } from "@codemirror/view";
 import type { CodeActionDescriptor } from "../codeActions";
 import { incrementAt } from "./increment";
+import { cycleToken, tokenAt } from "./cycleWord";
 
 type RangeEdit = { from: number; to: number; insert: string; select?: "all" | "end" };
 
@@ -50,7 +51,25 @@ export function incrementCmd(delta: number) {
     });
 }
 
+export function cycleWordCmd(direction: 1 | -1) {
+  return (view: EditorView): boolean =>
+    editEachRange(view, (range, state) => {
+      const line = state.doc.lineAt(range.head);
+      const tok = range.empty
+        ? tokenAt(line.text, range.head - line.from)
+        : range.from >= line.from && range.to <= line.to
+          ? { from: range.from - line.from, to: range.to - line.from, text: state.sliceDoc(range.from, range.to) }
+          : null;
+      if (!tok) return null;
+      const next = cycleToken(tok.text, direction);
+      if (next === null) return null;
+      return { from: line.from + tok.from, to: line.from + tok.to, insert: next, select: range.empty ? "end" : "all" };
+    });
+}
+
 export const TEXT_ACTIONS: CodeActionDescriptor[] = [
+  { id: "text.cycleWord", label: "Toggle word (true/false, let/const, ===/!==…)", keywords: ["cycle", "toggle", "boolean", "flip", "opposite", "switch"], run: (v) => cycleWordCmd(1)(v) },
+  { id: "text.cycleWordBack", label: "Toggle word backwards", keywords: ["cycle", "toggle", "previous"], run: (v) => cycleWordCmd(-1)(v) },
   { id: "text.increment", label: "Increment number", keywords: ["increase", "plus", "ctrl-a", "counter", "date"], run: (v) => incrementCmd(1)(v) },
   { id: "text.decrement", label: "Decrement number", keywords: ["decrease", "minus", "ctrl-x", "counter", "date"], run: (v) => incrementCmd(-1)(v) },
   { id: "text.increment10", label: "Increment number by 10", keywords: ["increase", "plus", "ten"], run: (v) => incrementCmd(10)(v) },
@@ -61,5 +80,7 @@ export function textToolsKeymap(): KeyBinding[] {
   return [
     { key: "Mod-Alt-=", preventDefault: true, run: incrementCmd(1) },
     { key: "Mod-Alt--", preventDefault: true, run: incrementCmd(-1) },
+    { key: "Mod-Alt-t", preventDefault: true, run: cycleWordCmd(1) },
+    { key: "Mod-Alt-Shift-t", preventDefault: true, run: cycleWordCmd(-1) },
   ];
 }
