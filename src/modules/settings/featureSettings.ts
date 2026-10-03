@@ -48,12 +48,30 @@ export const FEATURE_DEFAULTS = {
   "terminal.commandGuardCaution": false,
   "editor.colorSwatches": true,
   "editor.todoHighlight": true,
+  "editor.rulers": "",
+  "editor.renderWhitespace": false,
+  "editor.highlightTrailingWhitespace": false,
 } satisfies Record<string, boolean | number | string>;
 
 export type FeatureKey = keyof typeof FEATURE_DEFAULTS;
 export type FeatureValues = { [K in FeatureKey]: (typeof FEATURE_DEFAULTS)[K] };
 
 export const FEATURE_META: Record<FeatureKey, Meta> = {
+  "editor.rulers": {
+    label: "Vertical rulers",
+    description: "Columns to draw guide lines at, e.g. 80, 100, 120. Leave empty for none.",
+    section: "Editor",
+  },
+  "editor.renderWhitespace": {
+    label: "Render whitespace",
+    description: "Show spaces and tabs as faint dots and arrows.",
+    section: "Editor",
+  },
+  "editor.highlightTrailingWhitespace": {
+    label: "Highlight trailing whitespace",
+    description: "Tint spaces and tabs at the end of lines.",
+    section: "Editor",
+  },
   "editor.todoHighlight": {
     label: "Highlight TODO comments",
     description: "Colour TODO, FIXME, BUG, HACK, XXX and NOTE tags in comments so they stand out.",

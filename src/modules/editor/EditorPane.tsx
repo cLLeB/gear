@@ -58,6 +58,7 @@ import { codeActionsKeymap } from "./lib/codeActions";
 import { renameSymbolLocal, textToolsKeymap } from "./lib/textTools/commands";
 import { colorSwatches } from "./lib/colorSwatches";
 import { todoHighlight } from "./lib/todoHighlight";
+import { editorGuides } from "./lib/editorGuides";
 import { bookmarks, bookmarksKeymap, restoredBookmarks, setBookmarksEffect } from "./lib/bookmarks";
 import { FORCE_READ_LIMIT, useDocument } from "./lib/useDocument";
 import {
@@ -388,6 +389,7 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
         ),
         colorSwatches(),
         todoHighlight(),
+        editorGuides(),
         bookmarks(() => pathRef.current),
         keymap.of(bookmarksKeymap()),
         keymap.of([
