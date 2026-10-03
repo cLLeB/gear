@@ -60,6 +60,7 @@ import { colorSwatches } from "./lib/colorSwatches";
 import { todoHighlight } from "./lib/todoHighlight";
 import { editorGuides } from "./lib/editorGuides";
 import { conflictLens } from "./lib/conflictLens";
+import { gitGutter } from "./lib/gitGutter";
 import { bookmarks, bookmarksKeymap, restoredBookmarks, setBookmarksEffect } from "./lib/bookmarks";
 import { FORCE_READ_LIMIT, useDocument } from "./lib/useDocument";
 import {
@@ -403,6 +404,7 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
         todoHighlight(),
         editorGuides(),
         conflictLens(),
+        gitGutter(() => pathRef.current),
         bookmarks(() => pathRef.current),
         keymap.of(bookmarksKeymap()),
         keymap.of([
