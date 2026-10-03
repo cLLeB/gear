@@ -21,7 +21,7 @@ import {
   TerminalIcon,
 } from "@hugeicons/core-free-icons";
 import { CODE_ACTIONS, runCodeActionOnActiveEditor } from "@/modules/editor/lib/codeActions";
-import { toggleBroadcast } from "@/modules/terminal";
+import { TERMINAL_ACTIONS, toggleBroadcast } from "@/modules/terminal";
 
 type CommandIcon = typeof TerminalIcon;
 
@@ -32,6 +32,10 @@ export type CommandPaletteActionGroup =
   | "View"
   | "Search"
   | "Code"
+  | "Terminal"
+  | "Text"
+  | "Git"
+  | "Workspace"
   | "AI";
 
 export type CommandPaletteAction = {
@@ -47,7 +51,19 @@ export type CommandPaletteAction = {
 };
 
 export const COMMAND_PALETTE_ACTION_GROUPS: readonly CommandPaletteActionGroup[] =
-  ["General", "Tabs", "Panes", "View", "Search", "Code", "AI"] as const;
+  [
+    "General",
+    "Tabs",
+    "Panes",
+    "Terminal",
+    "View",
+    "Search",
+    "Code",
+    "Text",
+    "Git",
+    "Workspace",
+    "AI",
+  ] as const;
 
 export type CommandPaletteActionContext = {
   tabs: Tab[];
@@ -318,6 +334,15 @@ export function createCommandPaletteActions(
       shortcutId: "ai.askSelection",
       run: ctx.askAiSelection,
     },
+    ...TERMINAL_ACTIONS.map((action): CommandPaletteAction => ({
+      id: action.id,
+      label: action.label,
+      group: "Terminal",
+      keywords: ["terminal", ...action.keywords],
+      icon: TerminalIcon,
+      run: () => void action.run(),
+      deferRun: true,
+    })),
     // Code-intelligence actions from the in-process toolkit (src/lib/lang).
     // They operate on the last-focused editor; each reports or edits in place.
     ...CODE_ACTIONS.map((action): CommandPaletteAction => ({

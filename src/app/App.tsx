@@ -140,6 +140,7 @@ import {
 	disposeSession,
 	findLeafCwd,
 	hasLeaf,
+	jumpToPrompt,
 	leafHasForegroundProcess,
 	leafIds,
 	type PaneBounds,
@@ -1574,6 +1575,8 @@ export default function App() {
 			"terminal.toggleInput": () => {
 				window.dispatchEvent(new Event(WORKSPACE_INPUT_TOGGLE_EVENT));
 			},
+			"blocks.prev": () => jumpToPrompt(-1),
+			"blocks.next": () => jumpToPrompt(1),
 			"view.zenMode": () => setZenMode((v) => !v),
 			"view.rewind": () => useRewindStore.getState().toggle(),
 		}),
