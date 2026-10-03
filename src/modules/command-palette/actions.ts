@@ -23,6 +23,7 @@ import {
 import { CODE_ACTIONS, runCodeActionOnActiveEditor } from "@/modules/editor/lib/codeActions";
 import { TERMINAL_ACTIONS, toggleBroadcast } from "@/modules/terminal";
 import { TERMINAL_FEATURE_ACTIONS } from "@/modules/terminal/features";
+import { RUN_TASK_ACTIONS } from "@/modules/run/taskActions";
 
 type CommandIcon = typeof TerminalIcon;
 
@@ -341,6 +342,15 @@ export function createCommandPaletteActions(
       group: "Terminal",
       keywords: ["terminal", ...action.keywords],
       icon: TerminalIcon,
+      run: () => void action.run(),
+      deferRun: true,
+    })),
+    ...RUN_TASK_ACTIONS.map((action): CommandPaletteAction => ({
+      id: action.id,
+      label: action.label,
+      group: "Workspace",
+      keywords: ["workspace", "project", ...action.keywords],
+      icon: PlayIcon,
       run: () => void action.run(),
       deferRun: true,
     })),
