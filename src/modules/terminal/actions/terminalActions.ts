@@ -12,6 +12,7 @@ import {
   scrollLeafToPrompt,
 } from "../lib/useTerminalSession";
 import { guardedSubmit } from "../features/guardedSubmit";
+import { usePaneLockStore } from "../lib/paneLock";
 
 export interface TerminalActionDescriptor {
   id: string;
@@ -57,6 +58,17 @@ export function jumpToPrompt(dir: -1 | 1): boolean {
 }
 
 export const TERMINAL_ACTIONS: TerminalActionDescriptor[] = [
+  {
+    id: "terminal.toggleReadOnly",
+    label: "Terminal: Toggle read-only pane",
+    keywords: ["lock", "read only", "protect", "prevent input", "safe", "production"],
+    run: () => {
+      const leaf = requireTerminalLeaf();
+      if (leaf === null) return;
+      const locked = usePaneLockStore.getState().toggle(leaf);
+      toast.success(locked ? "Pane is now read-only" : "Pane accepts input again");
+    },
+  },
   {
     id: "terminal.prevPrompt",
     label: "Terminal: Scroll to previous prompt",
