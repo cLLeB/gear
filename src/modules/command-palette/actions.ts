@@ -28,6 +28,7 @@ import { TERMINAL_FEATURE_ACTIONS } from "@/modules/terminal/features";
 import { RUN_TASK_ACTIONS } from "@/modules/run/taskActions";
 import { WORKSPACE_ACTIONS } from "@/modules/workspace/actions";
 import { pickClosedTab } from "@/modules/tabs/tabActions";
+import { deleteSavedLayout, openSavedLayout, saveCurrentLayout } from "@/modules/tabs/layoutActions";
 import { GIT_ACTIONS } from "@/modules/git-actions/actions";
 import { app } from "@/app/appBridge";
 
@@ -225,6 +226,33 @@ export function createCommandPaletteActions(
       run: () => {
         app().reopenClosedTab();
       },
+    },
+    {
+      id: "tab.saveLayout",
+      label: "Tabs: Save layout…",
+      group: "Tabs",
+      keywords: ["layout", "launch configuration", "workspace", "split", "save", "preset"],
+      icon: LayoutTwoColumnIcon,
+      run: () => void saveCurrentLayout(),
+      deferRun: true,
+    },
+    {
+      id: "tab.openLayout",
+      label: "Tabs: Open saved layout…",
+      group: "Tabs",
+      keywords: ["layout", "launch configuration", "workspace", "restore", "startup"],
+      icon: LayoutTwoColumnIcon,
+      run: () => void openSavedLayout(),
+      deferRun: true,
+    },
+    {
+      id: "tab.deleteLayout",
+      label: "Tabs: Delete saved layout…",
+      group: "Tabs",
+      keywords: ["layout", "remove"],
+      icon: LayoutTwoColumnIcon,
+      run: () => void deleteSavedLayout(),
+      deferRun: true,
     },
     {
       id: "tab.reopenClosedPick",
