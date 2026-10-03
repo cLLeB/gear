@@ -55,7 +55,7 @@ initVimGlobals();
 import { resolveLanguage } from "./lib/languageResolver";
 import { clearActiveEditor, setActiveEditor } from "./lib/activeEditor";
 import { codeActionsKeymap } from "./lib/codeActions";
-import { renameSymbolLocal, textToolsKeymap } from "./lib/textTools/commands";
+import { renameSymbolLocal, textToolsKeymap, toggleMarkdownWrap } from "./lib/textTools/commands";
 import { colorSwatches } from "./lib/colorSwatches";
 import { todoHighlight } from "./lib/todoHighlight";
 import { editorGuides } from "./lib/editorGuides";
@@ -373,6 +373,17 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
         // Semantic selection expand/shrink (Shift+Alt+Arrow), from the toolkit.
         keymap.of(codeActionsKeymap(() => analyzableLangRef.current)),
         keymap.of(textToolsKeymap(() => analyzableLangRef.current)),
+        // Markdown formatting keys only in Markdown files.
+        keymap.of([
+          {
+            key: "Mod-b",
+            run: (v) => (/\.(md|markdown|mdx)$/i.test(pathRef.current) ? toggleMarkdownWrap("**")(v) : false),
+          },
+          {
+            key: "Mod-i",
+            run: (v) => (/\.(md|markdown|mdx)$/i.test(pathRef.current) ? toggleMarkdownWrap("_")(v) : false),
+          },
+        ]),
         // Fallback rename when no language server claims F2 (LSP keymaps
         // are registered at normal precedence and win).
         Prec.low(
