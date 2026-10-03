@@ -31,3 +31,28 @@ describe("branch names", () => {
     expect(branchNameFromText("experiment with café")).toBe("experiment-with-cafe");
   });
 });
+
+import { baseFromRemoteHead, cleanupCandidates } from "./branches";
+
+describe("cleanupCandidates", () => {
+  const b = (name: string, extra: Partial<import("./branches").BranchInfo> = {}) => ({
+    name, current: false, updated: 0, upstream: null, ahead: 0, behind: 0, gone: false, subject: "", ...extra,
+  });
+  it("proposes merged and gone branches, never current, base or release", () => {
+    const out = cleanupCandidates(
+      [b("main"), b("feat/a"), b("feat/b", { gone: true }), b("feat/c", { gone: true }), b("wip", { current: true }), b("release/1.0"), b("keep")],
+      new Set(["main", "feat/a", "feat/c", "wip", "release/1.0"]),
+      "main",
+    );
+    expect(out.map((c) => [c.branch.name, c.reason])).toEqual([
+      ["feat/a", "merged"],
+      ["feat/b", "gone"],
+      ["feat/c", "merged+gone"],
+    ]);
+  });
+
+  it("reads the remote HEAD", () => {
+    expect(baseFromRemoteHead("refs/remotes/origin/main\n")).toBe("main");
+    expect(baseFromRemoteHead("origin/develop")).toBe("develop");
+  });
+});
