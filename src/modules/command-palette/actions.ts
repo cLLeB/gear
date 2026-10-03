@@ -21,6 +21,7 @@ import {
   TerminalIcon,
 } from "@hugeicons/core-free-icons";
 import { CODE_ACTIONS, runCodeActionOnActiveEditor } from "@/modules/editor/lib/codeActions";
+import { TEXT_ACTIONS } from "@/modules/editor/lib/textTools/commands";
 import { PANE_ACTIONS, TERMINAL_ACTIONS, toggleBroadcast } from "@/modules/terminal";
 import { TERMINAL_FEATURE_ACTIONS } from "@/modules/terminal/features";
 import { RUN_TASK_ACTIONS } from "@/modules/run/taskActions";
@@ -395,6 +396,15 @@ export function createCommandPaletteActions(
       group: "Code",
       keywords: action.keywords,
       icon: CodeIcon,
+      run: () => runCodeActionOnActiveEditor(action),
+      deferRun: true,
+    })),
+    ...TEXT_ACTIONS.map((action): CommandPaletteAction => ({
+      id: action.id,
+      label: action.label,
+      group: "Text",
+      keywords: ["text", "editor", ...action.keywords],
+      icon: FileEditIcon,
       run: () => runCodeActionOnActiveEditor(action),
       deferRun: true,
     })),

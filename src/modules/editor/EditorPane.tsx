@@ -55,6 +55,7 @@ initVimGlobals();
 import { resolveLanguage } from "./lib/languageResolver";
 import { clearActiveEditor, setActiveEditor } from "./lib/activeEditor";
 import { codeActionsKeymap } from "./lib/codeActions";
+import { textToolsKeymap } from "./lib/textTools/commands";
 import { FORCE_READ_LIMIT, useDocument } from "./lib/useDocument";
 import {
   inlineCompletion,
@@ -367,6 +368,7 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
         }),
         // Semantic selection expand/shrink (Shift+Alt+Arrow), from the toolkit.
         keymap.of(codeActionsKeymap(() => analyzableLangRef.current)),
+        keymap.of(textToolsKeymap()),
         keymap.of([
           {
             key: "Mod-s",
