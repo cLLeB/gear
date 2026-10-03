@@ -15,6 +15,9 @@ import {
   type CleanupCandidate,
 } from "./branches";
 import { quickPick } from "@/modules/quick-pick";
+import { getActiveEditor } from "@/modules/editor/lib/activeEditor";
+import { app } from "@/app/appBridge";
+import { FILE_LOG_FORMAT, parseFileLog } from "./fileLog";
 import { git, gitOrToast, requireRepo } from "./gitCli";
 
 function trackLabel(b: BranchInfo): string {
@@ -107,7 +110,50 @@ export async function cleanupBranches(): Promise<void> {
   if (out !== null) toast.success(`Deleted ${targets.length} branch${targets.length === 1 ? "" : "es"}`, { description: targets.map((c) => c.branch.name).join(", ") });
 }
 
+export async function fileHistory(): Promise<void> {
+  const path = getActiveEditor()?.path;
+  if (!path) {
+    toast.error("Open a file in the editor first");
+    return;
+  }
+  const root = await requireRepo();
+  if (!root) return;
+  const base = root.replace(/\\/g, "/").replace(/\/+$/, "");
+  const rel = path.replace(/\\/g, "/").slice(base.length + 1);
+  const now = Date.now();
+  const load = git(root, ["log", "--follow", "--name-status", `--format=${FILE_LOG_FORMAT}`, "-n", "300", "--", rel]).then((r) => {
+    if (!r.ok) throw new Error(r.stderr.trim() || "git log failed");
+    return parseFileLog(r.stdout).map((c) => ({
+      label: c.subject,
+      description: `${c.shortSha} · ${c.author} · ${compactRelativeTime(c.time * 1000, now)}`,
+      detail: c.originalPath ? `renamed from ${c.originalPath}` : c.status === "A" ? "added" : undefined,
+      keywords: [c.sha, c.author],
+      value: c,
+    }));
+  });
+  const commit = await quickPick(load, {
+    title: `History of ${rel}`,
+    placeholder: "Search commits by message, author or sha…",
+    emptyText: "No commits touch this file (is it untracked?)",
+  });
+  if (!commit) return;
+  app().openCommitFileDiff({
+    repoRoot: root,
+    sha: commit.sha,
+    shortSha: commit.shortSha,
+    subject: commit.subject,
+    path: commit.path,
+    originalPath: commit.originalPath,
+  });
+}
+
 export const GIT_ACTIONS: TerminalActionDescriptor[] = [
+  {
+    id: "git.fileHistory",
+    label: "Git: File history…",
+    keywords: ["log", "history", "timeline", "commits", "blame", "follow", "file"],
+    run: fileHistory,
+  },
   {
     id: "git.cleanupBranches",
     label: "Git: Clean up merged / gone branches…",
