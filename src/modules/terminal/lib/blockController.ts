@@ -4,9 +4,9 @@ import {
   getLeafBlockMode,
   interruptLeaf,
   leafCwd,
-  submitToLeaf,
   subscribeLeafBlockMode,
 } from "./useTerminalSession";
+import { guardedSubmit } from "../features/guardedSubmit";
 
 export type BlockController = {
   blockMode: BlockMode;
@@ -32,7 +32,7 @@ export function useBlockController(
     if (leafId == null) return null;
     return {
       blockMode,
-      submitCommand: (text) => submitToLeaf(leafId, text),
+      submitCommand: (text) => void guardedSubmit(leafId, text),
       interrupt: () => interruptLeaf(leafId),
       getCwd: () => leafCwd(leafId),
     };

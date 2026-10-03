@@ -10,8 +10,8 @@ import {
   lastFinishedCommand,
   navigateFocusedBlocks,
   scrollLeafToPrompt,
-  submitToLeaf,
 } from "../lib/useTerminalSession";
+import { guardedSubmit } from "../features/guardedSubmit";
 
 export interface TerminalActionDescriptor {
   id: string;
@@ -115,7 +115,7 @@ export const TERMINAL_ACTIONS: TerminalActionDescriptor[] = [
         toast.error("A command is still running in this terminal");
         return;
       }
-      submitToLeaf(leaf, last.command);
+      void guardedSubmit(leaf, last.command);
     },
   },
 ];

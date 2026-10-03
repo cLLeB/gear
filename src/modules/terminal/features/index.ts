@@ -15,8 +15,8 @@ import { scanForSecrets } from "./secretScan";
 import {
   clearLeafScrollback,
   isLeafCommandRunning,
-  submitToLeaf,
 } from "../lib/useTerminalSession";
+import { guardedSubmit } from "./guardedSubmit";
 import { commandProgram } from "./commandNotify";
 import { suggestCorrection } from "./typoFix";
 import { setPendingCorrection } from "./corrections";
@@ -126,7 +126,7 @@ export function installTerminalFeatures(): () => void {
         action: {
           label: "Run",
           onClick: () => {
-            if (!isLeafCommandRunning(cmd.leafId)) submitToLeaf(cmd.leafId, fixed);
+            if (!isLeafCommandRunning(cmd.leafId)) void guardedSubmit(cmd.leafId, fixed);
           },
         },
       });
