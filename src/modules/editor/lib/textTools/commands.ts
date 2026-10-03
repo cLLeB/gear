@@ -15,6 +15,7 @@ import { detectJsonIndent, parseYaml, sortKeysDeep, toYaml } from "./yaml";
 import { CODECS, type CodecId } from "./encoding";
 import { allHashes } from "./hash";
 import { convertTimestamp, nanoid, ulid, uuidV4, uuidV7 } from "./ids";
+import { findJwt, inspectJwt } from "./jwtInspect";
 import {
   alignDelimited,
   csvToMarkdown,
@@ -321,7 +322,42 @@ export function convertTimestampCmd(view: EditorView): boolean {
   return changed;
 }
 
+/** Decode a JWT from the selection, the cursor line, the file or the clipboard. */
+export async function inspectJwtCmd(view: EditorView | null): Promise<boolean> {
+  let token: string | null = null;
+  if (view) {
+    const sel = view.state.selection.main;
+    token =
+      findJwt(view.state.sliceDoc(sel.from, sel.to)) ??
+      findJwt(view.state.doc.lineAt(sel.head).text) ??
+      findJwt(view.state.doc.toString());
+  }
+  if (!token) token = findJwt(await navigator.clipboard.readText().catch(() => ""));
+  if (!token) {
+    toast.error("No JWT found", { description: "Select a token or copy one to the clipboard." });
+    return false;
+  }
+  const report = inspectJwt(token);
+  if (!report) {
+    toast.error("That token does not decode as a JWT");
+    return false;
+  }
+  const json = JSON.stringify({ header: report.header, payload: report.payload }, null, 2);
+  const picked = await quickPick(
+    [
+      { label: "Copy decoded header and payload as JSON", group: "Actions", value: json },
+      ...report.rows.map((r) => ({ label: `${r.key}: ${r.value}`, description: r.note, group: "Claims", value: r.value })),
+    ],
+    { title: `JWT · ${report.summary} (signature not verified)`, placeholder: "Filter claims; Enter copies" },
+  );
+  if (picked === undefined) return false;
+  await navigator.clipboard.writeText(picked).catch(() => {});
+  toast.success("Copied", { description: picked.length > 80 ? `${picked.slice(0, 80)}…` : picked });
+  return true;
+}
+
 export const TEXT_ACTIONS: CodeActionDescriptor[] = [
+  { id: "text.inspectJwt", label: "Inspect JWT", keywords: ["jwt", "token", "decode", "claims", "bearer", "auth", "expiry"], run: (v) => void inspectJwtCmd(v) },
   { id: "text.uuidV4", label: "Insert UUID v4", keywords: ["uuid", "guid", "random", "id", "generate"], run: (v) => insertGenerated(() => uuidV4())(v) },
   { id: "text.uuidV7", label: "Insert UUID v7 (time-ordered)", keywords: ["uuid", "guid", "sortable", "id", "generate"], run: (v) => insertGenerated(() => uuidV7())(v) },
   { id: "text.ulid", label: "Insert ULID", keywords: ["ulid", "sortable", "id", "generate"], run: (v) => insertGenerated(() => ulid())(v) },
