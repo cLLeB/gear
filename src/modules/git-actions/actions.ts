@@ -147,7 +147,43 @@ export async function fileHistory(): Promise<void> {
   });
 }
 
+export async function undoLastCommit(): Promise<void> {
+  const root = await requireRepo();
+  if (!root) return;
+  const head = await git(root, ["log", "-1", "--format=%h%x1f%s%x1f%P"]);
+  if (!head.ok || !head.stdout.trim()) {
+    toast.error("There is no commit to undo");
+    return;
+  }
+  const [short, subject, parents] = head.stdout.trim().split("\x1f");
+  if (!parents) {
+    toast.error("This is the repository's first commit; there is nothing to reset to");
+    return;
+  }
+  if (parents.split(" ").length > 1) {
+    toast.error("HEAD is a merge commit", { description: "Undo merges deliberately from a terminal (git reset --merge)." });
+    return;
+  }
+  // Already on a remote branch? Rewriting it means a force-push for everyone.
+  const remote = await git(root, ["branch", "-r", "--contains", "HEAD"]);
+  const pushed = remote.ok && remote.stdout.trim() !== "";
+  const ok = await confirmPick(
+    pushed ? `⚠ ${short} is already pushed (${remote.stdout.trim().split("\n")[0].trim()})` : `Undo ${short}?`,
+    pushed ? "Undo anyway (you will need to force-push)" : `Undo "${subject}"`,
+    "Changes from the commit stay staged in the working tree (git reset --soft HEAD~1).",
+  );
+  if (!ok) return;
+  const out = await gitOrToast(root, ["reset", "--soft", "HEAD~1"], "Undo commit");
+  if (out !== null) toast.success(`Undid ${short}`, { description: `"${subject}" — its changes are staged.` });
+}
+
 export const GIT_ACTIONS: TerminalActionDescriptor[] = [
+  {
+    id: "git.undoLastCommit",
+    label: "Git: Undo last commit (keep changes)",
+    keywords: ["reset", "soft", "uncommit", "revert", "undo"],
+    run: undoLastCommit,
+  },
   {
     id: "git.fileHistory",
     label: "Git: File history…",
