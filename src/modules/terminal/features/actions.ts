@@ -5,6 +5,7 @@ import { applyPendingCorrection } from "./corrections";
 import { quickSelectInTerminal } from "./quickSelectAction";
 import { copyScrollbackAsHtml, saveScrollback } from "./exportScrollback";
 import { explainLastCommandWithAi } from "../ai/explainFailure";
+import { suggestCommandWithAi } from "../ai/suggestCommand";
 import { forgetDirectoryHistory, jumpToDirectory } from "./dirJump";
 import {
   deleteSavedWorkflow,
@@ -14,6 +15,12 @@ import {
 import { pickProblem, stepProblem } from "./terminalProblems";
 
 export const TERMINAL_FEATURE_ACTIONS: TerminalActionDescriptor[] = [
+  {
+    id: "terminal.aiSuggestCommand",
+    label: "Terminal: Generate a command with AI…",
+    keywords: ["ai", "natural language", "suggest", "how do i", "warp", "copilot", "#"],
+    run: suggestCommandWithAi,
+  },
   {
     id: "terminal.aiExplainLast",
     label: "Terminal: Ask AI about the last command",
