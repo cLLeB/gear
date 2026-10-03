@@ -177,7 +177,63 @@ export async function undoLastCommit(): Promise<void> {
   if (out !== null) toast.success(`Undid ${short}`, { description: `"${subject}" — its changes are staged.` });
 }
 
+export async function fixupCommit(): Promise<void> {
+  const root = await requireRepo();
+  if (!root) return;
+  const staged = await git(root, ["diff", "--cached", "--quiet"]);
+  if (staged.ok) {
+    toast.info("Stage the changes you want to fold into an earlier commit first");
+    return;
+  }
+  const upstream = await git(root, ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"]);
+  const range = upstream.ok ? [`${upstream.stdout.trim()}..HEAD`] : ["-n", "30"];
+  const log = await gitOrToast(root, ["log", "--no-merges", "--format=%H%x1f%h%x1f%s%x1f%at", ...range], "List commits");
+  if (log === null) return;
+  const now = Date.now();
+  const commits = log
+    .split("\n")
+    .filter(Boolean)
+    .map((l) => {
+      const [sha, short, subject, at] = l.split("\x1f");
+      return { sha, short, subject, at: Number(at) };
+    })
+    .filter((c) => !/^(fixup|squash)! /.test(c.subject));
+  if (commits.length === 0) {
+    toast.info(upstream.ok ? "No unpushed commits to fix up" : "No commits to fix up");
+    return;
+  }
+  const target = await quickPick(
+    commits.map((c) => ({ label: c.subject, description: `${c.short} · ${compactRelativeTime(c.at * 1000, now)}`, value: c })),
+    { title: "Fold staged changes into…", placeholder: upstream.ok ? "Unpushed commits" : "Recent commits" },
+  );
+  if (!target) return;
+  if ((await gitOrToast(root, ["commit", "--no-verify", `--fixup=${target.sha}`], "Fixup commit")) === null) return;
+  const now2 = await quickPick(
+    [
+      { label: "Squash it in now", detail: `git rebase --autosquash ${target.short}~1`, value: true },
+      { label: "Leave the fixup! commit for later", value: false },
+    ],
+    { title: `Created fixup! ${target.subject}` },
+  );
+  if (!now2) return;
+  const rebase = await git(root, ["-c", "sequence.editor=:", "rebase", "-i", "--autosquash", "--autostash", `${target.sha}~1`], 120);
+  if (!rebase.ok) {
+    await git(root, ["rebase", "--abort"]);
+    toast.error("Autosquash hit a conflict and was aborted", {
+      description: "The fixup! commit is still there; squash it from a terminal when ready.",
+    });
+    return;
+  }
+  toast.success(`Folded changes into ${target.short}`, { description: target.subject });
+}
+
 export const GIT_ACTIONS: TerminalActionDescriptor[] = [
+  {
+    id: "git.fixup",
+    label: "Git: Fold staged changes into an earlier commit…",
+    keywords: ["fixup", "autosquash", "amend", "absorb", "rebase", "squash"],
+    run: fixupCommit,
+  },
   {
     id: "git.undoLastCommit",
     label: "Git: Undo last commit (keep changes)",
