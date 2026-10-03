@@ -38,6 +38,8 @@ import { convertQuotes, nextQuote, stringAt } from "./quotes";
 import { sortJsImports, sortPythonImports } from "./sortImports";
 import { rewrap } from "./rewrap";
 import { alignLines } from "./align";
+import { resolveAll, type Resolution } from "./conflicts";
+import { gotoConflict, resolveConflictAtCursor } from "../conflictLens";
 import { usePreferencesStore } from "@/modules/settings/preferences";
 import {
   alignDelimited,
@@ -759,7 +761,34 @@ export function alignCmd(view: EditorView): boolean {
   return true;
 }
 
+function resolveAllCmd(view: EditorView, how: Resolution): boolean {
+  const doc = view.state.doc.toString();
+  const { text, count } = resolveAll(doc, how);
+  if (count === 0) {
+    toast.info("No merge conflicts in this file");
+    return false;
+  }
+  view.dispatch({ changes: { from: 0, to: doc.length, insert: text }, userEvent: "input" });
+  toast.success(`Resolved ${count} conflict${count === 1 ? "" : "s"} (${how})`);
+  return true;
+}
+
+function conflictAtCursor(how: Resolution) {
+  return (view: EditorView): boolean => {
+    if (resolveConflictAtCursor(view, how)) return true;
+    toast.info("Put the cursor inside a conflict block");
+    return false;
+  };
+}
+
 export const TEXT_ACTIONS: CodeActionDescriptor[] = [
+  { id: "merge.next", label: "Merge: Next conflict", keywords: ["merge", "conflict", "git", "next"], run: (v) => gotoConflict(v, 1) },
+  { id: "merge.prev", label: "Merge: Previous conflict", keywords: ["merge", "conflict", "git", "previous"], run: (v) => gotoConflict(v, -1) },
+  { id: "merge.acceptCurrent", label: "Merge: Accept current change", keywords: ["merge", "conflict", "ours", "head"], run: (v) => conflictAtCursor("current")(v) },
+  { id: "merge.acceptIncoming", label: "Merge: Accept incoming change", keywords: ["merge", "conflict", "theirs"], run: (v) => conflictAtCursor("incoming")(v) },
+  { id: "merge.acceptBoth", label: "Merge: Accept both changes", keywords: ["merge", "conflict", "both"], run: (v) => conflictAtCursor("both")(v) },
+  { id: "merge.acceptAllCurrent", label: "Merge: Accept all current", keywords: ["merge", "conflict", "ours", "all"], run: (v) => resolveAllCmd(v, "current") },
+  { id: "merge.acceptAllIncoming", label: "Merge: Accept all incoming", keywords: ["merge", "conflict", "theirs", "all"], run: (v) => resolveAllCmd(v, "incoming") },
   { id: "text.align", label: "Align on = / : / => …", keywords: ["align", "columns", "assignments", "tabular", "better align", "beautify"], run: (v) => alignCmd(v) },
   { id: "text.rewrap", label: "Rewrap paragraph / comment", keywords: ["wrap", "reflow", "gq", "fill", "paragraph", "comment", "column"], run: (v) => rewrapCmd(v) },
   { id: "text.sortImports", label: "Organize imports (sort, group, merge)", keywords: ["imports", "sort", "isort", "organize", "group", "javascript", "typescript", "python"], run: (v, lang) => sortImportsCmd(v, lang) },
