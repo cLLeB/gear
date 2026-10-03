@@ -59,3 +59,33 @@ export function branchNameFromText(text: string): string {
   const prefix = !verb ? "" : /fix/i.test(verb[1]) ? "fix/" : /refactor/i.test(verb[1]) ? "refactor/" : /document/i.test(verb[1]) ? "docs/" : "feat/";
   return prefix + slugify(t, { maxLength: 50 });
 }
+
+export interface CleanupCandidate {
+  branch: BranchInfo;
+  reason: "merged" | "gone" | "merged+gone";
+}
+
+/** Branches safe to propose for deletion: merged into the base or upstream gone, never current/base. */
+export function cleanupCandidates(
+  branches: readonly BranchInfo[],
+  mergedNames: ReadonlySet<string>,
+  baseBranch: string,
+): CleanupCandidate[] {
+  const protectedNames = new Set([baseBranch, "main", "master", "develop", "trunk"]);
+  return branches
+    .filter((b) => !b.current && !protectedNames.has(b.name) && !/^release\//.test(b.name))
+    .map((b) => {
+      const merged = mergedNames.has(b.name);
+      if (merged && b.gone) return { branch: b, reason: "merged+gone" as const };
+      if (merged) return { branch: b, reason: "merged" as const };
+      if (b.gone) return { branch: b, reason: "gone" as const };
+      return null;
+    })
+    .filter((c): c is CleanupCandidate => c !== null);
+}
+
+/** "origin/main" or "refs/remotes/origin/main" → "main". */
+export function baseFromRemoteHead(symbolicRef: string): string | null {
+  const m = /(?:refs\/remotes\/)?[^/]+\/(.+)$/.exec(symbolicRef.trim());
+  return m ? m[1] : null;
+}

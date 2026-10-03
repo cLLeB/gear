@@ -4,7 +4,17 @@ import { compactRelativeTime } from "@/lib/toolkit/compactRelativeTime";
 import { confirmPick, quickPickWithCustom } from "@/modules/quick-pick";
 import type { TerminalActionDescriptor } from "@/modules/terminal";
 import { toast } from "sonner";
-import { BRANCH_FORMAT, branchNameFromText, isValidBranchName, parseBranches, type BranchInfo } from "./branches";
+import {
+  baseFromRemoteHead,
+  BRANCH_FORMAT,
+  branchNameFromText,
+  cleanupCandidates,
+  isValidBranchName,
+  parseBranches,
+  type BranchInfo,
+  type CleanupCandidate,
+} from "./branches";
+import { quickPick } from "@/modules/quick-pick";
 import { git, gitOrToast, requireRepo } from "./gitCli";
 
 function trackLabel(b: BranchInfo): string {
@@ -51,7 +61,59 @@ export async function switchBranch(): Promise<void> {
   if (out !== null) toast.success(`Created and switched to ${name}`);
 }
 
+async function baseBranch(root: string, branches: BranchInfo[]): Promise<string> {
+  const head = await git(root, ["symbolic-ref", "--quiet", "refs/remotes/origin/HEAD"]);
+  const fromRemote = head.ok ? baseFromRemoteHead(head.stdout) : null;
+  if (fromRemote) return fromRemote;
+  return ["main", "master", "trunk", "develop"].find((n) => branches.some((b) => b.name === n)) ?? "main";
+}
+
+const REASON: Record<CleanupCandidate["reason"], string> = {
+  merged: "merged",
+  gone: "upstream deleted, NOT merged",
+  "merged+gone": "merged, upstream deleted",
+};
+
+export async function cleanupBranches(): Promise<void> {
+  const root = await requireRepo();
+  if (!root) return;
+  // Refresh remote-tracking info so "gone" is accurate.
+  await git(root, ["fetch", "--prune", "--quiet"], 60);
+  const list = await gitOrToast(root, ["for-each-ref", `--format=${BRANCH_FORMAT}`, "refs/heads"], "List branches");
+  if (list === null) return;
+  const branches = parseBranches(list);
+  const base = await baseBranch(root, branches);
+  const merged = await git(root, ["branch", "--merged", base, "--format=%(refname:short)"]);
+  const candidates = cleanupCandidates(branches, new Set(merged.stdout.split("\n").map((l) => l.trim()).filter(Boolean)), base);
+  if (candidates.length === 0) {
+    toast.success("No stale branches", { description: `Every other branch has unmerged work relative to ${base}.` });
+    return;
+  }
+  const safe = candidates.filter((c) => c.reason !== "gone");
+  const pick = await quickPick<"all-safe" | CleanupCandidate>(
+    [
+      ...(safe.length > 0
+        ? [{ label: `Delete all ${safe.length} merged branch${safe.length === 1 ? "" : "es"}`, detail: safe.map((c) => c.branch.name).join(", "), group: "Bulk", value: "all-safe" as const }]
+        : []),
+      ...candidates.map((c) => ({ label: c.branch.name, description: REASON[c.reason], detail: c.branch.subject, group: "Delete one", value: c })),
+    ],
+    { title: `Stale branches (base: ${base})` },
+  );
+  if (!pick) return;
+  const targets = pick === "all-safe" ? safe : [pick];
+  const force = targets.some((c) => c.reason === "gone");
+  if (force && !(await confirmPick(`${targets[0].branch.name} has commits that were never merged`, "Delete it anyway (git branch -D)"))) return;
+  const out = await gitOrToast(root, ["branch", force ? "-D" : "-d", ...targets.map((c) => c.branch.name)], "Delete branches");
+  if (out !== null) toast.success(`Deleted ${targets.length} branch${targets.length === 1 ? "" : "es"}`, { description: targets.map((c) => c.branch.name).join(", ") });
+}
+
 export const GIT_ACTIONS: TerminalActionDescriptor[] = [
+  {
+    id: "git.cleanupBranches",
+    label: "Git: Clean up merged / gone branches…",
+    keywords: ["prune", "delete", "branches", "stale", "merged", "gone", "tidy"],
+    run: cleanupBranches,
+  },
   {
     id: "git.switchBranch",
     label: "Git: Switch branch…",
