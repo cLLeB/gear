@@ -4,6 +4,7 @@ import type { TerminalActionDescriptor } from "../actions/terminalActions";
 import { applyPendingCorrection } from "./corrections";
 import { quickSelectInTerminal } from "./quickSelectAction";
 import { copyScrollbackAsHtml, saveScrollback } from "./exportScrollback";
+import { explainLastCommandWithAi } from "../ai/explainFailure";
 import { forgetDirectoryHistory, jumpToDirectory } from "./dirJump";
 import {
   deleteSavedWorkflow,
@@ -13,6 +14,12 @@ import {
 import { pickProblem, stepProblem } from "./terminalProblems";
 
 export const TERMINAL_FEATURE_ACTIONS: TerminalActionDescriptor[] = [
+  {
+    id: "terminal.aiExplainLast",
+    label: "Terminal: Ask AI about the last command",
+    keywords: ["ai", "explain", "error", "failed", "fix", "why", "debug", "warp"],
+    run: explainLastCommandWithAi,
+  },
   {
     id: "terminal.problems",
     label: "Terminal: Show problems from last command",
