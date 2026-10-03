@@ -20,6 +20,14 @@ import { calculate, formatResult, sumNumbers } from "./calc";
 import { describeCron, findCron, upcomingRuns } from "./cronExplain";
 import { findColors, formatColor, type ColorFormat } from "./colors";
 import {
+  allStoredBookmarks,
+  clearAllStoredBookmarks,
+  clearBookmarks,
+  gotoBookmark,
+  toggleBookmark,
+} from "../bookmarks";
+import { app } from "@/app/appBridge";
+import {
   alignDelimited,
   csvToMarkdown,
   formatAllMarkdownTables,
@@ -430,7 +438,35 @@ export async function convertColorsCmd(view: EditorView): Promise<boolean> {
   });
 }
 
+export async function listBookmarks(): Promise<void> {
+  const all = allStoredBookmarks();
+  if (all.length === 0) {
+    toast.info("No bookmarks yet", { description: "Toggle one with Mod+Alt+K in the editor." });
+    return;
+  }
+  const pick = await quickPick(
+    all.map((b) => ({
+      label: b.preview || "(blank line)",
+      description: `${b.path.replace(/^.*[\\/]/, "")}:${b.line}`,
+      detail: b.path,
+      group: b.path.replace(/^.*[\\/]/, ""),
+      value: b,
+    })),
+    { title: "Bookmarks", placeholder: "Search bookmarks…" },
+  );
+  if (pick) app().openFile(pick.path, pick.line);
+}
+
+export function clearEveryBookmark(): void {
+  clearAllStoredBookmarks();
+  toast.success("All bookmarks cleared", { description: "Open editors keep theirs until closed." });
+}
+
 export const TEXT_ACTIONS: CodeActionDescriptor[] = [
+  { id: "text.toggleBookmark", label: "Toggle bookmark", keywords: ["bookmark", "mark", "line", "pin"], run: (v) => toggleBookmark(v) },
+  { id: "text.nextBookmark", label: "Go to next bookmark", keywords: ["bookmark", "jump", "next"], run: (v) => gotoBookmark(v, 1) },
+  { id: "text.prevBookmark", label: "Go to previous bookmark", keywords: ["bookmark", "jump", "previous"], run: (v) => gotoBookmark(v, -1) },
+  { id: "text.clearBookmarks", label: "Clear bookmarks in this file", keywords: ["bookmark", "remove", "clear"], run: (v) => clearBookmarks(v) },
   { id: "text.convertColors", label: "Convert colours to hex / rgb / hsl…", keywords: ["color", "colour", "css", "hex", "rgb", "hsl", "convert"], run: (v) => void convertColorsCmd(v) },
   { id: "text.explainCron", label: "Explain cron expression", keywords: ["cron", "crontab", "schedule", "next run", "github actions"], run: (v) => void explainCronCmd(v) },
   { id: "text.evaluate", label: "Evaluate math (replace)", keywords: ["calculate", "calculator", "math", "expression", "compute"], run: (v) => transformSelections(v, "Evaluate", calculate) },
