@@ -7,6 +7,7 @@ import { copyScrollbackAsHtml, saveScrollback } from "./exportScrollback";
 import { explainLastCommandWithAi } from "../ai/explainFailure";
 import { suggestCommandWithAi } from "../ai/suggestCommand";
 import { armMonitor } from "./monitor";
+import { pasteSpecial } from "./pasteSpecial";
 import { forgetDirectoryHistory, jumpToDirectory } from "./dirJump";
 import {
   deleteSavedWorkflow,
@@ -16,6 +17,12 @@ import {
 import { pickProblem, stepProblem } from "./terminalProblems";
 
 export const TERMINAL_FEATURE_ACTIONS: TerminalActionDescriptor[] = [
+  {
+    id: "terminal.pasteSpecial",
+    label: "Terminal: Paste special…",
+    keywords: ["paste", "one line", "quote", "escape", "heredoc", "join", "clipboard", "&&"],
+    run: pasteSpecial,
+  },
   {
     id: "terminal.monitor",
     label: "Terminal: Monitor pane for activity / silence…",
