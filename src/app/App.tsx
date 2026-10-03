@@ -174,6 +174,7 @@ import {
 import { appCloseMessage, useAppCloseGuard } from "./hooks/useAppCloseGuard";
 import { registerAppBridge } from "./appBridge";
 import { QuickPickHost } from "@/modules/quick-pick";
+import { installTerminalFeatures } from "@/modules/terminal/features";
 
 type TuiWaitResult = "ready" | "gone" | "timeout";
 
@@ -1893,6 +1894,8 @@ export default function App() {
 		home,
 		activeSpaceId,
 	};
+	useEffect(() => installTerminalFeatures(), []);
+
 	useEffect(() => {
 		const d = () => bridgeDeps.current;
 		const workspaceRoot = () =>
