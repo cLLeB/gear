@@ -82,7 +82,9 @@ jobs:
         with:
           # Explicit: when called by release-please the run's ref is `main`, and
           # main may already have moved past the release commit.
-          ref: ${{ needs.resolve.outputs.tag }}
+          # A manually dispatched test build (pre-release tag that doesn't
+          # exist yet) builds the dispatched commit; the release creates the tag.
+          ref: ${{ (github.event_name == 'workflow_dispatch' && needs.resolve.outputs.prerelease == 'true') && github.sha || needs.resolve.outputs.tag }}
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -147,6 +149,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ needs.resolve.outputs.tag }}
+          releaseCommitish: ${{ github.sha }}
           releaseName: "Gear ${{ needs.resolve.outputs.tag }}"
           # Pre-release tags (v1.2.3-rc.1) publish as draft prereleases: testable
           # installers that the auto-updater (releases/latest) never serves.
