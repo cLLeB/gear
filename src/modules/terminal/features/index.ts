@@ -24,6 +24,7 @@ import { installDirTracking } from "./dirJump";
 import { installOscNotifications } from "./oscNotify";
 import { installBellHandling, installProgressReporting } from "./paneStatus";
 import { installPaneMonitors } from "./monitor";
+import { installTriggers } from "./triggers";
 import { useLastCommandStore } from "./lastCommandStore";
 
 // Per-terminal extensions must be registered before panes bind, so they are
@@ -31,6 +32,7 @@ import { useLastCommandStore } from "./lastCommandStore";
 installOscNotifications();
 installProgressReporting();
 installBellHandling();
+installTriggers();
 import { openExternalUrl } from "@/lib/external-link";
 import { toast } from "sonner";
 
