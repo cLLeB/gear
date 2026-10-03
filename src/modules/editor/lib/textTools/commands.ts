@@ -32,6 +32,7 @@ import { getActiveEditor } from "../activeEditor";
 import { computeRename, prepareRename } from "@/lib/lang/rename";
 import { parseSequenceSpec } from "./sequence";
 import { toggleWrap, upsertToc } from "./markdown";
+import { formatSql } from "./sql";
 import {
   alignDelimited,
   csvToMarkdown,
@@ -660,6 +661,7 @@ export async function markdownLinkCmd(view: EditorView): Promise<boolean> {
 }
 
 export const TEXT_ACTIONS: CodeActionDescriptor[] = [
+  { id: "text.formatSql", label: "Format SQL", keywords: ["sql", "query", "pretty", "beautify", "postgres", "mysql"], run: (v) => replaceTarget(v, "Format SQL", (t) => formatSql(t) + (t.endsWith("\n") ? "\n" : "")) },
   { id: "md.toc", label: "Markdown: Insert / update table of contents", keywords: ["markdown", "toc", "contents", "headings", "readme"], run: (v) => markdownTocCmd(v) },
   { id: "md.bold", label: "Markdown: Toggle bold", keywords: ["markdown", "bold", "strong", "**"], run: (v) => toggleMarkdownWrap("**")(v) },
   { id: "md.italic", label: "Markdown: Toggle italic", keywords: ["markdown", "italic", "emphasis", "_"], run: (v) => toggleMarkdownWrap("_")(v) },
