@@ -142,6 +142,7 @@ import {
 	hasLeaf,
 	jumpToPrompt,
 	leafHasForegroundProcess,
+	togglePaneZoom,
 	leafIds,
 	type PaneBounds,
 	type PaneDirection,
@@ -1543,6 +1544,7 @@ export default function App() {
 			"pane.swapUp": () => swapActivePane("up"),
 			"pane.swapDown": () => swapActivePane("down"),
 			"pane.source": toggleSourceControl,
+			"pane.toggleZoom": togglePaneZoom,
 			"search.focus": () => searchInlineRef.current?.focus(),
 			"ai.toggle": togglePanelAndFocus,
 			"ai.toggleMini": () => {
@@ -1952,6 +1954,7 @@ export default function App() {
 			activeTabId: () => activeIdRef.current,
 			activateTab: (id) => d().setActiveId(id),
 			renameTab: (id, title) => d().updateTab(id, { customTitle: title.trim() }),
+			setPaneTree: (id, tree) => d().updateTab(id, { paneTree: tree }),
 		});
 	}, []);
 

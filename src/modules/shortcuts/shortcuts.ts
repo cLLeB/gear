@@ -27,6 +27,7 @@ export type ShortcutId =
   | "pane.swapUp"
   | "pane.swapDown"
   | "pane.source"
+  | "pane.toggleZoom"
   | "search.focus"
   | "explorer.search"
   | "explorer.focus"
@@ -193,6 +194,12 @@ export const SHORTCUTS: Shortcut[] = [
     label: "Swap pane down",
     group: "Panes",
     defaultBindings: [{ [MOD_PROP]: true, alt: true, key: "ArrowDown" }],
+  },
+  {
+    id: "pane.toggleZoom",
+    label: "Toggle pane zoom",
+    group: "Panes",
+    defaultBindings: [{ [MOD_PROP]: true, shift: true, key: "Enter" }],
   },
   {
     id: "pane.source",

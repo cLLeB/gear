@@ -46,6 +46,7 @@ export {
 	TERMINAL_ACTIONS,
 	type TerminalActionDescriptor,
 } from "./actions/terminalActions";
+export { PANE_ACTIONS, togglePaneZoom } from "./actions/paneActions";
 export { PasteConfirmDialog } from "./PasteConfirmDialog";
 export { TerminalPane, type TerminalPaneHandle } from "./TerminalPane";
 export { TerminalStack } from "./TerminalStack";

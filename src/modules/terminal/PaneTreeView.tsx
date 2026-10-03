@@ -6,7 +6,9 @@ import {
 import { dragHasFsPaths, readFsPaths } from "@/lib/pathDrag";
 import { cn } from "@/lib/utils";
 import type { SearchAddon } from "@xterm/addon-search";
-import { Fragment, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
+import { useGroupRef } from "react-resizable-panels";
+import { equalSizes } from "./lib/paneLayout";
 import { useTerminalDropStore } from "./lib/dropStore";
 import { firstLeafSlotId, type PaneNode } from "./lib/panes";
 import { formatDroppedPaths } from "./lib/quoteShellPath";
@@ -33,6 +35,10 @@ type Props = {
   onRenameLeaf?: (leafId: number, name: string) => void;
   onCloseLeaf?: (leafId: number) => void;
   getBundle: (leafId: number) => LeafBundle;
+  /** Bumped to re-balance every split to equal leaf sizes. */
+  equalizeEpoch?: number;
+  /** This pane is shown zoomed (tmux-style) over its siblings. */
+  zoomed?: boolean;
 };
 
 export function PaneTreeView(props: Props) {
@@ -98,6 +104,7 @@ export function PaneTreeView(props: Props) {
             focused={focused}
             onCommit={(name) => onRenameLeaf?.(node.id, name)}
             onClose={onCloseLeaf ? () => onCloseLeaf(node.id) : undefined}
+            zoomed={props.zoomed}
           />
         )}
         <div className="relative min-h-0 flex-1">
@@ -120,8 +127,34 @@ export function PaneTreeView(props: Props) {
     );
   }
 
+  return <PaneSplitView {...props} node={node} />;
+}
+
+// Split rendering lives in its own component: the same React instance can
+// switch between a leaf and a split (splitting in place keeps the slot key),
+// and hooks must not appear conditionally.
+function PaneSplitView(props: Props & { node: Extract<PaneNode, { kind: "split" }> }) {
+  const { node, equalizeEpoch = 0 } = props;
+  const groupRef = useGroupRef();
+  useEffect(() => {
+    if (equalizeEpoch === 0) return;
+    const sizes = equalSizes(node);
+    const layout: Record<string, number> = {};
+    node.children.forEach((child, i) => {
+      layout[`pane-slot-${firstLeafSlotId(child)}`] = sizes[i];
+    });
+    try {
+      groupRef.current?.setLayout(layout);
+    } catch (e) {
+      console.warn("[gear] equalize panes failed:", e);
+    }
+    // Only a new epoch should re-balance; tree edits keep user sizes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [equalizeEpoch]);
+
   return (
     <ResizablePanelGroup
+      groupRef={groupRef}
       orientation={node.dir === "row" ? "horizontal" : "vertical"}
     >
       {node.children.map((child, i) => {
@@ -148,11 +181,13 @@ function PaneLabel({
   focused,
   onCommit,
   onClose,
+  zoomed,
 }: {
   label: string;
   focused: boolean;
   onCommit: (name: string) => void;
   onClose?: () => void;
+  zoomed?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
@@ -197,6 +232,14 @@ function PaneLabel({
           )}
         >
           {label || <span className="opacity-40">pane</span>}
+        </span>
+      )}
+      {zoomed && !editing && (
+        <span
+          title="Zoomed — other panes are hidden. Toggle zoom to restore."
+          className="ml-1 shrink-0 rounded bg-primary/20 px-1 text-[10px] leading-none text-primary"
+        >
+          ZOOM
         </span>
       )}
       {onClose && !editing && (
