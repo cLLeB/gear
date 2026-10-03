@@ -9,6 +9,9 @@ import { incrementAt } from "./increment";
 import { cycleToken, tokenAt } from "./cycleWord";
 import { findEnclosingPair, pairFor, wrap, type Pair } from "./surround";
 import { inputBox, quickPick } from "@/modules/quick-pick";
+import { parseJson5 } from "@/lib/lang/json5";
+import { toast } from "sonner";
+import { detectJsonIndent, parseYaml, sortKeysDeep, toYaml } from "./yaml";
 
 type RangeEdit = { from: number; to: number; insert: string; select?: "all" | "end" };
 
@@ -139,7 +142,47 @@ export async function changeSurround(view: EditorView): Promise<boolean> {
   return editEnclosing(view, pair);
 }
 
+/** The main selection, or the whole document when nothing is selected. */
+function targetRange(view: EditorView): { from: number; to: number; text: string } {
+  const sel = view.state.selection.main;
+  const from = sel.empty ? 0 : sel.from;
+  const to = sel.empty ? view.state.doc.length : sel.to;
+  return { from, to, text: view.state.sliceDoc(from, to) };
+}
+
+function replaceTarget(view: EditorView, label: string, transform: (text: string) => string): boolean {
+  const { from, to, text } = targetRange(view);
+  let out: string;
+  try {
+    out = transform(text);
+  } catch (e) {
+    toast.error(`${label} failed`, { description: e instanceof Error ? e.message : String(e) });
+    return false;
+  }
+  if (out === text) return false;
+  view.dispatch({
+    changes: { from, to, insert: out },
+    selection: EditorSelection.range(from, from + out.length),
+    scrollIntoView: true,
+    userEvent: "input",
+  });
+  view.focus();
+  return true;
+}
+
+export const jsonToYamlCmd = (view: EditorView) => replaceTarget(view, "JSON → YAML", (t) => toYaml(parseJson5(t)));
+export const yamlToJsonCmd = (view: EditorView) =>
+  replaceTarget(view, "YAML → JSON", (t) => `${JSON.stringify(parseYaml(t), null, 2)}\n`);
+export const sortJsonKeysCmd = (view: EditorView) =>
+  replaceTarget(view, "Sort JSON keys", (t) => {
+    const trailing = t.endsWith("\n") ? "\n" : "";
+    return JSON.stringify(sortKeysDeep(parseJson5(t)), null, detectJsonIndent(t)) + trailing;
+  });
+
 export const TEXT_ACTIONS: CodeActionDescriptor[] = [
+  { id: "text.jsonToYaml", label: "Convert JSON to YAML", keywords: ["yaml", "json", "convert", "transform", "config"], run: (v) => jsonToYamlCmd(v) },
+  { id: "text.yamlToJson", label: "Convert YAML to JSON", keywords: ["yaml", "json", "convert", "transform", "config"], run: (v) => yamlToJsonCmd(v) },
+  { id: "text.sortJsonKeys", label: "Sort JSON keys (deep)", keywords: ["json", "sort", "keys", "alphabetical", "normalize"], run: (v) => sortJsonKeysCmd(v) },
   { id: "text.surround", label: "Surround with…", keywords: ["wrap", "quotes", "brackets", "tag", "vim-surround", "ys"], run: (v) => void surroundSelection(v) },
   { id: "text.removeSurround", label: "Remove surrounding pair", keywords: ["unwrap", "delete", "quotes", "brackets", "tag", "ds"], run: (v) => removeSurroundCmd(v) },
   { id: "text.changeSurround", label: "Change surrounding pair…", keywords: ["replace", "quotes", "brackets", "tag", "cs"], run: (v) => void changeSurround(v) },
