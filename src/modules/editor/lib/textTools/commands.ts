@@ -18,6 +18,7 @@ import { convertTimestamp, nanoid, ulid, uuidV4, uuidV7 } from "./ids";
 import { findJwt, inspectJwt } from "./jwtInspect";
 import { calculate, formatResult, sumNumbers } from "./calc";
 import { describeCron, findCron, upcomingRuns } from "./cronExplain";
+import { findColors, formatColor, type ColorFormat } from "./colors";
 import {
   alignDelimited,
   csvToMarkdown,
@@ -406,7 +407,31 @@ export async function explainCronCmd(view: EditorView): Promise<boolean> {
   return true;
 }
 
+/** Convert every colour literal in the selections (or cursor lines) to one notation. */
+export async function convertColorsCmd(view: EditorView): Promise<boolean> {
+  const format = await quickPick<ColorFormat>(
+    [
+      { label: "Hex", description: "#rrggbb", value: "hex" },
+      { label: "RGB", description: "rgb(r, g, b)", value: "rgb" },
+      { label: "HSL", description: "hsl(h, s%, l%)", value: "hsl" },
+    ],
+    { title: "Convert colours to" },
+  );
+  if (!format) return false;
+  view.focus();
+  return transformSelections(view, "Convert colours", (text) => {
+    let out = "";
+    let last = 0;
+    for (const c of findColors(text)) {
+      out += text.slice(last, c.from) + formatColor(c.color, format);
+      last = c.to;
+    }
+    return out + text.slice(last);
+  });
+}
+
 export const TEXT_ACTIONS: CodeActionDescriptor[] = [
+  { id: "text.convertColors", label: "Convert colours to hex / rgb / hsl…", keywords: ["color", "colour", "css", "hex", "rgb", "hsl", "convert"], run: (v) => void convertColorsCmd(v) },
   { id: "text.explainCron", label: "Explain cron expression", keywords: ["cron", "crontab", "schedule", "next run", "github actions"], run: (v) => void explainCronCmd(v) },
   { id: "text.evaluate", label: "Evaluate math (replace)", keywords: ["calculate", "calculator", "math", "expression", "compute"], run: (v) => transformSelections(v, "Evaluate", calculate) },
   { id: "text.evaluateAppend", label: "Evaluate math (append = result)", keywords: ["calculate", "calculator", "math", "expression", "equals"], run: (v) => transformSelections(v, "Evaluate", (t) => `${t.replace(/\s*=\s*$/, "")} = ${calculate(t)}`) },
