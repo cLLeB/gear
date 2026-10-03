@@ -28,6 +28,7 @@ import { TERMINAL_FEATURE_ACTIONS } from "@/modules/terminal/features";
 import { RUN_TASK_ACTIONS } from "@/modules/run/taskActions";
 import { WORKSPACE_ACTIONS } from "@/modules/workspace/actions";
 import { pickClosedTab } from "@/modules/tabs/tabActions";
+import { GIT_ACTIONS } from "@/modules/git-actions/actions";
 import { app } from "@/app/appBridge";
 
 type CommandIcon = typeof TerminalIcon;
@@ -377,6 +378,15 @@ export function createCommandPaletteActions(
       group: "Terminal",
       keywords: ["terminal", ...action.keywords],
       icon: TerminalIcon,
+      run: () => void action.run(),
+      deferRun: true,
+    })),
+    ...GIT_ACTIONS.map((action): CommandPaletteAction => ({
+      id: action.id,
+      label: action.label,
+      group: "Git",
+      keywords: ["git", ...action.keywords],
+      icon: CodeIcon,
       run: () => void action.run(),
       deferRun: true,
     })),
