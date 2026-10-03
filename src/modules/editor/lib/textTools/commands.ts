@@ -12,6 +12,14 @@ import { inputBox, quickPick } from "@/modules/quick-pick";
 import { parseJson5 } from "@/lib/lang/json5";
 import { toast } from "sonner";
 import { detectJsonIndent, parseYaml, sortKeysDeep, toYaml } from "./yaml";
+import {
+  alignDelimited,
+  csvToMarkdown,
+  formatAllMarkdownTables,
+  formatMarkdownTable,
+  markdownToCsv,
+  shrinkDelimited,
+} from "./tables";
 
 type RangeEdit = { from: number; to: number; insert: string; select?: "all" | "end" };
 
@@ -179,7 +187,17 @@ export const sortJsonKeysCmd = (view: EditorView) =>
     return JSON.stringify(sortKeysDeep(parseJson5(t)), null, detectJsonIndent(t)) + trailing;
   });
 
+export const formatTablesCmd = (view: EditorView) =>
+  view.state.selection.main.empty
+    ? replaceTarget(view, "Format tables", formatAllMarkdownTables)
+    : replaceTarget(view, "Format table", formatMarkdownTable);
+
 export const TEXT_ACTIONS: CodeActionDescriptor[] = [
+  { id: "text.formatTables", label: "Format Markdown table(s)", keywords: ["markdown", "table", "align", "pipe", "pretty"], run: (v) => formatTablesCmd(v) },
+  { id: "text.csvToMarkdown", label: "Convert CSV/TSV to Markdown table", keywords: ["csv", "tsv", "markdown", "table", "convert"], run: (v) => replaceTarget(v, "CSV → Markdown", csvToMarkdown) },
+  { id: "text.markdownToCsv", label: "Convert Markdown table to CSV", keywords: ["csv", "markdown", "table", "convert", "export"], run: (v) => replaceTarget(v, "Markdown → CSV", markdownToCsv) },
+  { id: "text.alignCsv", label: "Align CSV/TSV columns", keywords: ["csv", "tsv", "align", "columns", "rainbow", "pad"], run: (v) => replaceTarget(v, "Align columns", alignDelimited) },
+  { id: "text.shrinkCsv", label: "Shrink CSV/TSV columns", keywords: ["csv", "tsv", "shrink", "compact", "unalign"], run: (v) => replaceTarget(v, "Shrink columns", shrinkDelimited) },
   { id: "text.jsonToYaml", label: "Convert JSON to YAML", keywords: ["yaml", "json", "convert", "transform", "config"], run: (v) => jsonToYamlCmd(v) },
   { id: "text.yamlToJson", label: "Convert YAML to JSON", keywords: ["yaml", "json", "convert", "transform", "config"], run: (v) => yamlToJsonCmd(v) },
   { id: "text.sortJsonKeys", label: "Sort JSON keys (deep)", keywords: ["json", "sort", "keys", "alphabetical", "normalize"], run: (v) => sortJsonKeysCmd(v) },
