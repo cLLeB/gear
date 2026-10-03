@@ -21,7 +21,7 @@ import {
   TerminalIcon,
 } from "@hugeicons/core-free-icons";
 import { CODE_ACTIONS, runCodeActionOnActiveEditor } from "@/modules/editor/lib/codeActions";
-import { TEXT_ACTIONS } from "@/modules/editor/lib/textTools/commands";
+import { clearEveryBookmark, listBookmarks, TEXT_ACTIONS } from "@/modules/editor/lib/textTools/commands";
 import { PANE_ACTIONS, TERMINAL_ACTIONS, toggleBroadcast } from "@/modules/terminal";
 import { TERMINAL_FEATURE_ACTIONS } from "@/modules/terminal/features";
 import { RUN_TASK_ACTIONS } from "@/modules/run/taskActions";
@@ -399,6 +399,23 @@ export function createCommandPaletteActions(
       run: () => runCodeActionOnActiveEditor(action),
       deferRun: true,
     })),
+    {
+      id: "text.listBookmarks",
+      label: "List all bookmarks…",
+      group: "Text",
+      keywords: ["bookmark", "marks", "jump", "files"],
+      icon: FileEditIcon,
+      run: () => void listBookmarks(),
+      deferRun: true,
+    },
+    {
+      id: "text.clearAllBookmarks",
+      label: "Clear all bookmarks (every file)",
+      group: "Text",
+      keywords: ["bookmark", "remove", "reset"],
+      icon: FileEditIcon,
+      run: clearEveryBookmark,
+    },
     ...TEXT_ACTIONS.map((action): CommandPaletteAction => ({
       id: action.id,
       label: action.label,

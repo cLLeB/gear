@@ -57,6 +57,7 @@ import { clearActiveEditor, setActiveEditor } from "./lib/activeEditor";
 import { codeActionsKeymap } from "./lib/codeActions";
 import { textToolsKeymap } from "./lib/textTools/commands";
 import { colorSwatches } from "./lib/colorSwatches";
+import { bookmarks, bookmarksKeymap, restoredBookmarks, setBookmarksEffect } from "./lib/bookmarks";
 import { FORCE_READ_LIMIT, useDocument } from "./lib/useDocument";
 import {
   inlineCompletion,
@@ -371,6 +372,8 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
         keymap.of(codeActionsKeymap(() => analyzableLangRef.current)),
         keymap.of(textToolsKeymap()),
         colorSwatches(),
+        bookmarks(() => pathRef.current),
+        keymap.of(bookmarksKeymap()),
         keymap.of([
           {
             key: "Mod-s",
@@ -457,6 +460,17 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
         ),
       });
     }, [readyContent]);
+
+    // Restore this file's bookmarks once per path, after its content loads.
+    const bookmarksRestoredFor = useRef<string | null>(null);
+    useEffect(() => {
+      if (readyContent === null || bookmarksRestoredFor.current === path) return;
+      const view = cmRef.current?.view;
+      if (!view) return;
+      bookmarksRestoredFor.current = path;
+      const positions = restoredBookmarks(path, view.state);
+      if (positions.length > 0) view.dispatch({ effects: setBookmarksEffect.of(positions) });
+    }, [readyContent, path]);
 
     // Swap the LSP extension in/out as activation and readiness change.
     useEffect(() => {
