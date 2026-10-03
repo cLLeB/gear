@@ -11,6 +11,8 @@ import { formatCommandNotification, shouldNotifyCommand } from "./commandNotify"
 import { handleProblemsForCommand } from "./terminalProblems";
 import { onTerminalOutputLines } from "../lib/outputTap";
 import { detectServer, ServerAnnouncer } from "./portDetect";
+import { scanForSecrets } from "./secretScan";
+import { clearLeafScrollback } from "../lib/useTerminalSession";
 import { openExternalUrl } from "@/lib/external-link";
 import { toast } from "sonner";
 
@@ -50,6 +52,32 @@ export function installTerminalFeatures(): () => void {
     }),
   );
   disposers.push(onTerminalCommandFinished((cmd) => servers.reset(cmd.leafId)));
+
+  // One warning per pane and secret kind every few minutes; a `cat .env`
+  // printing ten keys should produce one toast, not ten.
+  const warned = new Map<string, number>();
+  const SECRET_WARN_COOLDOWN_MS = 5 * 60_000;
+  disposers.push(
+    onTerminalOutputLines((leafId, lines) => {
+      if (!getFeature("terminal.secretWarnings")) return;
+      for (const line of lines) {
+        for (const hit of scanForSecrets(line)) {
+          const key = `${leafId}:${hit.kind}`;
+          const now = Date.now();
+          if (now - (warned.get(key) ?? 0) < SECRET_WARN_COOLDOWN_MS) continue;
+          warned.set(key, now);
+          toast.warning(`A ${hit.label} was printed in a terminal`, {
+            description: `${hit.preview} — clear the scrollback before sharing your screen or asking AI about this pane.`,
+            duration: 15_000,
+            action: {
+              label: "Clear scrollback",
+              onClick: () => void clearLeafScrollback(leafId),
+            },
+          });
+        }
+      }
+    }),
+  );
 
   disposers.push(
     onTerminalCommandFinished((cmd) => {
