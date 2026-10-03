@@ -365,7 +365,7 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
         // Track the last-focused editor so the command palette can act on it.
         EditorView.domEventHandlers({
           focus: (_event, view) => {
-            setActiveEditor(view, analyzableLangRef.current);
+            setActiveEditor(view, analyzableLangRef.current, pathRef.current);
             return false;
           },
         }),
@@ -444,7 +444,7 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
       const diagLanguageId = languageFromExtension(resolveTarget);
       analyzableLangRef.current = diagLanguageId;
       const diagView = cmRef.current?.view;
-      if (diagView) setActiveEditor(diagView, diagLanguageId);
+      if (diagView) setActiveEditor(diagView, diagLanguageId, pathRef.current);
       if (diagView) {
         diagView.dispatch({
           effects: diagnosticsCompartment.reconfigure(gearLinter(diagLanguageId)),

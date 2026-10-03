@@ -22,6 +22,7 @@ import {
 } from "@hugeicons/core-free-icons";
 import { CODE_ACTIONS, runCodeActionOnActiveEditor } from "@/modules/editor/lib/codeActions";
 import { clearEveryBookmark, listBookmarks, TEXT_ACTIONS } from "@/modules/editor/lib/textTools/commands";
+import { copyPermalink, openPermalink } from "@/modules/editor/lib/textTools/permalinkAction";
 import { PANE_ACTIONS, TERMINAL_ACTIONS, toggleBroadcast } from "@/modules/terminal";
 import { TERMINAL_FEATURE_ACTIONS } from "@/modules/terminal/features";
 import { RUN_TASK_ACTIONS } from "@/modules/run/taskActions";
@@ -399,6 +400,24 @@ export function createCommandPaletteActions(
       run: () => runCodeActionOnActiveEditor(action),
       deferRun: true,
     })),
+    {
+      id: "git.copyPermalink",
+      label: "Git: Copy permalink to line(s)",
+      group: "Git",
+      keywords: ["github", "gitlab", "bitbucket", "link", "share", "url", "permalink", "remote"],
+      icon: CodeIcon,
+      run: () => void copyPermalink(),
+      deferRun: true,
+    },
+    {
+      id: "git.openOnRemote",
+      label: "Git: Open line(s) on GitHub/GitLab…",
+      group: "Git",
+      keywords: ["github", "gitlab", "bitbucket", "browser", "remote", "web"],
+      icon: Globe02Icon,
+      run: () => void openPermalink(),
+      deferRun: true,
+    },
     {
       id: "text.listBookmarks",
       label: "List all bookmarks…",
