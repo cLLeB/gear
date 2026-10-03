@@ -30,6 +30,7 @@ import { app } from "@/app/appBridge";
 import { documentOutline, markdownHeadings } from "./outline";
 import { getActiveEditor } from "../activeEditor";
 import { computeRename, prepareRename } from "@/lib/lang/rename";
+import { parseSequenceSpec } from "./sequence";
 import {
   alignDelimited,
   csvToMarkdown,
@@ -571,7 +572,46 @@ export async function renameSymbolLocal(view: EditorView, languageId: string): P
   return true;
 }
 
+export async function insertSequenceCmd(view: EditorView): Promise<boolean> {
+  const n = view.state.selection.ranges.length;
+  const spec = await inputBox({
+    title: `Insert sequence at ${n} cursor${n === 1 ? "" : "s"}`,
+    value: "1",
+    prompt: "start[,step] — 1 · 0,10 · 007 · 0x0a · a · A,2 · 1.5,0.5",
+    validate: (v) => (parseSequenceSpec(v) ? null : "Use start[,step]; start may be a number, 007, 0x0f or a letter"),
+  });
+  if (spec === undefined) return false;
+  const gen = parseSequenceSpec(spec)!;
+  view.focus();
+  // Number cursors in document order regardless of the order they were added.
+  const order = view.state.selection.ranges.map((r, i) => ({ r, i })).sort((a, b) => a.r.from - b.r.from);
+  const valueFor = new Map(order.map(({ i }, k) => [i, gen(k)]));
+  let idx = 0;
+  return editEachRange(view, (range) => {
+    const value = valueFor.get(idx++) ?? "";
+    return { from: range.from, to: range.to, insert: value, select: "end" };
+  });
+}
+
+/** Put a cursor at the end of every line touched by the selections (VS Code Shift+Alt+I). */
+export function cursorsAtLineEnds(view: EditorView): boolean {
+  const { state } = view;
+  const ranges: SelectionRange[] = [];
+  for (const r of state.selection.ranges) {
+    const first = state.doc.lineAt(r.from).number;
+    // A selection ending at column 0 doesn't include that last line.
+    const lastPos = r.to > r.from && state.doc.lineAt(r.to).from === r.to ? r.to - 1 : r.to;
+    const last = state.doc.lineAt(lastPos).number;
+    for (let n = first; n <= last; n++) ranges.push(EditorSelection.cursor(state.doc.line(n).to));
+  }
+  if (ranges.length <= 1) return false;
+  view.dispatch({ selection: EditorSelection.create(ranges) });
+  return true;
+}
+
 export const TEXT_ACTIONS: CodeActionDescriptor[] = [
+  { id: "text.insertSequence", label: "Insert sequence at cursors…", keywords: ["numbers", "multi-cursor", "increment", "enumerate", "counter", "letters"], run: (v) => void insertSequenceCmd(v) },
+  { id: "text.cursorsAtLineEnds", label: "Add cursors to line ends", keywords: ["multi-cursor", "multiple", "selection", "lines", "column"], run: (v) => cursorsAtLineEnds(v) },
   { id: "text.renameSymbol", label: "Rename symbol (in file)", keywords: ["rename", "refactor", "identifier", "variable", "f2"], run: (v, lang) => void renameSymbolLocal(v, lang) },
   { id: "text.goToSymbol", label: "Go to symbol in file…", keywords: ["outline", "symbol", "function", "class", "heading", "navigate", "@"], run: (v, lang) => void goToSymbolCmd(v, lang) },
   { id: "text.toggleBookmark", label: "Toggle bookmark", keywords: ["bookmark", "mark", "line", "pin"], run: (v) => toggleBookmark(v) },
@@ -624,5 +664,6 @@ export function textToolsKeymap(getLanguageId: () => string = () => ""): KeyBind
     { key: "Mod-Alt-t", preventDefault: true, run: cycleWordCmd(1) },
     { key: "Mod-Alt-Shift-t", preventDefault: true, run: cycleWordCmd(-1) },
     { key: "Mod-Alt-s", preventDefault: true, run: (v) => (void surroundSelection(v), true) },
+    { key: "Shift-Alt-i", preventDefault: true, run: cursorsAtLineEnds },
   ];
 }
