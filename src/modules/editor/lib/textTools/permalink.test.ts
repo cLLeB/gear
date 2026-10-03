@@ -42,3 +42,16 @@ describe("detectForge", () => {
     expect(detectForge("github.enterprise.co")).toBe("github");
   });
 });
+
+import { buildPullRequestUrl } from "./permalink";
+
+describe("buildPullRequestUrl", () => {
+  it("builds compare / new-MR URLs per forge", () => {
+    expect(buildPullRequestUrl("git@github.com:o/r.git", "feat/x", "main")).toBe("https://github.com/o/r/compare/main...feat/x?expand=1");
+    expect(buildPullRequestUrl("https://gitlab.com/g/r.git", "fix/y", "main")).toBe(
+      "https://gitlab.com/g/r/-/merge_requests/new?merge_request%5Bsource_branch%5D=fix%2Fy&merge_request%5Btarget_branch%5D=main",
+    );
+    expect(buildPullRequestUrl("git@bitbucket.org:t/r.git", "a", "dev")).toBe("https://bitbucket.org/t/r/pull-requests/new?source=a&dest=dev");
+    expect(buildPullRequestUrl("git@git.sr.ht:~me/r", "a", "main")).toBeNull();
+  });
+});
