@@ -2,6 +2,7 @@
 
 import type { TerminalActionDescriptor } from "../actions/terminalActions";
 import { applyPendingCorrection } from "./corrections";
+import { quickSelectInTerminal } from "./quickSelectAction";
 import { pickProblem, stepProblem } from "./terminalProblems";
 
 export const TERMINAL_FEATURE_ACTIONS: TerminalActionDescriptor[] = [
@@ -28,5 +29,11 @@ export const TERMINAL_FEATURE_ACTIONS: TerminalActionDescriptor[] = [
     label: "Terminal: Run suggested correction",
     keywords: ["typo", "did you mean", "fix", "thefuck", "correct"],
     run: applyPendingCorrection,
+  },
+  {
+    id: "terminal.quickSelect",
+    label: "Terminal: Quick select (URLs, paths, hashes…)",
+    keywords: ["hints", "copy", "url", "path", "sha", "ip", "uuid", "pick", "wezterm", "kitty"],
+    run: quickSelectInTerminal,
   },
 ];
