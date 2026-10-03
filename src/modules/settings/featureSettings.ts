@@ -51,12 +51,18 @@ export const FEATURE_DEFAULTS = {
   "editor.rulers": "",
   "editor.renderWhitespace": false,
   "editor.highlightTrailingWhitespace": false,
+  "editor.gitGutter": true,
 } satisfies Record<string, boolean | number | string>;
 
 export type FeatureKey = keyof typeof FEATURE_DEFAULTS;
 export type FeatureValues = { [K in FeatureKey]: (typeof FEATURE_DEFAULTS)[K] };
 
 export const FEATURE_META: Record<FeatureKey, Meta> = {
+  "editor.gitGutter": {
+    label: "Git change markers",
+    description: "Mark added, modified and deleted lines in the gutter compared with the staged version of the file.",
+    section: "Git",
+  },
   "editor.rulers": {
     label: "Vertical rulers",
     description: "Columns to draw guide lines at, e.g. 80, 100, 120. Leave empty for none.",

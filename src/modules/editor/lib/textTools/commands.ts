@@ -40,6 +40,7 @@ import { rewrap } from "./rewrap";
 import { alignLines } from "./align";
 import { resolveAll, type Resolution } from "./conflicts";
 import { gotoConflict, resolveConflictAtCursor } from "../conflictLens";
+import { gotoChange } from "../gitGutter";
 import { usePreferencesStore } from "@/modules/settings/preferences";
 import {
   alignDelimited,
@@ -782,6 +783,8 @@ function conflictAtCursor(how: Resolution) {
 }
 
 export const TEXT_ACTIONS: CodeActionDescriptor[] = [
+  { id: "git.nextChange", label: "Git: Go to next change", keywords: ["git", "diff", "change", "hunk", "next", "dirty"], run: (v) => gotoChange(v, 1) },
+  { id: "git.prevChange", label: "Git: Go to previous change", keywords: ["git", "diff", "change", "hunk", "previous", "dirty"], run: (v) => gotoChange(v, -1) },
   { id: "merge.next", label: "Merge: Next conflict", keywords: ["merge", "conflict", "git", "next"], run: (v) => gotoConflict(v, 1) },
   { id: "merge.prev", label: "Merge: Previous conflict", keywords: ["merge", "conflict", "git", "previous"], run: (v) => gotoConflict(v, -1) },
   { id: "merge.acceptCurrent", label: "Merge: Accept current change", keywords: ["merge", "conflict", "ours", "head"], run: (v) => conflictAtCursor("current")(v) },
@@ -861,5 +864,7 @@ export function textToolsKeymap(getLanguageId: () => string = () => ""): KeyBind
     { key: "Shift-Alt-o", preventDefault: true, run: (v) => sortImportsCmd(v, getLanguageId()) },
     { key: "Alt-q", preventDefault: true, run: rewrapCmd },
     { key: "Mod-Alt-a", preventDefault: true, run: alignCmd },
+    { key: "Alt-F5", preventDefault: true, run: (v) => gotoChange(v, 1) },
+    { key: "Shift-Alt-F5", preventDefault: true, run: (v) => gotoChange(v, -1) },
   ];
 }
