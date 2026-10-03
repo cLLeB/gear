@@ -39,6 +39,7 @@ import {
   useAgentActivityStore,
 } from "@/modules/terminal";
 import type { AgentLaunchRequest } from "@/modules/agents/lib/launcher";
+import { ProgressRing, useTabProgress } from "@/modules/terminal/features/ProgressRing";
 import { computeCloseTargets, tabsToRight } from "./lib/closeTargets";
 import { NewTabMenu } from "./NewTabMenu";
 import { labelFor } from "./lib/tabLabel";
@@ -420,6 +421,7 @@ export function TabIcon({ tab }: { tab: Tab }) {
   // Agent state replaces the tab's normal icon while an agent is running, so
   // the strip shows what needs attention without a second badge element.
   const agentStatus = useTabAgentStatus(tab);
+  const progress = useTabProgress(tab.kind === "terminal" && !tab.private ? tab.paneTree : null);
   if (agentStatus.state === "attention") {
     return (
       <HugeiconsIcon
@@ -445,6 +447,7 @@ export function TabIcon({ tab }: { tab: Tab }) {
       <AgentIcon agent={agentStatus.agent} size={14} className="shrink-0" />
     );
   }
+  if (progress) return <ProgressRing progress={progress} />;
   if (tab.kind === "editor" || tab.kind === "markdown") {
     const url = fileIconUrl(tab.title);
     return url ? <img src={url} alt="" className="size-3.5 shrink-0" /> : null;
