@@ -24,7 +24,13 @@ export {
 	disposeSession,
 	focusLeafInput,
 	interruptLeaf,
+	isLeafCommandRunning,
+	lastFinishedCommand,
 	leafCwd,
+	leafTerminal,
+	onTerminalCommandFinished,
+	scrollLeafToPrompt,
+	type FinishedCommand,
 	leafHasForegroundProcess,
 	leafIdForPty,
 	navigateFocusedBlocks,
@@ -34,6 +40,12 @@ export {
 	whenSessionReady,
 	writeToSession,
 } from "./lib/useTerminalSession";
+export {
+	jumpToPrompt,
+	requireTerminalLeaf,
+	TERMINAL_ACTIONS,
+	type TerminalActionDescriptor,
+} from "./actions/terminalActions";
 export { PasteConfirmDialog } from "./PasteConfirmDialog";
 export { TerminalPane, type TerminalPaneHandle } from "./TerminalPane";
 export { TerminalStack } from "./TerminalStack";

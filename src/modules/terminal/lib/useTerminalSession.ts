@@ -50,6 +50,12 @@ import {
   setSlotFocused,
 } from "./rendererPool";
 import { isPowerShellShellPath } from "./keymap";
+import {
+  adjacentPromptLine,
+  type CommandMarks,
+  readCommandOutput,
+  registerCommandMarks,
+} from "./commandMarks";
 
 type Callbacks = {
   onSearchReady?: (addon: SearchAddon) => void;
@@ -104,7 +110,118 @@ type Session = {
   commandRunning: boolean;
   hiddenReleaseTimer: ReturnType<typeof setTimeout> | null;
   spawnFailed: boolean;
+  // OSC 133 command boundaries for the currently bound slot (null while the
+  // leaf is released — markers belong to the pooled xterm instance).
+  marks: CommandMarks | null;
+  // Survives slot rebinds, unlike `marks`.
+  lastCommand: FinishedCommand | null;
 };
+
+/** A command observed to finish via OSC 133 D. */
+export type FinishedCommand = {
+  leafId: number;
+  command: string;
+  exitCode: number | null;
+  durationMs: number | null;
+  /** Output text, captured when the command finished (may be truncated). */
+  output: string | null;
+  cwd: string | null;
+  finishedAt: number;
+};
+
+const MAX_CAPTURED_OUTPUT = 64 * 1024;
+
+const commandFinishedListeners = new Set<(cmd: FinishedCommand) => void>();
+
+/**
+ * Subscribe to every command that finishes in any terminal with shell
+ * integration. Listeners must be cheap and must not throw into the parser.
+ */
+export function onTerminalCommandFinished(
+  cb: (cmd: FinishedCommand) => void,
+): () => void {
+  commandFinishedListeners.add(cb);
+  return () => {
+    commandFinishedListeners.delete(cb);
+  };
+}
+
+function attachCommandMarks(
+  leafId: number,
+  s: Session,
+  term: Parameters<typeof registerCommandMarks>[0],
+): () => void {
+  const cm = registerCommandMarks(term);
+  s.marks = cm.marks;
+  cm.marks.onCommandFinished((mark) => {
+    let output = readCommandOutput(term, mark);
+    if (output && output.length > MAX_CAPTURED_OUTPUT) {
+      output = output.slice(-MAX_CAPTURED_OUTPUT);
+    }
+    const finished: FinishedCommand = {
+      leafId,
+      command: mark.command,
+      exitCode: mark.exitCode,
+      durationMs:
+        mark.startedAt !== null && mark.finishedAt !== null
+          ? mark.finishedAt - mark.startedAt
+          : null,
+      output,
+      cwd: s.lastCwd,
+      finishedAt: mark.finishedAt ?? Date.now(),
+    };
+    s.lastCommand = finished;
+    // Deferred: this fires inside xterm's parse loop.
+    queueMicrotask(() => {
+      for (const l of commandFinishedListeners) {
+        try {
+          l(finished);
+        } catch (e) {
+          console.error("[gear] command-finished listener failed:", e);
+        }
+      }
+    });
+  });
+  return () => {
+    if (s.marks === cm.marks) s.marks = null;
+    cm.dispose();
+  };
+}
+
+/** The most recent finished command in `leafId`, if shell integration saw one. */
+export function lastFinishedCommand(leafId: number): FinishedCommand | null {
+  return sessions.get(leafId)?.lastCommand ?? null;
+}
+
+/**
+ * Scroll `leafId` so the previous/next prompt sits at the top of the viewport
+ * (iTerm2's "jump to mark"). Returns false when there is nowhere to go.
+ */
+export function scrollLeafToPrompt(leafId: number, dir: -1 | 1): boolean {
+  const s = sessions.get(leafId);
+  const slot = getSlotForLeaf(leafId);
+  if (!s?.marks || !slot) return false;
+  const lines = s.marks.list().map((m) => m.prompt.line);
+  const top = slot.term.buffer.active.viewportY;
+  const target = adjacentPromptLine(lines, top, dir);
+  if (target === null) {
+    if (dir > 0) slot.term.scrollToBottom();
+    return dir > 0;
+  }
+  slot.term.scrollToLine(target);
+  return true;
+}
+
+/** True while a foreground command owns the leaf (OSC 133 C..D or blocks running). */
+export function isLeafCommandRunning(leafId: number): boolean {
+  const s = sessions.get(leafId);
+  return !!s && s.commandRunning;
+}
+
+/** Live xterm instance for a leaf, when it is bound to a renderer slot. */
+export function leafTerminal(leafId: number) {
+  return getSlotForLeaf(leafId)?.term ?? null;
+}
 
 const sessions = new Map<number, Session>();
 
@@ -489,6 +606,8 @@ function ensureSession(
     commandRunning: false,
     hiddenReleaseTimer: null,
     spawnFailed: false,
+    marks: null,
+    lastCommand: null,
   };
   sessions.set(leafId, session);
 
@@ -645,7 +764,10 @@ function bindLeafToSlot(leafId: number, s: Session): void {
           if (s.blockMode === "prompt") s.inputFocus?.();
         };
         term.textarea?.addEventListener("focus", onGridFocus);
+        // Registered last so its non-consuming OSC 133 handler runs first.
+        const marks = attachCommandMarks(leafId, s, term);
         return [
+          marks,
           () => {
             s.blockDecorations = null;
             osc52();
@@ -694,7 +816,8 @@ function bindLeafToSlot(leafId: number, s: Session): void {
         isAlternateScreen: () => term.buffer.active.type === "alternate",
         onConfirm: (text, apply) => confirmClipboardWrite(text, apply),
       });
-      return [prompt.dispose, cwd, osc52];
+      const marks = attachCommandMarks(leafId, s, term);
+      return [prompt.dispose, cwd, osc52, marks];
     },
     onSearchReady: (addon) => s.callbacks.onSearchReady?.(addon),
   });
