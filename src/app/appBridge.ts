@@ -28,6 +28,8 @@ export interface AppBridge {
   activateTab: (id: number) => void;
   /** Renames the active tab (empty string clears the custom title). */
   renameTab: (id: number, title: string) => void;
+  /** Reopen the n-th most recently closed tab; false when there is none. */
+  reopenClosedTab: (index?: number) => boolean;
   /** Replace a terminal tab's pane layout (same leaves, new arrangement). */
   setPaneTree: (tabId: number, tree: PaneNode) => void;
 }
@@ -44,6 +46,7 @@ const noop: AppBridge = {
   activateTab: () => {},
   renameTab: () => {},
   setPaneTree: () => {},
+  reopenClosedTab: () => false,
 };
 
 let bridge: AppBridge = noop;

@@ -289,6 +289,7 @@ export default function App() {
 		closeActivePane,
 		closeOtherTabs,
 		closeTabs,
+		reopenClosedTab,
 		closePaneByLeaf,
 		resetWorkspace,
 		openSettingsTab,
@@ -1525,6 +1526,9 @@ export default function App() {
 			"tab.newPreview": () => openPreviewTab(""),
 			"tab.newEditor": () => setNewEditorOpen(true),
 			"tab.close": handleCloseTabOrPane,
+			"tab.reopenClosed": () => {
+				if (!reopenClosedTab()) toast.info("No recently closed tabs");
+			},
 			"tab.next": () => cycleTab(1),
 			"tab.prev": () => cycleTab(-1),
 			"tab.selectByIndex": (e) =>
@@ -1879,6 +1883,7 @@ export default function App() {
 		openPreviewTab,
 		setActiveId,
 		updateTab,
+		reopenClosedTab,
 		explorerRoot,
 		launchCwd,
 		home,
@@ -1891,6 +1896,7 @@ export default function App() {
 		openPreviewTab,
 		setActiveId,
 		updateTab,
+		reopenClosedTab,
 		explorerRoot,
 		launchCwd,
 		home,
@@ -1954,6 +1960,7 @@ export default function App() {
 			activeTabId: () => activeIdRef.current,
 			activateTab: (id) => d().setActiveId(id),
 			renameTab: (id, title) => d().updateTab(id, { customTitle: title.trim() }),
+			reopenClosedTab: (index) => d().reopenClosedTab(index),
 			setPaneTree: (id, tree) => d().updateTab(id, { paneTree: tree }),
 		});
 	}, []);

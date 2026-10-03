@@ -25,6 +25,8 @@ import { PANE_ACTIONS, TERMINAL_ACTIONS, toggleBroadcast } from "@/modules/termi
 import { TERMINAL_FEATURE_ACTIONS } from "@/modules/terminal/features";
 import { RUN_TASK_ACTIONS } from "@/modules/run/taskActions";
 import { WORKSPACE_ACTIONS } from "@/modules/workspace/actions";
+import { pickClosedTab } from "@/modules/tabs/tabActions";
+import { app } from "@/app/appBridge";
 
 type CommandIcon = typeof TerminalIcon;
 
@@ -209,6 +211,26 @@ export function createCommandPaletteActions(
       shortcutId: "tab.close",
       disabledReason: closeDisabledReason,
       run: ctx.closeActiveTabOrPane,
+    },
+    {
+      id: "tab.reopenClosed",
+      label: "Reopen closed tab",
+      group: "Tabs",
+      keywords: ["undo close", "restore", "recent", "history"],
+      icon: ArrowLeft01Icon,
+      shortcutId: "tab.reopenClosed",
+      run: () => {
+        app().reopenClosedTab();
+      },
+    },
+    {
+      id: "tab.reopenClosedPick",
+      label: "Reopen closed tab…",
+      group: "Tabs",
+      keywords: ["undo close", "restore", "recent", "history", "list"],
+      icon: ArrowLeft01Icon,
+      run: () => void pickClosedTab(),
+      deferRun: true,
     },
     {
       id: "tab.next",

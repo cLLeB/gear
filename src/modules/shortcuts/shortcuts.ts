@@ -13,6 +13,7 @@ export type ShortcutId =
   | "tab.newPreview"
   | "tab.newEditor"
   | "tab.close"
+  | "tab.reopenClosed"
   | "tab.closeOthers"
   | "tab.next"
   | "tab.prev"
@@ -116,6 +117,12 @@ export const SHORTCUTS: Shortcut[] = [
     label: "New private terminal",
     group: "Tabs",
     defaultBindings: [{ [MOD_PROP]: true, key: "r" }],
+  },
+  {
+    id: "tab.reopenClosed",
+    label: "Reopen closed tab",
+    group: "Tabs",
+    defaultBindings: [{ [MOD_PROP]: true, alt: true, key: "t" }],
   },
   {
     id: "tab.newBlocks",
