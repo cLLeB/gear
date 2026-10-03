@@ -34,6 +34,7 @@ import { parseSequenceSpec } from "./sequence";
 import { toggleWrap, upsertToc } from "./markdown";
 import { formatSql } from "./sql";
 import { formatMarkup, minifyMarkup } from "./markup";
+import { convertQuotes, nextQuote, stringAt } from "./quotes";
 import {
   alignDelimited,
   csvToMarkdown,
@@ -661,7 +662,29 @@ export async function markdownLinkCmd(view: EditorView): Promise<boolean> {
   return true;
 }
 
+export function cycleQuotesCmd(view: EditorView): boolean {
+  let blocked = false;
+  const changed = editEachRange(view, (range, state) => {
+    const line = state.doc.lineAt(range.head);
+    const lit = stringAt(line.text, range.head - line.from);
+    if (!lit) return null;
+    const text = line.text.slice(lit.from, lit.to);
+    let to = nextQuote(lit.quote);
+    let out = convertQuotes(text, to);
+    if (out === null && lit.quote === "`") return ((blocked = true), null);
+    if (out === null) {
+      to = nextQuote(to);
+      out = convertQuotes(text, to);
+    }
+    if (out === null) return null;
+    return { from: line.from + lit.from, to: line.from + lit.to, insert: out, select: range.empty ? undefined : "all" };
+  });
+  if (!changed && blocked) toast.info("Template literals with ${…} can't change quote style");
+  return changed;
+}
+
 export const TEXT_ACTIONS: CodeActionDescriptor[] = [
+  { id: "text.cycleQuotes", label: "Switch quote style (' → \" → `)", keywords: ["quotes", "string", "single", "double", "backtick", "template"], run: (v) => cycleQuotesCmd(v) },
   { id: "text.formatMarkup", label: "Format XML / HTML", keywords: ["xml", "html", "svg", "pretty", "indent", "beautify"], run: (v) => replaceTarget(v, "Format markup", (t) => formatMarkup(t) + (t.endsWith("\n") ? "\n" : "")) },
   { id: "text.minifyMarkup", label: "Minify XML / HTML", keywords: ["xml", "html", "svg", "minify", "compact"], run: (v) => replaceTarget(v, "Minify markup", minifyMarkup) },
   { id: "text.formatSql", label: "Format SQL", keywords: ["sql", "query", "pretty", "beautify", "postgres", "mysql"], run: (v) => replaceTarget(v, "Format SQL", (t) => formatSql(t) + (t.endsWith("\n") ? "\n" : "")) },
@@ -726,5 +749,6 @@ export function textToolsKeymap(getLanguageId: () => string = () => ""): KeyBind
     { key: "Mod-Alt-Shift-t", preventDefault: true, run: cycleWordCmd(-1) },
     { key: "Mod-Alt-s", preventDefault: true, run: (v) => (void surroundSelection(v), true) },
     { key: "Shift-Alt-i", preventDefault: true, run: cursorsAtLineEnds },
+    { key: "Mod-Alt-'", preventDefault: true, run: cycleQuotesCmd },
   ];
 }
