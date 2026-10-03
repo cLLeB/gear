@@ -55,12 +55,20 @@ export const FEATURE_DEFAULTS = {
   "git.commitLint": "conventional",
   "terminal.programNotifications": true,
   "terminal.bell": "badge+flash",
+  "terminal.triggers": "# One rule per line: <regex> => highlight[:color] | notify[:message] | bell\n# \\b(ERROR|FATAL|panic)\\b => highlight:red\n# /build (succeeded|failed)/i => notify:Build $1",
 } satisfies Record<string, boolean | number | string>;
 
 export type FeatureKey = keyof typeof FEATURE_DEFAULTS;
 export type FeatureValues = { [K in FeatureKey]: (typeof FEATURE_DEFAULTS)[K] };
 
 export const FEATURE_META: Record<FeatureKey, Meta> = {
+  "terminal.triggers": {
+    label: "Triggers",
+    description:
+      "Regex rules applied to output as it arrives (iTerm2-style). highlight[:red|yellow|green|blue|purple|orange|#hex] colours matches in place, notify[:message] sends a notification ($1… insert groups), bell marks the tab. Lines starting with # are ignored; use /pattern/i for case-insensitive.",
+    section: "Terminal output",
+    multiline: true,
+  },
   "terminal.bell": {
     label: "Terminal bell",
     description: "A bell (\\a) in a background pane marks its tab until you visit it; optionally flash the pane you're looking at.",
