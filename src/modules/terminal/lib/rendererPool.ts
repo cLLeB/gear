@@ -170,6 +170,14 @@ export function poolSlotStats(): PoolSlotStat[] {
 
 // Bracketed paste via xterm, so an app that enabled it (Claude Code) treats a
 // dropped path as a real paste while a plain shell gets the literal text.
+/** Paste through the same sanitising/confirmation guard as Ctrl+V. */
+export function guardedPasteIntoLeaf(leafId: number, text: string): boolean {
+  const slot = slots.find((s) => s.currentLeafId === leafId);
+  if (!slot) return false;
+  void pasteIntoSlot(slot, text);
+  return true;
+}
+
 export function pasteIntoLeaf(leafId: number, text: string): boolean {
   const slot = slots.find((s) => s.currentLeafId === leafId);
   if (!slot) return false;
