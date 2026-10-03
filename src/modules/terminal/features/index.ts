@@ -23,6 +23,7 @@ import { setPendingCorrection } from "./corrections";
 import { installDirTracking } from "./dirJump";
 import { installOscNotifications } from "./oscNotify";
 import { installBellHandling, installProgressReporting } from "./paneStatus";
+import { installPaneMonitors } from "./monitor";
 
 // Per-terminal extensions must be registered before panes bind, so they are
 // installed at import time rather than in installTerminalFeatures().
@@ -51,6 +52,7 @@ export function installTerminalFeatures(): () => void {
 
   disposers.push(onTerminalCommandFinished(handleProblemsForCommand));
   disposers.push(installDirTracking());
+  disposers.push(installPaneMonitors());
 
   const servers = new ServerAnnouncer();
   disposers.push(
