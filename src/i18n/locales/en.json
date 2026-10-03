@@ -30,6 +30,7 @@
   "settings": {
     "tabs": {
       "general": "General",
+      "features": "Features",
       "themes": "Themes",
       "shortcuts": "Shortcuts",
       "models": "Models",

@@ -9,12 +9,14 @@ import {
   UserMultiple02Icon,
   PlayIcon,
   KeyboardIcon,
+  Settings02Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { type JSX, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AboutSection } from "./sections/AboutSection";
 import { AgentsSection } from "./sections/AgentsSection";
+import { FeaturesSection } from "./sections/FeaturesSection";
 import { GeneralSection } from "./sections/GeneralSection";
 import { ModelsSection } from "./sections/ModelsSection";
 import { RunSection } from "./sections/RunSection";
@@ -28,6 +30,7 @@ const TAB_DEFS: {
   component: () => JSX.Element;
 }[] = [
   { id: "general",   labelKey: "settings.tabs.general",   icon: Settings01Icon,      component: GeneralSection },
+  { id: "features",  labelKey: "settings.tabs.features",  icon: Settings02Icon,      component: FeaturesSection },
   { id: "themes",    labelKey: "settings.tabs.themes",    icon: PaintBoardIcon,       component: ThemesSection },
   { id: "shortcuts", labelKey: "settings.tabs.shortcuts", icon: KeyboardIcon,         component: ShortcutsSection },
   { id: "models",    labelKey: "settings.tabs.models",    icon: AiScanIcon,           component: ModelsSection },

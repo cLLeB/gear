@@ -17,6 +17,12 @@ import {
 import type { KeyBinding, ShortcutId } from "@/modules/shortcuts/shortcuts";
 import { emit, listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { LazyStore } from "@tauri-apps/plugin-store";
+import {
+  FEATURE_DEFAULTS,
+  normalizeFeatureSettings,
+  type FeatureKey,
+  type FeatureValues,
+} from "./featureSettings";
 
 export type ThemePref = "system" | "light" | "dark";
 
@@ -146,6 +152,8 @@ export type Preferences = {
   editorFormatter: EditorFormatter;
   editorFormatterByLang: Record<string, EditorFormatter>;
   editorCustomFormatCommand: string;
+  /** Schema-driven feature settings (see featureSettings.ts). */
+  featureSettings: FeatureValues;
 };
 
 export type EditorFormatter =
@@ -227,6 +235,7 @@ const KEY_EDITOR_FORMAT_ON_SAVE = "editorFormatOnSave";
 const KEY_EDITOR_FORMATTER = "editorFormatter";
 const KEY_EDITOR_FORMATTER_BY_LANG = "editorFormatterByLang";
 const KEY_EDITOR_CUSTOM_FORMAT_COMMAND = "editorCustomFormatCommand";
+const KEY_FEATURE_SETTINGS = "featureSettings";
 
 export const EDITOR_FONT_SIZE_DEFAULT = 13;
 export const EDITOR_FONT_SIZE_MIN = 8;
@@ -318,6 +327,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   editorFormatter: "lsp",
   editorFormatterByLang: {},
   editorCustomFormatCommand: "",
+  featureSettings: { ...FEATURE_DEFAULTS },
 };
 
 const store = new LazyStore(STORE_PATH, { defaults: {}, autoSave: 200 });
@@ -495,6 +505,7 @@ export async function loadPreferences(): Promise<Preferences> {
     editorCustomFormatCommand:
       get<string>(KEY_EDITOR_CUSTOM_FORMAT_COMMAND) ??
       DEFAULT_PREFERENCES.editorCustomFormatCommand,
+    featureSettings: normalizeFeatureSettings(get<unknown>(KEY_FEATURE_SETTINGS)),
   };
 }
 
@@ -824,6 +835,22 @@ export async function setEditorAutoSaveDelay(value: number): Promise<void> {
   await writePref(KEY_EDITOR_AUTO_SAVE_DELAY, clampAutoSaveDelay(value));
 }
 
+/**
+ * Update one feature setting. Reads the stored object first so concurrent
+ * windows writing different keys do not clobber each other.
+ */
+export async function setFeatureSetting<K extends FeatureKey>(
+  key: K,
+  value: FeatureValues[K],
+): Promise<void> {
+  const current = normalizeFeatureSettings(await store.get(KEY_FEATURE_SETTINGS));
+  await writePref(KEY_FEATURE_SETTINGS, { ...current, [key]: value });
+}
+
+export async function resetFeatureSettings(): Promise<void> {
+  await writePref(KEY_FEATURE_SETTINGS, { ...FEATURE_DEFAULTS });
+}
+
 export async function exportSettings(): Promise<Record<string, unknown>> {
   const entries = await store.entries();
   return Object.fromEntries(entries);
@@ -929,19 +956,19 @@ export async function onPreferencesChange(
     [KEY_EDITOR_FORMATTER]: "editorFormatter",
     [KEY_EDITOR_FORMATTER_BY_LANG]: "editorFormatterByLang",
     [KEY_EDITOR_CUSTOM_FORMAT_COMMAND]: "editorCustomFormatCommand",
+    [KEY_FEATURE_SETTINGS]: "featureSettings",
   };
   // Same-process writes still fire onChange immediately; cross-window writes
   // arrive via the Tauri event emitted by writePref().
-  const unsubLocal = await store.onChange<unknown>((key, value) => {
+  const deliver = (key: string, value: unknown) => {
     const mapped = map[key];
-    if (mapped) cb(mapped, value);
-  });
+    if (!mapped) return;
+    cb(mapped, mapped === "featureSettings" ? normalizeFeatureSettings(value) : value);
+  };
+  const unsubLocal = await store.onChange<unknown>(deliver);
   const unsubEvent = await listen<{ key: string; value: unknown }>(
     PREFS_CHANGED_EVENT,
-    (e) => {
-      const mapped = map[e.payload.key];
-      if (mapped) cb(mapped, e.payload.value);
-    },
+    (e) => deliver(e.payload.key, e.payload.value),
   );
   return () => {
     unsubLocal();
