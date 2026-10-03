@@ -54,12 +54,23 @@ export const FEATURE_DEFAULTS = {
   "editor.gitGutter": true,
   "git.commitLint": "conventional",
   "terminal.programNotifications": true,
+  "terminal.bell": "badge+flash",
 } satisfies Record<string, boolean | number | string>;
 
 export type FeatureKey = keyof typeof FEATURE_DEFAULTS;
 export type FeatureValues = { [K in FeatureKey]: (typeof FEATURE_DEFAULTS)[K] };
 
 export const FEATURE_META: Record<FeatureKey, Meta> = {
+  "terminal.bell": {
+    label: "Terminal bell",
+    description: "A bell (\\a) in a background pane marks its tab until you visit it; optionally flash the pane you're looking at.",
+    section: "Terminal",
+    options: [
+      { value: "badge+flash", label: "Badge background tabs + flash" },
+      { value: "badge", label: "Badge background tabs only" },
+      { value: "off", label: "Off" },
+    ],
+  },
   "terminal.programNotifications": {
     label: "Allow programs to send notifications",
     description:

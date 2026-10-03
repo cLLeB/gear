@@ -90,3 +90,30 @@ export function installProgressReporting(): () => void {
     offFinish();
   };
 }
+
+import { app } from "@/app/appBridge";
+import { getFeature } from "@/modules/settings/useFeature";
+
+/** Bell: badge background panes; optionally flash the visible one. */
+export function installBellHandling(): () => void {
+  return registerTerminalExtension((leafId, term) => {
+    const sub = term.onBell(() => {
+      const mode = getFeature("terminal.bell");
+      if (mode === "off") return;
+      const visible = app().activeTerminalLeaf() === leafId && document.hasFocus();
+      if (!visible) {
+        usePaneStatusStore.getState().setAttention(leafId, true);
+        return;
+      }
+      if (mode === "badge+flash") {
+        const el = term.element;
+        if (!el) return;
+        el.classList.remove("gear-visual-bell");
+        // Force reflow so the animation restarts on rapid bells.
+        void el.offsetWidth;
+        el.classList.add("gear-visual-bell");
+      }
+    });
+    return () => sub.dispose();
+  });
+}

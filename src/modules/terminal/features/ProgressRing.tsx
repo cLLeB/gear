@@ -50,3 +50,9 @@ export function ProgressRing({ progress, size = 14 }: { progress: PaneProgress; 
     </svg>
   );
 }
+
+/** True when any pane of the tab rang the bell while in the background. */
+export function useTabAttention(tree: PaneNode | null): boolean {
+  const attention = usePaneStatusStore((s) => s.attention);
+  return !!tree && leafIds(tree).some((id) => attention[id]);
+}
