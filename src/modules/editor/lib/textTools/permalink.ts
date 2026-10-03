@@ -56,3 +56,28 @@ export function buildPermalink(input: PermalinkInput): string | null {
     }
   }
 }
+
+/** URL that starts a pull/merge request from `branch` into `base`. */
+export function buildPullRequestUrl(remoteUrl: string, branch: string, base: string): string | null {
+  const remote = parseGitRemoteUrl(remoteUrl);
+  if (!remote) return null;
+  const { host, owner, repo } = remote;
+  const b = encodeURIComponent(branch);
+  const t = encodeURIComponent(base);
+  switch (detectForge(host)) {
+    case "github":
+      return `https://${host}/${owner}/${repo}/compare/${base.split("/").map(encodeURIComponent).join("/")}...${branch.split("/").map(encodeURIComponent).join("/")}?expand=1`;
+    case "gitlab":
+      return `https://${host}/${owner}/${repo}/-/merge_requests/new?merge_request%5Bsource_branch%5D=${b}&merge_request%5Btarget_branch%5D=${t}`;
+    case "bitbucket":
+      return `https://${host}/${owner}/${repo}/pull-requests/new?source=${b}&dest=${t}`;
+    case "gitea":
+      return `https://${host}/${owner}/${repo}/compare/${t}...${b}`;
+    case "azure": {
+      const [org, project] = owner.split("/").filter((p) => p !== "v3" && p !== "_git");
+      return `https://dev.azure.com/${org}/${project}/_git/${repo}/pullrequestcreate?sourceRef=${b}&targetRef=${t}`;
+    }
+    case "sourcehut":
+      return null; // patches go by email
+  }
+}

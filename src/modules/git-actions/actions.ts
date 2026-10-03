@@ -18,6 +18,9 @@ import { quickPick } from "@/modules/quick-pick";
 import { getActiveEditor } from "@/modules/editor/lib/activeEditor";
 import { app } from "@/app/appBridge";
 import { FILE_LOG_FORMAT, parseFileLog } from "./fileLog";
+import { buildPullRequestUrl } from "@/modules/editor/lib/textTools/permalink";
+import { native } from "@/modules/ai/lib/native";
+import { openExternalUrl } from "@/lib/external-link";
 import { git, gitOrToast, requireRepo } from "./gitCli";
 
 function trackLabel(b: BranchInfo): string {
@@ -227,7 +230,52 @@ export async function fixupCommit(): Promise<void> {
   toast.success(`Folded changes into ${target.short}`, { description: target.subject });
 }
 
+export async function openPullRequest(): Promise<void> {
+  const root = await requireRepo();
+  if (!root) return;
+  const branch = (await git(root, ["rev-parse", "--abbrev-ref", "HEAD"])).stdout.trim();
+  if (!branch || branch === "HEAD") {
+    toast.error("Check out a branch first (HEAD is detached)");
+    return;
+  }
+  const remoteUrl = await native.gitRemoteUrl(root).catch(() => null);
+  if (!remoteUrl) {
+    toast.error("The repository has no remote");
+    return;
+  }
+  const list = await git(root, ["for-each-ref", `--format=${BRANCH_FORMAT}`, "refs/heads"]);
+  const base = await baseBranch(root, list.ok ? parseBranches(list.stdout) : []);
+  if (branch === base) {
+    toast.info(`You are on ${base}; switch to a feature branch to open a pull request`);
+    return;
+  }
+  // Unpushed or ahead of its upstream: the PR page would show stale commits.
+  const upstream = await git(root, ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"]);
+  const ahead = upstream.ok ? Number((await git(root, ["rev-list", "--count", "@{upstream}..HEAD"])).stdout.trim()) || 0 : -1;
+  if (ahead !== 0) {
+    const push = await confirmPick(
+      ahead === -1 ? `${branch} has not been pushed yet` : `${branch} has ${ahead} unpushed commit${ahead === 1 ? "" : "s"}`,
+      "Push now, then open the pull request",
+    );
+    if (!push) return;
+    const out = await gitOrToast(root, ahead === -1 ? ["push", "-u", "origin", branch] : ["push"], "Push");
+    if (out === null) return;
+  }
+  const url = buildPullRequestUrl(remoteUrl, branch, base);
+  if (!url) {
+    toast.error("This host has no pull request page Gear knows about", { description: remoteUrl });
+    return;
+  }
+  await openExternalUrl(url);
+}
+
 export const GIT_ACTIONS: TerminalActionDescriptor[] = [
+  {
+    id: "git.openPullRequest",
+    label: "Git: Open pull request for this branch",
+    keywords: ["pr", "merge request", "mr", "github", "gitlab", "bitbucket", "compare", "review"],
+    run: openPullRequest,
+  },
   {
     id: "git.fixup",
     label: "Git: Fold staged changes into an earlier commit…",
