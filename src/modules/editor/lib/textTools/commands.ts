@@ -33,6 +33,7 @@ import { computeRename, prepareRename } from "@/lib/lang/rename";
 import { parseSequenceSpec } from "./sequence";
 import { toggleWrap, upsertToc } from "./markdown";
 import { formatSql } from "./sql";
+import { formatMarkup, minifyMarkup } from "./markup";
 import {
   alignDelimited,
   csvToMarkdown,
@@ -661,6 +662,8 @@ export async function markdownLinkCmd(view: EditorView): Promise<boolean> {
 }
 
 export const TEXT_ACTIONS: CodeActionDescriptor[] = [
+  { id: "text.formatMarkup", label: "Format XML / HTML", keywords: ["xml", "html", "svg", "pretty", "indent", "beautify"], run: (v) => replaceTarget(v, "Format markup", (t) => formatMarkup(t) + (t.endsWith("\n") ? "\n" : "")) },
+  { id: "text.minifyMarkup", label: "Minify XML / HTML", keywords: ["xml", "html", "svg", "minify", "compact"], run: (v) => replaceTarget(v, "Minify markup", minifyMarkup) },
   { id: "text.formatSql", label: "Format SQL", keywords: ["sql", "query", "pretty", "beautify", "postgres", "mysql"], run: (v) => replaceTarget(v, "Format SQL", (t) => formatSql(t) + (t.endsWith("\n") ? "\n" : "")) },
   { id: "md.toc", label: "Markdown: Insert / update table of contents", keywords: ["markdown", "toc", "contents", "headings", "readme"], run: (v) => markdownTocCmd(v) },
   { id: "md.bold", label: "Markdown: Toggle bold", keywords: ["markdown", "bold", "strong", "**"], run: (v) => toggleMarkdownWrap("**")(v) },
