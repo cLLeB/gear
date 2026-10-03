@@ -47,12 +47,18 @@ export const FEATURE_DEFAULTS = {
   "terminal.commandGuard": true,
   "terminal.commandGuardCaution": false,
   "editor.colorSwatches": true,
+  "editor.todoHighlight": true,
 } satisfies Record<string, boolean | number | string>;
 
 export type FeatureKey = keyof typeof FEATURE_DEFAULTS;
 export type FeatureValues = { [K in FeatureKey]: (typeof FEATURE_DEFAULTS)[K] };
 
 export const FEATURE_META: Record<FeatureKey, Meta> = {
+  "editor.todoHighlight": {
+    label: "Highlight TODO comments",
+    description: "Colour TODO, FIXME, BUG, HACK, XXX and NOTE tags in comments so they stand out.",
+    section: "Editor",
+  },
   "editor.colorSwatches": {
     label: "Colour swatches",
     description: "Show a swatch before CSS colour literals (#hex, rgb(), hsl()); click it to convert between notations.",
