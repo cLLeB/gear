@@ -29,6 +29,7 @@ import {
 import { app } from "@/app/appBridge";
 import { documentOutline, markdownHeadings } from "./outline";
 import { getActiveEditor } from "../activeEditor";
+import { computeRename, prepareRename } from "@/lib/lang/rename";
 import {
   alignDelimited,
   csvToMarkdown,
@@ -534,7 +535,44 @@ export async function goToLinePrompt(): Promise<void> {
   view.focus();
 }
 
+/** Scope-aware rename of the symbol under the cursor using the in-process binder. */
+export async function renameSymbolLocal(view: EditorView, languageId: string): Promise<boolean> {
+  const source = view.state.doc.toString();
+  const offset = view.state.selection.main.head;
+  const prep = prepareRename(source, languageId, offset);
+  if ("error" in prep) {
+    toast.error("Can't rename here", { description: prep.error });
+    return false;
+  }
+  const newName = await inputBox({
+    title: `Rename '${prep.placeholder}'`,
+    value: prep.placeholder,
+    prompt: "Renames this binding and its uses in scope; shadowed names, strings and comments are left alone.",
+    validate: (v) => {
+      if (v === prep.placeholder) return null;
+      const r = computeRename(source, languageId, offset, v);
+      return "error" in r ? r.error : null;
+    },
+  });
+  if (!newName || newName === prep.placeholder) return false;
+  // The document may have changed while the box was open.
+  if (view.state.doc.toString() !== source) {
+    toast.error("The file changed during rename; try again");
+    return false;
+  }
+  const result = computeRename(source, languageId, offset, newName);
+  if ("error" in result) {
+    toast.error("Rename failed", { description: result.error });
+    return false;
+  }
+  view.dispatch({ changes: result.edits, userEvent: "input.rename", scrollIntoView: true });
+  view.focus();
+  toast.success(`Renamed ${result.edits.length} occurrence${result.edits.length === 1 ? "" : "s"}`);
+  return true;
+}
+
 export const TEXT_ACTIONS: CodeActionDescriptor[] = [
+  { id: "text.renameSymbol", label: "Rename symbol (in file)", keywords: ["rename", "refactor", "identifier", "variable", "f2"], run: (v, lang) => void renameSymbolLocal(v, lang) },
   { id: "text.goToSymbol", label: "Go to symbol in file…", keywords: ["outline", "symbol", "function", "class", "heading", "navigate", "@"], run: (v, lang) => void goToSymbolCmd(v, lang) },
   { id: "text.toggleBookmark", label: "Toggle bookmark", keywords: ["bookmark", "mark", "line", "pin"], run: (v) => toggleBookmark(v) },
   { id: "text.nextBookmark", label: "Go to next bookmark", keywords: ["bookmark", "jump", "next"], run: (v) => gotoBookmark(v, 1) },
