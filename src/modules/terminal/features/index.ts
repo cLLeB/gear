@@ -20,6 +20,7 @@ import {
 import { commandProgram } from "./commandNotify";
 import { suggestCorrection } from "./typoFix";
 import { setPendingCorrection } from "./corrections";
+import { installDirTracking } from "./dirJump";
 import { openExternalUrl } from "@/lib/external-link";
 import { toast } from "sonner";
 
@@ -41,6 +42,7 @@ export function installTerminalFeatures(): () => void {
     .catch(() => {});
 
   disposers.push(onTerminalCommandFinished(handleProblemsForCommand));
+  disposers.push(installDirTracking());
 
   const servers = new ServerAnnouncer();
   disposers.push(

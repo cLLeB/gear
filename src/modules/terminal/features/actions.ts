@@ -4,6 +4,7 @@ import type { TerminalActionDescriptor } from "../actions/terminalActions";
 import { applyPendingCorrection } from "./corrections";
 import { quickSelectInTerminal } from "./quickSelectAction";
 import { copyScrollbackAsHtml, saveScrollback } from "./exportScrollback";
+import { forgetDirectoryHistory, jumpToDirectory } from "./dirJump";
 import { pickProblem, stepProblem } from "./terminalProblems";
 
 export const TERMINAL_FEATURE_ACTIONS: TerminalActionDescriptor[] = [
@@ -48,5 +49,17 @@ export const TERMINAL_FEATURE_ACTIONS: TerminalActionDescriptor[] = [
     label: "Terminal: Copy scrollback with colours",
     keywords: ["export", "html", "rich", "clipboard", "share"],
     run: copyScrollbackAsHtml,
+  },
+  {
+    id: "terminal.jumpToDirectory",
+    label: "Terminal: Jump to directory…",
+    keywords: ["cd", "zoxide", "z", "frecent", "recent", "folder", "navigate"],
+    run: jumpToDirectory,
+  },
+  {
+    id: "terminal.forgetDirectories",
+    label: "Terminal: Clear directory history",
+    keywords: ["zoxide", "privacy", "forget", "frecency"],
+    run: forgetDirectoryHistory,
   },
 ];
