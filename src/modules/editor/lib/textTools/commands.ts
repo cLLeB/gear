@@ -35,6 +35,7 @@ import { toggleWrap, upsertToc } from "./markdown";
 import { formatSql } from "./sql";
 import { formatMarkup, minifyMarkup } from "./markup";
 import { convertQuotes, nextQuote, stringAt } from "./quotes";
+import { sortJsImports, sortPythonImports } from "./sortImports";
 import {
   alignDelimited,
   csvToMarkdown,
@@ -683,7 +684,34 @@ export function cycleQuotesCmd(view: EditorView): boolean {
   return changed;
 }
 
+export function sortImportsCmd(view: EditorView, languageId: string): boolean {
+  const lang = languageId.toLowerCase();
+  const doc = view.state.doc.toString();
+  const sorter = /python|^py$/.test(lang)
+    ? sortPythonImports
+    : /javascript|typescript|jsx|tsx|^js$|^ts$|svelte|vue/.test(lang)
+      ? sortJsImports
+      : null;
+  if (!sorter) {
+    toast.info("Sort imports supports JavaScript, TypeScript and Python");
+    return false;
+  }
+  const next = sorter(doc);
+  if (next === doc) {
+    toast.info("Imports are already sorted");
+    return false;
+  }
+  // Minimal change range so the cursor and undo history stay sensible.
+  let a = 0;
+  while (a < doc.length && doc[a] === next[a]) a++;
+  let b = 0;
+  while (b < doc.length - a && doc[doc.length - 1 - b] === next[next.length - 1 - b]) b++;
+  view.dispatch({ changes: { from: a, to: doc.length - b, insert: next.slice(a, next.length - b) }, userEvent: "input" });
+  return true;
+}
+
 export const TEXT_ACTIONS: CodeActionDescriptor[] = [
+  { id: "text.sortImports", label: "Organize imports (sort, group, merge)", keywords: ["imports", "sort", "isort", "organize", "group", "javascript", "typescript", "python"], run: (v, lang) => sortImportsCmd(v, lang) },
   { id: "text.cycleQuotes", label: "Switch quote style (' → \" → `)", keywords: ["quotes", "string", "single", "double", "backtick", "template"], run: (v) => cycleQuotesCmd(v) },
   { id: "text.formatMarkup", label: "Format XML / HTML", keywords: ["xml", "html", "svg", "pretty", "indent", "beautify"], run: (v) => replaceTarget(v, "Format markup", (t) => formatMarkup(t) + (t.endsWith("\n") ? "\n" : "")) },
   { id: "text.minifyMarkup", label: "Minify XML / HTML", keywords: ["xml", "html", "svg", "minify", "compact"], run: (v) => replaceTarget(v, "Minify markup", minifyMarkup) },
@@ -750,5 +778,6 @@ export function textToolsKeymap(getLanguageId: () => string = () => ""): KeyBind
     { key: "Mod-Alt-s", preventDefault: true, run: (v) => (void surroundSelection(v), true) },
     { key: "Shift-Alt-i", preventDefault: true, run: cursorsAtLineEnds },
     { key: "Mod-Alt-'", preventDefault: true, run: cycleQuotesCmd },
+    { key: "Shift-Alt-o", preventDefault: true, run: (v) => sortImportsCmd(v, getLanguageId()) },
   ];
 }
