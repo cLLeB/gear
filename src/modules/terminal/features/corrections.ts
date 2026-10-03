@@ -3,7 +3,8 @@
 
 import { app } from "@/app/appBridge";
 import { toast } from "sonner";
-import { isLeafCommandRunning, submitToLeaf } from "../lib/useTerminalSession";
+import { isLeafCommandRunning } from "../lib/useTerminalSession";
+import { guardedSubmit } from "./guardedSubmit";
 
 const pending = new Map<number, string>();
 
@@ -23,5 +24,5 @@ export function applyPendingCorrection(): void {
     return;
   }
   pending.delete(leaf);
-  submitToLeaf(leaf, fix);
+  void guardedSubmit(leaf, fix);
 }

@@ -44,12 +44,26 @@ export const FEATURE_DEFAULTS = {
   "terminal.detectServers": true,
   "terminal.secretWarnings": true,
   "terminal.typoCorrection": true,
+  "terminal.commandGuard": true,
+  "terminal.commandGuardCaution": false,
 } satisfies Record<string, boolean | number | string>;
 
 export type FeatureKey = keyof typeof FEATURE_DEFAULTS;
 export type FeatureValues = { [K in FeatureKey]: (typeof FEATURE_DEFAULTS)[K] };
 
 export const FEATURE_META: Record<FeatureKey, Meta> = {
+  "terminal.commandGuard": {
+    label: "Confirm destructive commands",
+    description:
+      "Before Gear submits a command (input bar, workflows, rerun, corrections) that could wipe data — rm -rf ~, force-pushing main, DROP DATABASE, mkfs, dd to a disk — ask first.",
+    section: "Commands",
+  },
+  "terminal.commandGuardCaution": {
+    label: "Also confirm risky-but-scoped commands",
+    description:
+      "Extend confirmation to recursive deletes, git reset --hard, git clean, curl | sh, docker prune and similar.",
+    section: "Commands",
+  },
   "terminal.typoCorrection": {
     label: "Suggest corrections for mistyped commands",
     description:

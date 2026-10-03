@@ -9,7 +9,6 @@ import { writeTerminalClipboard } from "../lib/terminalClipboard";
 import {
   isLeafCommandRunning,
   lastFinishedCommand,
-  submitToLeaf,
   writeToSession,
 } from "../lib/useTerminalSession";
 import { BUILTIN_WORKFLOWS, type Platform, type Workflow } from "./library";
@@ -21,6 +20,7 @@ import {
   saveUserWorkflows,
 } from "./sources";
 import { paramLabel, parseTemplate, renderTemplate } from "./template";
+import { guardedSubmit } from "../features/guardedSubmit";
 
 const PLATFORM: Platform = IS_WINDOWS ? "windows" : IS_MAC ? "mac" : "linux";
 
@@ -108,7 +108,7 @@ export async function runWorkflow(): Promise<void> {
   );
   if (!action) return;
   if (action === "insert" && leaf !== null) writeToSession(leaf, command);
-  else if (action === "run" && leaf !== null) submitToLeaf(leaf, command);
+  else if (action === "run" && leaf !== null) void guardedSubmit(leaf, command);
   else if (action === "tab") app().openTerminal({ command });
   else if (action === "copy") {
     await writeTerminalClipboard(command);
