@@ -20,6 +20,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { useEffect, useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { SectionHeader } from "../components/SectionHeader";
+import { findShortcutConflicts } from "@/modules/shortcuts/conflicts";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -49,6 +50,12 @@ export function ShortcutsSection() {
         s.group.toLowerCase().includes(lower)
     );
   }, [search]);
+
+  const conflicts = useMemo(
+    () => findShortcutConflicts(SHORTCUTS, userShortcuts),
+    [userShortcuts],
+  );
+  const labelOf = (id: ShortcutId) => SHORTCUTS.find((s) => s.id === id)?.label ?? id;
 
   const onRecord = (id: ShortcutId, binding: KeyBinding) => {
     const next = { ...userShortcuts, [id]: [binding] };
@@ -93,6 +100,20 @@ export function ShortcutsSection() {
           {t("settings.shortcuts.resetAll")}
         </Button>
       </div>
+
+      {conflicts.length > 0 ? (
+        <div className="flex flex-col gap-1 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[11.5px]">
+          <span className="font-medium text-amber-600 dark:text-amber-400">
+            {conflicts.length} shortcut conflict{conflicts.length === 1 ? "" : "s"}: only the first command on each key runs
+          </span>
+          {conflicts.map((c) => (
+            <span key={c.chord} className="text-muted-foreground">
+              <code className="rounded bg-muted px-1">{c.chord}</code>{" "}
+              {c.ids.map(labelOf).join(" · ")}
+            </span>
+          ))}
+        </div>
+      ) : null}
 
       <div className="relative">
         <HugeiconsIcon
