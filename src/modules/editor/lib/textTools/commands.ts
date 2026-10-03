@@ -12,6 +12,7 @@ import { inputBox, quickPick } from "@/modules/quick-pick";
 import { parseJson5 } from "@/lib/lang/json5";
 import { toast } from "sonner";
 import { detectJsonIndent, parseYaml, sortKeysDeep, toYaml } from "./yaml";
+import { CODECS, type CodecId } from "./encoding";
 import {
   alignDelimited,
   csvToMarkdown,
@@ -192,7 +193,52 @@ export const formatTablesCmd = (view: EditorView) =>
     ? replaceTarget(view, "Format tables", formatAllMarkdownTables)
     : replaceTarget(view, "Format table", formatMarkdownTable);
 
+/**
+ * Transform every selection; an empty selection means its whole line. Errors
+ * are reported once and leave the document untouched.
+ */
+export function transformSelections(view: EditorView, label: string, fn: (text: string) => string): boolean {
+  let error: unknown = null;
+  const ranges = view.state.selection.ranges.map((r) => {
+    if (!r.empty) return { from: r.from, to: r.to };
+    const line = view.state.doc.lineAt(r.head);
+    const lead = line.text.length - line.text.trimStart().length;
+    return { from: line.from + lead, to: line.to - (line.text.length - line.text.trimEnd().length) };
+  });
+  const changes = ranges.map(({ from, to }) => {
+    try {
+      return { from, to, insert: fn(view.state.sliceDoc(from, to)) };
+    } catch (e) {
+      error ??= e;
+      return { from, to, insert: view.state.sliceDoc(from, to) };
+    }
+  });
+  if (error) {
+    toast.error(`${label} failed`, { description: error instanceof Error ? error.message : String(error) });
+    return false;
+  }
+  view.dispatch({ changes, scrollIntoView: true, userEvent: "input" });
+  view.focus();
+  return true;
+}
+
+async function codecCmd(view: EditorView, mode: "encode" | "decode"): Promise<boolean> {
+  const id = await quickPick(
+    (Object.keys(CODECS) as CodecId[]).map((k) => ({ label: CODECS[k].label, value: k })),
+    { title: mode === "encode" ? "Encode selection as" : "Decode selection from" },
+  );
+  if (!id) return false;
+  const { label, codec } = CODECS[id];
+  return transformSelections(view, `${mode === "encode" ? "Encode" : "Decode"} ${label}`, codec[mode]);
+}
+
 export const TEXT_ACTIONS: CodeActionDescriptor[] = [
+  { id: "text.encode", label: "Encode selection…", keywords: ["base64", "url", "html", "entities", "escape", "hex", "unicode", "json"], run: (v) => void codecCmd(v, "encode") },
+  { id: "text.decode", label: "Decode selection…", keywords: ["base64", "url", "html", "entities", "unescape", "hex", "unicode", "json"], run: (v) => void codecCmd(v, "decode") },
+  { id: "text.base64Encode", label: "Base64 encode", keywords: ["base64", "encode"], run: (v) => transformSelections(v, "Base64 encode", CODECS.base64.codec.encode) },
+  { id: "text.base64Decode", label: "Base64 decode", keywords: ["base64", "decode"], run: (v) => transformSelections(v, "Base64 decode", CODECS.base64.codec.decode) },
+  { id: "text.urlEncode", label: "URL encode", keywords: ["url", "percent", "encode", "uri"], run: (v) => transformSelections(v, "URL encode", CODECS.url.codec.encode) },
+  { id: "text.urlDecode", label: "URL decode", keywords: ["url", "percent", "decode", "uri"], run: (v) => transformSelections(v, "URL decode", CODECS.url.codec.decode) },
   { id: "text.formatTables", label: "Format Markdown table(s)", keywords: ["markdown", "table", "align", "pipe", "pretty"], run: (v) => formatTablesCmd(v) },
   { id: "text.csvToMarkdown", label: "Convert CSV/TSV to Markdown table", keywords: ["csv", "tsv", "markdown", "table", "convert"], run: (v) => replaceTarget(v, "CSV → Markdown", csvToMarkdown) },
   { id: "text.markdownToCsv", label: "Convert Markdown table to CSV", keywords: ["csv", "markdown", "table", "convert", "export"], run: (v) => replaceTarget(v, "Markdown → CSV", markdownToCsv) },
