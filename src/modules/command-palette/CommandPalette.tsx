@@ -19,10 +19,13 @@ import {
 import { AlertCircleIcon, Refresh01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { highlightRuns } from "@/modules/quick-pick/rank";
 import {
   COMMAND_PALETTE_ACTION_GROUPS,
   type CommandPaletteAction,
 } from "./actions";
+import { rankActions, recentActions } from "./rankActions";
+import { loadRecent, recordRecent, saveRecent } from "./recent";
 import {
   COMMAND_PALETTE_FILE_SEARCH_MIN_QUERY_LENGTH,
   useWorkspaceFileSearch,
@@ -48,6 +51,7 @@ export function CommandPalette({
 }: Props) {
   const [query, setQuery] = useState("");
   const [selectedValue, setSelectedValue] = useState("");
+  const [recent, setRecent] = useState<string[]>(() => loadRecent());
   const userShortcuts = usePreferencesStore((s) => s.shortcuts);
   const { results, searching, error, reset, retry } = useWorkspaceFileSearch({
     root: workspaceRoot,
@@ -81,20 +85,40 @@ export function CommandPalette({
   const showFiles =
     trimmedQuery.length >= COMMAND_PALETTE_FILE_SEARCH_MIN_QUERY_LENGTH;
 
+  useEffect(() => {
+    if (open) setRecent(loadRecent());
+  }, [open]);
+
+  const ranked = useMemo(
+    () => (trimmedQuery ? rankActions(actions, trimmedQuery, recent) : null),
+    [actions, trimmedQuery, recent],
+  );
   const visibleActions = useMemo(
-    () => filterActions(actions, trimmedQuery),
-    [actions, trimmedQuery],
+    () => (ranked ? ranked.map((r) => r.action) : actions),
+    [actions, ranked],
+  );
+  const recentList = useMemo(
+    () => (trimmedQuery ? [] : recentActions(actions, recent)),
+    [actions, recent, trimmedQuery],
   );
 
   const selectableValues = useMemo(() => {
-    const actionValues = visibleActions
-      .filter((action) => !action.disabledReason)
-      .map((action) => actionValue(action));
+    const actionValues = [
+      ...recentList.map((action) => recentValue(action)),
+      ...(ranked
+        ? visibleActions
+        : COMMAND_PALETTE_ACTION_GROUPS.flatMap((g) =>
+            visibleActions.filter((a) => a.group === g),
+          )
+      )
+        .filter((action) => !action.disabledReason)
+        .map((action) => actionValue(action)),
+    ];
 
     if (!showFiles || !workspaceRoot) return actionValues;
     if (error) return [...actionValues, RETRY_VALUE];
     return [...actionValues, ...results.map((hit) => fileValue(hit))];
-  }, [error, results, showFiles, visibleActions, workspaceRoot]);
+  }, [error, ranked, recentList, results, showFiles, visibleActions, workspaceRoot]);
 
   useEffect(() => {
     if (selectableValues.length === 0) {
@@ -117,9 +141,12 @@ export function CommandPalette({
   const runAction = useCallback(
     (action: CommandPaletteAction) => {
       if (action.disabledReason) return;
+      const next = recordRecent(recent, action.id);
+      setRecent(next);
+      saveRecent(next);
       runAfterClose(action.run);
     },
-    [runAfterClose],
+    [recent, runAfterClose],
   );
 
   const openFile = useCallback(
@@ -131,7 +158,9 @@ export function CommandPalette({
 
   const runSelectedValue = useCallback(
     (value: string) => {
-      const action = visibleActions.find((a) => actionValue(a) === value);
+      const action =
+        visibleActions.find((a) => actionValue(a) === value) ??
+        recentList.find((a) => recentValue(a) === value);
       if (action) {
         runAction(action);
         return;
@@ -143,7 +172,7 @@ export function CommandPalette({
       const file = results.find((hit) => fileValue(hit) === value);
       if (file) openFile(file);
     },
-    [openFile, results, retry, runAction, visibleActions],
+    [openFile, recentList, results, retry, runAction, visibleActions],
   );
 
   const onCommandKeyDown = useCallback(
@@ -196,27 +225,53 @@ export function CommandPalette({
         />
         <ScrollArea className="max-h-[420px]">
           <CommandList className="max-h-none overflow-visible pr-3">
-            {COMMAND_PALETTE_ACTION_GROUPS.map((group) => {
-              const groupActions = visibleActions.filter(
-                (a) => a.group === group,
-              );
-              if (groupActions.length === 0) return null;
-              return (
-                <CommandGroup key={group} heading={group}>
-                  {groupActions.map((action) => (
+            {recentList.length > 0 ? (
+              <CommandGroup heading="Recently used">
+                {recentList.map((action) => (
+                  <ActionItem
+                    key={`recent-${action.id}`}
+                    action={action}
+                    value={recentValue(action)}
+                    shortcutLabel={formatShortcut(action.shortcutId, userShortcuts)}
+                    onRun={() => runAction(action)}
+                  />
+                ))}
+              </CommandGroup>
+            ) : null}
+
+            {ranked ? (
+              ranked.length > 0 ? (
+                <CommandGroup heading="Commands">
+                  {ranked.map(({ action, positions }) => (
                     <ActionItem
                       key={action.id}
                       action={action}
-                      shortcutLabel={formatShortcut(
-                        action.shortcutId,
-                        userShortcuts,
-                      )}
+                      positions={positions}
+                      showGroup
+                      shortcutLabel={formatShortcut(action.shortcutId, userShortcuts)}
                       onRun={() => runAction(action)}
                     />
                   ))}
                 </CommandGroup>
-              );
-            })}
+              ) : null
+            ) : (
+              COMMAND_PALETTE_ACTION_GROUPS.map((group) => {
+                const groupActions = visibleActions.filter((a) => a.group === group);
+                if (groupActions.length === 0) return null;
+                return (
+                  <CommandGroup key={group} heading={group}>
+                    {groupActions.map((action) => (
+                      <ActionItem
+                        key={action.id}
+                        action={action}
+                        shortcutLabel={formatShortcut(action.shortcutId, userShortcuts)}
+                        onRun={() => runAction(action)}
+                      />
+                    ))}
+                  </CommandGroup>
+                );
+              })
+            )}
 
             {showFiles ? (
               <CommandGroup heading="Files">
@@ -288,6 +343,10 @@ function actionValue(action: CommandPaletteAction): string {
   return `action:${action.id}`;
 }
 
+function recentValue(action: CommandPaletteAction): string {
+  return `recent:${action.id}`;
+}
+
 function fileValue(hit: CommandPaletteFileHit): string {
   return `file:${hit.path}`;
 }
@@ -296,15 +355,21 @@ function ActionItem({
   action,
   shortcutLabel,
   onRun,
+  value,
+  positions,
+  showGroup,
 }: {
   action: CommandPaletteAction;
   shortcutLabel: string | null;
   onRun: () => void;
+  value?: string;
+  positions?: number[];
+  showGroup?: boolean;
 }) {
   const rightLabel = action.disabledReason ?? shortcutLabel;
   return (
     <CommandItem
-      value={actionValue(action)}
+      value={value ?? actionValue(action)}
       disabled={!!action.disabledReason}
       onSelect={onRun}
       className="text-[12.5px]"
@@ -315,7 +380,22 @@ function ActionItem({
         strokeWidth={1.75}
         className="text-muted-foreground"
       />
-      <span className="truncate">{action.label}</span>
+      <span className="truncate">
+        {highlightRuns(action.label, positions ?? []).map((run, i) =>
+          run.match ? (
+            <span key={i} className="text-primary">
+              {run.text}
+            </span>
+          ) : (
+            <span key={i}>{run.text}</span>
+          ),
+        )}
+      </span>
+      {showGroup ? (
+        <span className="shrink-0 text-[11px] font-normal text-muted-foreground">
+          {action.group}
+        </span>
+      ) : null}
       {rightLabel ? (
         <CommandShortcut
           className={action.disabledReason ? "normal-case tracking-normal" : ""}
@@ -357,20 +437,6 @@ function StatusItem({
       </span>
     </CommandItem>
   );
-}
-
-function filterActions(
-  actions: CommandPaletteAction[],
-  query: string,
-): CommandPaletteAction[] {
-  const q = query.toLowerCase();
-  if (!q) return actions;
-  return actions.filter((action) => {
-    const haystack = [action.label, action.group, ...action.keywords]
-      .join(" ")
-      .toLowerCase();
-    return haystack.includes(q);
-  });
 }
 
 function formatShortcut(
