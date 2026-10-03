@@ -52,12 +52,23 @@ export const FEATURE_DEFAULTS = {
   "editor.renderWhitespace": false,
   "editor.highlightTrailingWhitespace": false,
   "editor.gitGutter": true,
+  "git.commitLint": "conventional",
 } satisfies Record<string, boolean | number | string>;
 
 export type FeatureKey = keyof typeof FEATURE_DEFAULTS;
 export type FeatureValues = { [K in FeatureKey]: (typeof FEATURE_DEFAULTS)[K] };
 
 export const FEATURE_META: Record<FeatureKey, Meta> = {
+  "git.commitLint": {
+    label: "Commit message checks",
+    description: "Hints under the commit box: Conventional Commits format, 72-character subject, imperative mood, blank line before the body.",
+    section: "Git",
+    options: [
+      { value: "conventional", label: "Conventional Commits" },
+      { value: "basic", label: "Basic hygiene only" },
+      { value: "off", label: "Off" },
+    ],
+  },
   "editor.gitGutter": {
     label: "Git change markers",
     description: "Mark added, modified and deleted lines in the gutter compared with the staged version of the file.",
