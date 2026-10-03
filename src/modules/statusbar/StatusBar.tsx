@@ -27,6 +27,7 @@ import type { WorkspaceEnv } from "@/modules/workspace";
 import { useUpdaterStore } from "@/modules/updater";
 import { openSettingsWindow } from "@/modules/settings/openSettingsWindow";
 import { useBroadcastEnabled, toggleBroadcast } from "@/modules/terminal/lib/broadcast";
+import { LastCommandPill } from "@/modules/terminal/features/LastCommandPill";
 
 type Props = {
   cwd: string | null;
@@ -86,6 +87,7 @@ export function StatusBar({
         <WorkspaceEnvSelector onSelect={onWorkspaceChange} />
         <CwdBreadcrumb cwd={cwd} filePath={filePath} home={home} onCd={onCd} />
         <LspStatusPill filePath={filePath ?? null} />
+        <LastCommandPill />
         {privateActive ? (
           <Tooltip>
             <TooltipTrigger asChild>
