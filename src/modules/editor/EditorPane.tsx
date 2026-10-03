@@ -55,7 +55,7 @@ initVimGlobals();
 import { resolveLanguage } from "./lib/languageResolver";
 import { clearActiveEditor, setActiveEditor } from "./lib/activeEditor";
 import { codeActionsKeymap } from "./lib/codeActions";
-import { textToolsKeymap } from "./lib/textTools/commands";
+import { renameSymbolLocal, textToolsKeymap } from "./lib/textTools/commands";
 import { colorSwatches } from "./lib/colorSwatches";
 import { todoHighlight } from "./lib/todoHighlight";
 import { bookmarks, bookmarksKeymap, restoredBookmarks, setBookmarksEffect } from "./lib/bookmarks";
@@ -372,6 +372,20 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
         // Semantic selection expand/shrink (Shift+Alt+Arrow), from the toolkit.
         keymap.of(codeActionsKeymap(() => analyzableLangRef.current)),
         keymap.of(textToolsKeymap(() => analyzableLangRef.current)),
+        // Fallback rename when no language server claims F2 (LSP keymaps
+        // are registered at normal precedence and win).
+        Prec.low(
+          keymap.of([
+            {
+              key: "F2",
+              preventDefault: true,
+              run: (v) => {
+                void renameSymbolLocal(v, analyzableLangRef.current);
+                return true;
+              },
+            },
+          ]),
+        ),
         colorSwatches(),
         todoHighlight(),
         bookmarks(() => pathRef.current),
