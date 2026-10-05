@@ -52,6 +52,7 @@ export const FEATURE_DEFAULTS = {
   "editor.colorSwatches": true,
   "editor.todoHighlight": true,
   "editor.suspiciousChars": true,
+  "editor.snippets": "[\n  { \"name\": \"Log JSON\", \"lang\": \"js\", \"body\": \"console.log(JSON.stringify(${1:value}, null, 2));\" }\n]",
   "editor.rulers": "",
   "editor.renderWhitespace": false,
   "editor.highlightTrailingWhitespace": false,
@@ -139,6 +140,12 @@ export const FEATURE_META: Record<FeatureKey, Meta> = {
     label: "Highlight trailing whitespace",
     description: "Tint spaces and tabs at the end of lines.",
     section: "Editor",
+  },
+  "editor.snippets": {
+    label: "Snippets",
+    description: 'Your snippets for "Insert snippet…", as JSON: [{ "name": "…", "lang": "js|py|rs|go|…" (optional), "body": "text with ${1:placeholders}, ${2} and $CURRENT_YEAR" }].',
+    section: "Editor",
+    multiline: true,
   },
   "editor.suspiciousChars": {
     label: "Flag invisible and look-alike characters",

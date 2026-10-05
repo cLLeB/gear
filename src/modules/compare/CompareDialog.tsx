@@ -22,6 +22,13 @@ export interface CompareRequest {
   modified: string;
   /** File name used to pick syntax highlighting. */
   languageHint?: string;
+  /** Show `modified` alone (a read-only text viewer) instead of a diff. */
+  viewOnly?: boolean;
+}
+
+/** Read-only viewer for generated text (hex dumps, reports). */
+export function openTextViewer(title: string, text: string, languageHint?: string): void {
+  openCompare({ title, originalLabel: "", modifiedLabel: "", original: text, modified: text, languageHint, viewOnly: true });
 }
 
 export const useCompareStore = create<{ request: CompareRequest | null }>(() => ({ request: null }));
@@ -44,7 +51,7 @@ export function CompareDialog() {
       ...(lang ? [lang] : []),
       EditorState.readOnly.of(true),
       EditorView.editable.of(false),
-      unifiedMergeView({
+      ...(request.viewOnly ? [] : [unifiedMergeView({
         original: request.original,
         mergeControls: false,
         highlightChanges: true,
@@ -52,7 +59,7 @@ export function CompareDialog() {
         syntaxHighlightDeletions: true,
         collapseUnchanged: { margin: 3, minSize: 8 },
       }),
-      DIFF_THEME,
+      DIFF_THEME]),
     ];
   }, [request]);
   if (!request) return null;
@@ -61,7 +68,7 @@ export function CompareDialog() {
     <Dialog open onOpenChange={(open) => !open && useCompareStore.setState({ request: null })}>
       <DialogContent className="flex h-[min(80vh,900px)] w-[min(1100px,calc(100vw-32px))] max-w-none flex-col gap-2 p-3 sm:max-w-none">
         <DialogTitle className="text-sm">{request.title}</DialogTitle>
-        <div className="flex items-center gap-3 text-[11.5px] text-muted-foreground">
+        <div className={request.viewOnly ? "hidden" : "flex items-center gap-3 text-[11.5px] text-muted-foreground"}>
           <span className="rounded-sm bg-red-500/15 px-1.5 py-0.5">− {request.originalLabel}</span>
           <span className="rounded-sm bg-green-500/15 px-1.5 py-0.5">+ {request.modifiedLabel}</span>
           {same ? <span>Identical</span> : null}
