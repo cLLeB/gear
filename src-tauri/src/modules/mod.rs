@@ -1,6 +1,7 @@
 pub mod agent;
 pub mod chronicle;
 pub mod control;
+pub mod dap;
 pub mod fs;
 pub mod git;
 pub mod history;
