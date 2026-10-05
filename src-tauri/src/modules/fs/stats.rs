@@ -150,7 +150,7 @@ pub fn collect_stats(root_path: &std::path::Path, top: usize) -> WorkspaceStats 
             size,
         });
     }
-    all.sort_by(|a, b| b.size.cmp(&a.size));
+    all.sort_by_key(|f| std::cmp::Reverse(f.size));
     all.truncate(top);
     WorkspaceStats {
         largest: all,
