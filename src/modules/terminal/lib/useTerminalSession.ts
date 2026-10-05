@@ -715,6 +715,40 @@ configureRendererPool({
   },
 });
 
+const pendingRestore = new Map<number, string>();
+
+/** Queue saved scrollback for a leaf whose session hasn't been created yet. */
+export function seedLeafRestore(leafId: number, ansi: string): void {
+  const s = sessions.get(leafId);
+  if (!s) pendingRestore.set(leafId, ansi);
+  else if (!s.hasSlot && !s.snapshot) s.snapshot = ansi;
+}
+
+/** A leaf's scrollback as ANSI for persisting (bound slot, else the parked snapshot). */
+export function exportLeafScrollback(leafId: number, maxLines: number): string | null {
+  const s = sessions.get(leafId);
+  if (!s || s.isPrivate) return null;
+  const slot = getSlotForLeaf(leafId);
+  if (slot) {
+    try {
+      // The alternate screen (vim, htop) isn't history worth restoring.
+      if (slot.term.buffer.active.type === "alternate") return null;
+      return slot.serializeAddon.serialize({ scrollback: maxLines, excludeAltBuffer: true });
+    } catch {
+      return null;
+    }
+  }
+  return s.snapshot ?? pendingRestore.get(leafId) ?? null;
+}
+
+/** The command a leaf was running (shell integration), if any. */
+export function runningCommand(leafId: number): string | null {
+  const s = sessions.get(leafId);
+  if (!s?.commandRunning || !s.marks) return null;
+  const last = s.marks.list().filter((m) => m.command).pop();
+  return last && last.exitCode === null ? last.command : null;
+}
+
 function ensureSession(
   leafId: number,
   initialCwd?: string,
@@ -763,6 +797,12 @@ function ensureSession(
     lastCommand: null,
   };
   sessions.set(leafId, session);
+  // Scrollback saved before the last quit is replayed ahead of the new shell.
+  const restored = pendingRestore.get(leafId);
+  if (restored !== undefined) {
+    pendingRestore.delete(leafId);
+    session.snapshot = restored;
+  }
 
   session.ready = (async () => {
     await ensureMonoFontsLoaded();

@@ -263,7 +263,7 @@ describe("hydrateTabs", () => {
 
   it("round-trips every restorable kind through serialize and back", () => {
     const serialized: SerializedTab[] = [
-      { kind: "terminal", tree: { kind: "leaf", cwd: "/a", active: true } },
+      { kind: "terminal", tree: { kind: "leaf", cwd: "/a", active: true, key: "pane-key-1" } },
       { kind: "editor", path: "/a/x.ts" },
       { kind: "preview", url: "http://localhost:5173/x" },
       { kind: "markdown", path: "/a/README.md" },

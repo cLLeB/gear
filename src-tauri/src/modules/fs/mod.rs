@@ -4,6 +4,7 @@ pub mod clipboard_image;
 pub mod file;
 pub mod grep;
 pub mod mutate;
+pub mod scrollback;
 pub mod search;
 pub mod sqlite;
 pub mod stats;

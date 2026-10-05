@@ -49,6 +49,7 @@ export const FEATURE_DEFAULTS = {
   "terminal.commandGuard": true,
   "terminal.commandGuardCaution": false,
   "terminal.pasteImages": true,
+  "terminal.restoreScrollback": true,
   "terminal.copyOnSelect": false,
   "terminal.rightClick": "menu",
   "editor.colorSwatches": true,
@@ -91,6 +92,12 @@ export const FEATURE_META: Record<FeatureKey, Meta> = {
       { value: "paste", label: "Paste" },
       { value: "copyPaste", label: "Copy selection, else paste" },
     ],
+  },
+  "terminal.restoreScrollback": {
+    label: "Restore terminal contents after restart",
+    description:
+      "Save each terminal's scrollback (compressed, on this machine) and show it again when Gear reopens, with an offer to re-run commands that were still running. Private terminals are never saved.",
+    section: "Terminal",
   },
   "terminal.pasteImages": {
     label: "Paste images and copied files as paths",
