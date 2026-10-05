@@ -82,8 +82,13 @@ export interface Capabilities {
   exceptionBreakpointFilters?: { filter: string; label: string; default?: boolean }[];
 }
 
+/** Adapters that always send `initialized` before launch and want breakpoints first. */
+const EARLY_INITIALIZED = new Set(["gdb"]);
+
 export class DebugSession {
   caps: Capabilities = {};
+  /** Incremented synchronously per `stopped` event, to order replies against events. */
+  private stops = 0;
   state: SessionState = { status: "starting", threads: [], stoppedThreadId: null, stopReason: null, stopDescription: null, frames: [], exitCode: null, verified: {}, error: null };
 
   constructor(
@@ -96,7 +101,10 @@ export class DebugSession {
       if (cat === "telemetry") return;
       hooks.onOutput(cat, String(b.output ?? ""));
     });
-    client.on("stopped", (b) => void this.onStopped(b));
+    client.on("stopped", (b) => {
+      this.stops++;
+      void this.onStopped(b);
+    });
     client.on("continued", (b) => {
       if (b.allThreadsContinued !== false || b.threadId === this.state.stoppedThreadId) this.set({ status: "running", frames: [], stoppedThreadId: null, stopReason: null, stopDescription: null });
     });
@@ -159,7 +167,14 @@ export class DebugSession {
       // expect breakpoints before launch (gdb starts the program on launch); debugpy only
       // sends it after launch and answers launch after configurationDone.
       let early = false;
-      await Promise.race([initialized.then(() => (early = true)), new Promise((r) => setTimeout(r, 400))]);
+      void initialized.then(() => (early = true), () => {});
+      if (EARLY_INITIALIZED.has(this.config.adapterId)) {
+        await initialized;
+        early = true;
+      } else {
+        // Others: take the early path only if the event already arrived with the initialize response.
+        await new Promise((r) => setTimeout(r, 0));
+      }
       if (early) {
         const failed = await this.syncAllBreakpoints();
         await this.syncExceptionFilters();
@@ -183,7 +198,7 @@ export class DebugSession {
         if (this.caps.supportsConfigurationDoneRequest !== false) await this.client.request("configurationDone", {});
         await launched;
       }
-      if (this.state.status === "starting") this.set({ status: "running" });
+      if (this.state.status === "starting" && this.stops === 0) this.set({ status: "running" });
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       this.set({ error: msg });
@@ -195,10 +210,13 @@ export class DebugSession {
   }
 
   private async onStopped(b: Record<string, unknown>): Promise<void> {
+    const seq = this.stops;
     const threadId = typeof b.threadId === "number" ? b.threadId : this.state.threads[0]?.id ?? null;
     await this.refreshThreads();
     const tid = threadId ?? this.state.threads[0]?.id ?? null;
     const frames = tid !== null ? await this.stackTrace(tid).catch(() => []) : [];
+    // A newer stop (or the end) superseded this one while we were fetching.
+    if (seq !== this.stops || this.state.status === "ended") return;
     this.set({ status: "stopped", stoppedThreadId: tid, stopReason: String(b.reason ?? "pause"), stopDescription: (b.text ?? b.description ?? null) as string | null, frames });
   }
 
@@ -246,28 +264,27 @@ export class DebugSession {
     return t;
   }
 
-  private resumed(): void {
-    this.set({ status: "running", frames: [], stopReason: null, stopDescription: null });
+  /** Send a resume-type request; mark running only if the adapter hasn't already stopped again. */
+  private async resume(command: "continue" | "next" | "stepIn" | "stepOut"): Promise<void> {
+    const before = this.stops;
+    await this.client.request(command, { threadId: this.tid() });
+    if (this.stops === before && this.state.status !== "ended") this.set({ status: "running", frames: [], stopReason: null, stopDescription: null });
   }
 
-  async continue(): Promise<void> {
-    await this.client.request("continue", { threadId: this.tid() });
-    this.resumed();
+  continue(): Promise<void> {
+    return this.resume("continue");
   }
 
-  async next(): Promise<void> {
-    await this.client.request("next", { threadId: this.tid() });
-    this.resumed();
+  next(): Promise<void> {
+    return this.resume("next");
   }
 
-  async stepIn(): Promise<void> {
-    await this.client.request("stepIn", { threadId: this.tid() });
-    this.resumed();
+  stepIn(): Promise<void> {
+    return this.resume("stepIn");
   }
 
-  async stepOut(): Promise<void> {
-    await this.client.request("stepOut", { threadId: this.tid() });
-    this.resumed();
+  stepOut(): Promise<void> {
+    return this.resume("stepOut");
   }
 
   async pause(): Promise<void> {

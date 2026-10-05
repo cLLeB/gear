@@ -17,7 +17,7 @@ export function mergeEditorForActiveFile(): void {
   void openMergeEditor(path);
 }
 
-window.addEventListener("gear:open-merge-editor", mergeEditorForActiveFile);
+if (typeof window !== "undefined") window.addEventListener("gear:open-merge-editor", mergeEditorForActiveFile);
 
 export async function resolveConflicts(): Promise<void> {
   const root = await requireRepo();
