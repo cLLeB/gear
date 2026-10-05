@@ -25,6 +25,7 @@ import { clearEveryBookmark, listBookmarks, TEXT_ACTIONS } from "@/modules/edito
 import { DATA_TEXT_ACTIONS } from "@/modules/editor/lib/textTools/dataCommands";
 import { MORE_TEXT_ACTIONS } from "@/modules/editor/lib/textTools/moreCommands";
 import { FORMAT_ACTIONS } from "@/modules/tools/formatCommands";
+import { TOOL_ACTIONS } from "@/modules/tools/toolActions";
 import { copyPermalink, copyReference, openPermalink } from "@/modules/editor/lib/textTools/permalinkAction";
 import { PANE_ACTIONS, TERMINAL_ACTIONS, toggleBroadcast } from "@/modules/terminal";
 import { TERMINAL_FEATURE_ACTIONS } from "@/modules/terminal/features";
@@ -52,6 +53,7 @@ export type CommandPaletteActionGroup =
   | "Text"
   | "Git"
   | "Workspace"
+  | "Tools"
   | "AI";
 
 export type CommandPaletteAction = {
@@ -78,6 +80,7 @@ export const COMMAND_PALETTE_ACTION_GROUPS: readonly CommandPaletteActionGroup[]
     "Text",
     "Git",
     "Workspace",
+    "Tools",
     "AI",
   ] as const;
 
@@ -422,6 +425,15 @@ export function createCommandPaletteActions(
       group: "Git",
       keywords: ["git", ...action.keywords],
       icon: CodeIcon,
+      run: () => void action.run(),
+      deferRun: true,
+    })),
+    ...TOOL_ACTIONS.map((action): CommandPaletteAction => ({
+      id: action.id,
+      label: action.label,
+      group: "Tools",
+      keywords: ["tool", ...action.keywords],
+      icon: SparklesIcon,
       run: () => void action.run(),
       deferRun: true,
     })),

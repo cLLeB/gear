@@ -25,6 +25,7 @@ import {
   scrollLeafToLine,
 } from "../lib/useTerminalSession";
 import { guardedSubmit } from "./guardedSubmit";
+import { explainExitCode } from "@/modules/tools/references";
 import { formatDurationShort, useLastCommandStore } from "./lastCommandStore";
 import {
   AsciicastRecorder,
@@ -77,7 +78,8 @@ export async function commandLog(): Promise<void> {
       const status = c.exitCode === null ? (c.finishedAt ? "?" : "…") : c.exitCode === 0 ? "✓" : `✗ ${c.exitCode}`;
       const dur = c.startedAt !== null && c.finishedAt !== null ? formatDurationShort(c.finishedAt - c.startedAt) : "running";
       const ago = c.finishedAt ? `${formatDurationShort(now - c.finishedAt)} ago` : "";
-      return { label: `${status}  ${c.command}`, description: [dur, ago].filter(Boolean).join(" · "), value: c };
+      const why = c.exitCode !== null && c.exitCode !== 0 ? explainExitCode(c.exitCode) : undefined;
+      return { label: `${status}  ${c.command}`, description: [dur, ago].filter(Boolean).join(" · "), detail: why, value: c };
     }),
     { title: "Commands in this pane", emptyText: "No commands yet (needs shell integration)", placeholder: "Search commands…" },
   );
