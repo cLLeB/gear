@@ -58,6 +58,7 @@ import { codeActionsKeymap } from "./lib/codeActions";
 import { renameSymbolLocal, textToolsKeymap, toggleMarkdownWrap } from "./lib/textTools/commands";
 import { colorSwatches } from "./lib/colorSwatches";
 import { todoHighlight } from "./lib/todoHighlight";
+import { suspiciousChars } from "./lib/suspiciousChars";
 import { editorGuides } from "./lib/editorGuides";
 import { conflictLens } from "./lib/conflictLens";
 import { gitGutter } from "./lib/gitGutter";
@@ -402,6 +403,7 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
         ),
         colorSwatches(),
         todoHighlight(),
+        suspiciousChars(),
         editorGuides(),
         conflictLens(),
         gitGutter(() => pathRef.current),
