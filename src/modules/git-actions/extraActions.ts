@@ -398,7 +398,7 @@ export async function addToGitignore(): Promise<void> {
     toast.info(`${pattern} is already in .gitignore`);
     return;
   }
-  await native.writeFile(file, next);
+  await native.writeFile(file, next, "user");
   const tracked = rel && (await git(root, ["ls-files", "--error-unmatch", rel])).ok;
   if (tracked && pattern === gitignorePatternFor(rel, "file")) {
     if (await confirmPick(`${rel} is already tracked`, "Stop tracking it (git rm --cached)", "Ignoring only affects untracked files.")) {

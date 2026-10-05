@@ -34,6 +34,7 @@ import { GIT_ACTIONS } from "@/modules/git-actions/actions";
 import { GIT_EXTRA_ACTIONS } from "@/modules/git-actions/extraActions";
 import { THEME_ACTIONS } from "@/modules/theme/themeActions";
 import { NOTIFICATION_ACTIONS } from "@/modules/notifications/actions";
+import { COMPARE_ACTIONS } from "@/modules/compare/actions";
 import { app } from "@/app/appBridge";
 
 type CommandIcon = typeof TerminalIcon;
@@ -419,6 +420,15 @@ export function createCommandPaletteActions(
       group: "Git",
       keywords: ["git", ...action.keywords],
       icon: CodeIcon,
+      run: () => void action.run(),
+      deferRun: true,
+    })),
+    ...COMPARE_ACTIONS.map((action): CommandPaletteAction => ({
+      id: action.id,
+      label: action.label,
+      group: "Text",
+      keywords: ["text", ...action.keywords],
+      icon: FileEditIcon,
       run: () => void action.run(),
       deferRun: true,
     })),

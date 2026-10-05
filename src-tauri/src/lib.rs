@@ -241,6 +241,7 @@ pub fn run() {
             fs::search::fs_search,
             fs::search::fs_list_files,
             fs::grep::fs_grep,
+            fs::stats::fs_workspace_stats,
             fs::grep::fs_glob,
             git::commands::git_resolve_repo,
             git::commands::git_panel_snapshot,

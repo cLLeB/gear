@@ -176,6 +176,7 @@ import { appCloseMessage, useAppCloseGuard } from "./hooks/useAppCloseGuard";
 import { noteTabActivated } from "@/modules/tabs/tabActions";
 import { registerAppBridge } from "./appBridge";
 import { QuickPickHost } from "@/modules/quick-pick";
+import { CompareDialog } from "@/modules/compare/CompareDialog";
 import { goToLinePrompt, goToSymbolCmd } from "@/modules/editor/lib/textTools/commands";
 import { getActiveEditor } from "@/modules/editor/lib/activeEditor";
 import { installTerminalFeatures } from "@/modules/terminal/features";
@@ -2546,6 +2547,7 @@ export default function App() {
 						}}
 					/>
 					<QuickPickHost />
+					<CompareDialog />
 
 					<AgentNotificationsBridge
 						tabs={tabs}
