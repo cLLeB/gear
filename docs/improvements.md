@@ -95,3 +95,47 @@ noted; tunable behaviour lives in **Settings → Features**.
 ## Themes
 - Import iTerm2, Windows Terminal, VS Code, Alacritty, Kitty, Ghostty, Xresources and base16 schemes
 - WCAG contrast check of the active theme
+
+# Checkpoint 3
+
+## Local development
+- `codes/` scripts (Windows PowerShell and macOS/Linux) install the toolchain, clone or update the repo into `~/codes/gear` and install dependencies; `update.ps1` / `update.sh` pull the latest changes
+
+## Editor: data formats
+- Convert CSV/TSV ⇄ JSON, JSON ⇄ TOML, XML ⇄ JSON, .env ⇄ JSON, query string ⇄ JSON, JSON array → Markdown table
+
+## Tools (new palette group)
+- Subnet/CIDR calculator, chmod calculator, semver range explainer/tester, regex explainer
+- Duration converter, days between dates, time zone converter / world clock, unit converter
+- Password / passphrase generator, signed test JWT (HS256), HTTP status codes, exit code / signal explainer, colour contrast checker
+
+## Editor: code & writing
+- Insert / remove debug logs (12 languages), surround with try/if/for…, extract variable, concatenation → template literal
+- Writing checks, Markdown link & anchor checker, renumber lists, HTML / rich text → Markdown, line numbers
+- Snippets with tab stops (built-in + your own), clipboard history, scratchpad
+- File info (encoding, EOL, SHA-256, last commit), hex view, copy as data URI, go to file:line from clipboard, open recent file, lock file
+- Rainbow brackets (unmatched flagged), indentation rainbow, sticky scroll, go back / forward with history
+
+## Terminal
+- Find in all terminals, filter scrollback, marks, copy command + output as Markdown
+- Activate venv / nvm / asdf, new terminal at the file's folder, copy current directory
+- Kubernetes contexts & pods, process list & kill, scheduled / repeating commands, rotate panes, run in all terminals
+- Failed commands explained in the command log
+
+## Git
+- Commit for the current line, compare branches, files changed on this branch, conventional-commit builder
+- Search history (message / author / pickaxe), reflog recovery, contributors
+- Push with options, remotes, submodules, create / apply patches, revert, squash, copy SHA, open repository pages
+
+## Workspace
+- Outdated dependencies (npm/pnpm/yarn/pip), duplicate files, new file from 19 templates
+- Generate README, update CHANGELOG from commits, bump version (+ commit & tag)
+- Copy file tree, copy files as AI context, token estimates, secrets scan, file checksums & verify
+
+## AI (uses the model configured in Settings → Models)
+- Explain code, doc comments, unit tests, review changes, rename suggestions, translate code
+- PR description, regex / jq / SQL / awk / sed / XPath / cron from a description
+- Summarize command output, edit selection by instruction (with diff), explain stack traces
+
+## Look & feel
+- Generate a theme from an accent colour, light/dark schedule, focus (Pomodoro) timer in the status bar
