@@ -1,6 +1,7 @@
 import { cn } from "@/lib/utils";
 import type { EditorTab, Tab } from "@/modules/tabs";
 import { useEffect, useRef } from "react";
+import { NotebookPane } from "@/modules/notebook/NotebookPane";
 import { EditorPane, type EditorPaneHandle } from "./EditorPane";
 
 type Props = {
@@ -97,13 +98,17 @@ export function EditorStack({
             aria-hidden={!visible}
           >
             <div className="h-full overflow-hidden rounded-md border border-border/60 bg-background">
-              <EditorPane
-                ref={getRefCallback(t.id)}
-                path={t.path}
-                languageOverride={t.languageOverride}
-                onDirtyChange={getDirtyCallback(t.id)}
-                onClose={getCloseCallback(t.id)}
-              />
+              {/\.ipynb$/i.test(t.path) && !t.languageOverride ? (
+                <NotebookPane ref={getRefCallback(t.id)} path={t.path} onDirtyChange={getDirtyCallback(t.id)} onClose={getCloseCallback(t.id)} />
+              ) : (
+                <EditorPane
+                  ref={getRefCallback(t.id)}
+                  path={t.path}
+                  languageOverride={t.languageOverride}
+                  onDirtyChange={getDirtyCallback(t.id)}
+                  onClose={getCloseCallback(t.id)}
+                />
+              )}
             </div>
           </div>
         );
