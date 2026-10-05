@@ -40,6 +40,9 @@ import { GIT_EXTRA_ACTIONS_2 } from "@/modules/git-actions/extraActions2";
 import { THEME_ACTIONS } from "@/modules/theme/themeActions";
 import { NOTIFICATION_ACTIONS } from "@/modules/notifications/actions";
 import { COMPARE_ACTIONS } from "@/modules/compare/actions";
+import { installThemeSchedule, UI_ACTIONS } from "@/modules/focus/uiActions";
+
+installThemeSchedule();
 import { app } from "@/app/appBridge";
 
 type CommandIcon = typeof TerminalIcon;
@@ -457,7 +460,7 @@ export function createCommandPaletteActions(
       run: () => void action.run(),
       deferRun: true,
     })),
-    ...[...THEME_ACTIONS, ...NOTIFICATION_ACTIONS].map((action): CommandPaletteAction => ({
+    ...[...THEME_ACTIONS, ...NOTIFICATION_ACTIONS, ...UI_ACTIONS].map((action): CommandPaletteAction => ({
       id: action.id,
       label: action.label,
       group: "View",

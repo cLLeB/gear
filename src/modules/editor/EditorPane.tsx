@@ -60,6 +60,8 @@ import { colorSwatches } from "./lib/colorSwatches";
 import { todoHighlight } from "./lib/todoHighlight";
 import { suspiciousChars } from "./lib/suspiciousChars";
 import { recordClip } from "@/modules/clipboard/history";
+import { indentRainbow, rainbowBrackets, stickyScroll } from "./lib/visualAids";
+import { navigationTracker } from "./lib/navHistory";
 import { editorGuides } from "./lib/editorGuides";
 import { conflictLens } from "./lib/conflictLens";
 import { gitGutter } from "./lib/gitGutter";
@@ -414,6 +416,10 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
         colorSwatches(),
         todoHighlight(),
         suspiciousChars(),
+        rainbowBrackets(() => analyzableLangRef.current),
+        indentRainbow(),
+        stickyScroll(),
+        navigationTracker(() => pathRef.current),
         editorGuides(),
         conflictLens(),
         gitGutter(() => pathRef.current),

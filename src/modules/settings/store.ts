@@ -987,3 +987,4 @@ export async function emitKeysChanged(): Promise<void> {
 export function onKeysChanged(cb: () => void): Promise<UnlistenFn> {
   return listen(KEYS_CHANGED_EVENT, () => cb());
 }
+

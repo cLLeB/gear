@@ -28,6 +28,7 @@ import { useUpdaterStore } from "@/modules/updater";
 import { openSettingsWindow } from "@/modules/settings/openSettingsWindow";
 import { useBroadcastEnabled, toggleBroadcast } from "@/modules/terminal/lib/broadcast";
 import { LastCommandPill } from "@/modules/terminal/features/LastCommandPill";
+import { FocusTimerPill } from "@/modules/focus/FocusTimerPill";
 
 type Props = {
   cwd: string | null;
@@ -88,6 +89,7 @@ export function StatusBar({
         <CwdBreadcrumb cwd={cwd} filePath={filePath} home={home} onCd={onCd} />
         <LspStatusPill filePath={filePath ?? null} />
         <LastCommandPill />
+        <FocusTimerPill />
         {privateActive ? (
           <Tooltip>
             <TooltipTrigger asChild>
