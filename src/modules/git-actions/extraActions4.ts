@@ -14,7 +14,6 @@ import { confirmPick, inputBox, quickPick } from "@/modules/quick-pick";
 import { LOG_FORMAT, parseLog } from "./extras";
 import {
   addTrailer,
-  autosquashPlan,
   blameTimes,
   BRANCH_FORMAT,
   humanSize,
@@ -23,12 +22,11 @@ import {
   parseCleanDryRun,
   parseGitGrep,
   parseShortlog,
-  rebaseTodo,
   splitCommitScript,
   staleness,
-  type RebaseAction,
 } from "./extras4";
 import { git, gitOrToast, requireRepo } from "./gitCli";
+import { openRebaseEditor } from "./RebaseEditorDialog";
 import { applyLineRange, type PartialAction } from "./partialApply";
 
 const rel = (root: string, p: string) => p.replace(/\\/g, "/").slice(root.replace(/\\/g, "/").replace(/\/+$/, "").length + 1);
@@ -60,63 +58,6 @@ async function applyPartial(mode: PartialAction): Promise<void> {
   const err = await applyLineRange(s.root, s.rel, mode, s.from, s.to);
   if (err) return void toast.error(err);
   toast.success(mode === "stage" ? `Staged lines ${s.from}–${s.to}` : mode === "unstage" ? `Unstaged lines ${s.from}–${s.to}` : `Discarded lines ${s.from}–${s.to}`);
-}
-
-export async function rebasePlanner(): Promise<void> {
-  const root = await requireRepo();
-  if (!root) return;
-  const base = await git(root, ["merge-base", "HEAD", "@{upstream}"]);
-  const log = await git(root, ["log", `--format=${LOG_FORMAT}`, "-n", "30"]);
-  const commits = parseLog(log.stdout);
-  if (commits.length < 2) return void toast.info("Not enough commits");
-  const upstreamBase = base.ok ? base.stdout.trim() : "";
-  const from = await quickPick(
-    commits.slice(1).map((c, i) => ({ label: `${i + 2} commits — back to "${commits[i].subject}"`, description: `${c.short}${c.sha === upstreamBase ? " · upstream base" : ""}`, value: c.sha })),
-    { title: "Rebase onto (commits after this one are replanned)" },
-  );
-  if (!from) return;
-  const idx = commits.findIndex((c) => c.sha === from);
-  const range = commits.slice(0, idx).reverse();
-  let plan = autosquashPlan(range.map((c) => ({ sha: c.short, subject: c.subject })));
-  for (;;) {
-    const pick = await quickPick(
-      [
-        { label: "▶ Run this plan", value: -1 },
-        { label: "↺ Reset to plain picks", value: -2 },
-        ...plan.map((p, i) => ({ label: `${p.action.padEnd(6)} ${p.subject}`, description: p.sha, value: i })),
-      ],
-      { title: "Interactive rebase plan — pick a commit to change its action" },
-    );
-    if (pick === undefined) return;
-    if (pick === -2) {
-      plan = plan.map((p) => ({ ...p, action: "pick" }));
-      continue;
-    }
-    if (pick === -1) break;
-    const action = await quickPick<RebaseAction | "up" | "down">(
-      [
-        ...(["pick", "reword", "edit", "squash", "fixup", "drop"] as RebaseAction[]).map((a) => ({ label: a, value: a })),
-        { label: "Move up (earlier)", value: "up" },
-        { label: "Move down (later)", value: "down" },
-      ],
-      { title: plan[pick].subject },
-    );
-    if (!action) continue;
-    if (action === "up" && pick > 0) [plan[pick - 1], plan[pick]] = [plan[pick], plan[pick - 1]];
-    else if (action === "down" && pick < plan.length - 1) [plan[pick + 1], plan[pick]] = [plan[pick], plan[pick + 1]];
-    else if (action !== "up" && action !== "down") plan[pick] = { ...plan[pick], action };
-  }
-  let todo: string;
-  try {
-    todo = rebaseTodo(plan);
-  } catch (e) {
-    return void toast.error(String(e instanceof Error ? e.message : e));
-  }
-  const gp = await git(root, ["rev-parse", "--git-path", "gear-rebase-todo"]);
-  const todoPath = `${root}/${gp.stdout.trim()}`.replace(/\\/g, "/");
-  await native.writeFile(todoPath, todo, "user");
-  // git invokes the sequence editor with the todo path; copying ours over it applies the plan.
-  app().openTerminal({ cwd: root, command: `git -c "sequence.editor=cp '${todoPath}'" rebase -i ${from}` });
 }
 
 export async function splitLastCommit(): Promise<void> {
@@ -287,7 +228,7 @@ export const GIT_EXTRA_ACTIONS_4 = [
   { id: "git.stageLines", label: "Git: Stage selected lines", keywords: ["stage", "partial", "hunk", "lines", "add -p", "selection"], run: () => applyPartial("stage") },
   { id: "git.unstageLines", label: "Git: Unstage selected lines", keywords: ["unstage", "partial", "hunk", "lines", "reset -p"], run: () => applyPartial("unstage") },
   { id: "git.discardLines", label: "Git: Discard changes in selected lines…", keywords: ["discard", "revert lines", "partial", "hunk", "checkout -p"], run: () => applyPartial("discard") },
-  { id: "git.rebasePlanner", label: "Git: Interactive rebase planner…", keywords: ["rebase", "interactive", "squash", "fixup", "reorder", "drop", "autosquash"], run: rebasePlanner },
+  { id: "git.rebasePlanner", label: "Git: Interactive rebase (drag to reorder, squash, reword)…", keywords: ["rebase", "interactive", "squash", "fixup", "reorder", "drop", "autosquash"], run: openRebaseEditor },
   { id: "git.splitCommit", label: "Git: Split last commit (one commit per file)…", keywords: ["split", "commit", "per file", "break up", "atomic"], run: splitLastCommit },
   { id: "git.staleBranches", label: "Git: Stale branches…", keywords: ["stale", "old", "branches", "cleanup", "merged", "gone"], run: staleBranches },
   { id: "git.largeBlobs", label: "Git: Largest files in history", keywords: ["large", "blobs", "size", "bloat", "lfs", "history", "big files"], run: largeBlobs },

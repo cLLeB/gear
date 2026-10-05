@@ -178,6 +178,7 @@ import { registerAppBridge } from "./appBridge";
 import { QuickPickHost } from "@/modules/quick-pick";
 import { CompareDialog } from "@/modules/compare/CompareDialog";
 import { MergeEditorDialog } from "@/modules/merge/MergeEditorDialog";
+import { RebaseEditorDialog } from "@/modules/git-actions/RebaseEditorDialog";
 import { goToLinePrompt, goToSymbolCmd } from "@/modules/editor/lib/textTools/commands";
 import { getActiveEditor } from "@/modules/editor/lib/activeEditor";
 import { installTerminalFeatures } from "@/modules/terminal/features";
@@ -2571,6 +2572,7 @@ export default function App() {
 					<QuickPickHost />
 					<CompareDialog />
 					<MergeEditorDialog />
+					<RebaseEditorDialog />
 
 					<AgentNotificationsBridge
 						tabs={tabs}

@@ -112,3 +112,34 @@ describe("trailers and misc", () => {
     expect(parseCleanDryRun("Would remove tmp/\nWould remove a.log\n")).toEqual(["tmp/", "a.log"]);
   });
 });
+
+import { planPreview, planTodo, validatePlan } from "./extras4";
+
+describe("rebase rows", () => {
+  it("plans rewords via exec and previews the result", () => {
+    const rows = [
+      { sha: "a1", subject: "feat: x", action: "pick" as const },
+      { sha: "b2", subject: "wip", action: "fixup" as const },
+      { sha: "c3", subject: "typo", action: "reword" as const, message: "fix: it's a typo" },
+      { sha: "d4", subject: "junk", action: "drop" as const },
+    ];
+    expect(planTodo(rows)).toBe("pick a1 feat: x\nfixup b2 wip\npick c3 typo\nexec git commit --amend --allow-empty --only -m 'fix: it'\\''s a typo'\ndrop d4 junk\n");
+    expect(planPreview(rows)).toEqual(["fix: it's a typo", "feat: x"]);
+    expect(validatePlan([{ sha: "a", subject: "s", action: "squash" }])[0]).toMatch(/first kept/);
+    expect(validatePlan([{ sha: "a", subject: "s", action: "drop" }])[0]).toMatch(/dropped/);
+    expect(() => planTodo([{ sha: "a", subject: "s", action: "reword" }])).toThrow(/no new message/);
+  });
+});
+
+import { planWarnings } from "./extras4";
+
+describe("plan warnings", () => {
+  it("flags fixups after a dropped commit", () => {
+    const w = planWarnings([
+      { sha: "a", subject: "wip", action: "pick" },
+      { sha: "b", subject: "feat", action: "drop" },
+      { sha: "c", subject: "fixup! feat", action: "fixup" },
+    ]);
+    expect(w).toEqual(['"fixup! feat" will be folded into "wip" because the commit above it is dropped']);
+  });
+});
