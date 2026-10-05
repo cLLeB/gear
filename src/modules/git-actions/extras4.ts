@@ -103,6 +103,68 @@ export function autosquashPlan(commits: { sha: string; subject: string }[]): { s
   return out;
 }
 
+export interface RebaseRow {
+  sha: string;
+  subject: string;
+  action: RebaseAction;
+  /** New message for "reword" (applied with an exec step, so no editor opens). */
+  message?: string;
+}
+
+function shQuote(s: string): string {
+  return `'${s.replace(/'/g, `'\\''`)}'`;
+}
+
+/** Problems that would make the plan fail or surprise (empty = OK). */
+export function validatePlan(rows: RebaseRow[]): string[] {
+  const out: string[] = [];
+  const live = rows.filter((r) => r.action !== "drop");
+  if (!live.length) out.push("Every commit is dropped — the branch would end up at the base commit");
+  if (live[0] && (live[0].action === "squash" || live[0].action === "fixup")) out.push(`"${live[0].subject}" can't be squashed into nothing — make the first kept commit a pick`);
+  for (const r of rows) if (r.action === "reword" && !r.message?.trim()) out.push(`"${r.subject}" is set to reword but has no new message`);
+  return out;
+}
+
+/** Non-blocking surprises: squash/fixup landing on a different commit than it follows. */
+export function planWarnings(rows: RebaseRow[]): string[] {
+  const out: string[] = [];
+  for (let i = 1; i < rows.length; i++) {
+    const r = rows[i];
+    if ((r.action === "squash" || r.action === "fixup") && rows[i - 1].action === "drop") {
+      const target = rows.slice(0, i).reverse().find((x) => x.action !== "drop");
+      out.push(`"${r.subject}" will be folded into "${target?.subject ?? "?"}" because the commit above it is dropped`);
+    }
+  }
+  return out;
+}
+
+/**
+ * A git-rebase-todo for the rows (oldest first). Rewords become a pick plus
+ * an `exec git commit --amend` so the rebase never stops for an editor.
+ */
+export function planTodo(rows: RebaseRow[]): string {
+  const problems = validatePlan(rows);
+  if (problems.length) throw new Error(problems[0]);
+  const lines: string[] = [];
+  for (const r of rows) {
+    if (r.action === "reword") {
+      lines.push(`pick ${r.sha} ${r.subject}`, `exec git commit --amend --allow-empty --only -m ${shQuote(r.message!.trim())}`);
+    } else lines.push(`${r.action} ${r.sha} ${r.subject}`);
+  }
+  return `${lines.join("\n")}\n`;
+}
+
+/** Commits as they'd appear after the plan (newest first), for the preview. */
+export function planPreview(rows: RebaseRow[]): string[] {
+  const out: string[] = [];
+  for (const r of rows) {
+    if (r.action === "drop") continue;
+    if ((r.action === "squash" || r.action === "fixup") && out.length) continue;
+    out.push(r.action === "reword" && r.message ? r.message.split("\n")[0] : r.subject);
+  }
+  return out.reverse();
+}
+
 // ── split commit ──────────────────────────────────────────────────────────
 
 /** Shell script that splits HEAD into one commit per file, reusing its message. */
