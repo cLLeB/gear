@@ -25,6 +25,7 @@ import { clearEveryBookmark, listBookmarks, TEXT_ACTIONS } from "@/modules/edito
 import { DATA_TEXT_ACTIONS } from "@/modules/editor/lib/textTools/dataCommands";
 import { MORE_TEXT_ACTIONS } from "@/modules/editor/lib/textTools/moreCommands";
 import { FORMAT_ACTIONS } from "@/modules/tools/formatCommands";
+import { TEXT3_ACTIONS } from "@/modules/editor/lib/textTools/text3Commands";
 import { CODE_TOOL_ACTIONS, FILE_TOOL_ACTIONS } from "@/modules/editor/lib/textTools/codeCommands";
 import { TOOL_ACTIONS } from "@/modules/tools/toolActions";
 import { copyPermalink, copyReference, openPermalink } from "@/modules/editor/lib/textTools/permalinkAction";
@@ -543,7 +544,7 @@ export function createCommandPaletteActions(
       icon: FileEditIcon,
       run: clearEveryBookmark,
     },
-    ...[...TEXT_ACTIONS, ...DATA_TEXT_ACTIONS, ...MORE_TEXT_ACTIONS, ...FORMAT_ACTIONS, ...CODE_TOOL_ACTIONS].map((action): CommandPaletteAction => ({
+    ...[...TEXT_ACTIONS, ...DATA_TEXT_ACTIONS, ...MORE_TEXT_ACTIONS, ...FORMAT_ACTIONS, ...CODE_TOOL_ACTIONS, ...TEXT3_ACTIONS].map((action): CommandPaletteAction => ({
       id: action.id,
       label: action.label,
       group: "Text",
