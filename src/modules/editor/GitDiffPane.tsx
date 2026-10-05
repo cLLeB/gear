@@ -6,7 +6,11 @@ import { unifiedMergeView } from "@codemirror/merge";
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import CodeMirror, { type ReactCodeMirrorRef } from "@uiw/react-codemirror";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
+import { applyLineRange, GIT_CHANGED_EVENT, type PartialAction } from "@/modules/git-actions/partialApply";
+import { confirmPick } from "@/modules/quick-pick";
+import { hunkControls, type HunkAction } from "./lib/hunkControls";
 import { buildSharedExtensions, languageCompartment } from "./lib/extensions";
 import {
   fetchCommitDiff,
@@ -134,6 +138,16 @@ export function GitDiffPane({ source, chipLabel, active }: Props) {
   );
 
   const key = cacheKey(source);
+  // Bumped when the index / worktree changes (hunk staging, palette commands) so the diff refetches.
+  const [nonce, setNonce] = useState(0);
+  useEffect(() => {
+    const onChanged = (e: Event) => {
+      const root = (e as CustomEvent<{ repoRoot?: string }>).detail?.repoRoot;
+      if (!root || root === source.repoRoot) setNonce((n) => n + 1);
+    };
+    window.addEventListener(GIT_CHANGED_EVENT, onChanged);
+    return () => window.removeEventListener(GIT_CHANGED_EVENT, onChanged);
+  }, [source.repoRoot]);
 
   useEffect(() => {
     if (!active) return;
@@ -182,7 +196,7 @@ export function GitDiffPane({ source, chipLabel, active }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [active, key, source]);
+  }, [active, key, source, nonce]);
 
   const path = source.path;
   const repoRoot = source.repoRoot;
@@ -199,6 +213,42 @@ export function GitDiffPane({ source, chipLabel, active }: Props) {
   const useFallback = isBinary || isTooLarge;
 
   const initialLang = useMemo(() => resolveLanguageSync(path), [path]);
+
+  // Working-tree diffs get hunk / line staging: "-" is index → worktree, "+" is HEAD → index.
+  const working = source.kind === "working";
+  const hunkActions = useMemo<HunkAction[]>(() => (!working ? [] : mode === "+" ? ["unstage"] : ["stage", "discard"]), [working, mode]);
+  const relPath = useMemo(() => {
+    const p = path.replace(/\\/g, "/");
+    const r = repoRoot.replace(/\\/g, "/").replace(/\/+$/, "");
+    return p.startsWith(`${r}/`) ? p.slice(r.length + 1) : p;
+  }, [path, repoRoot]);
+  const [busy, setBusy] = useState(false);
+  const runPartial = useCallback(
+    async (action: PartialAction, from: number, to: number) => {
+      if (busy) return;
+      if (action === "discard" && !(await confirmPick(`Discard changes in lines ${from}–${to}?`, "Discard", "This can't be undone."))) return;
+      setBusy(true);
+      try {
+        const err = await applyLineRange(repoRoot, relPath, action, from, to);
+        if (err) toast.error(err);
+        else toast.success(`${action === "stage" ? "Staged" : action === "unstage" ? "Unstaged" : "Discarded"} lines ${from}–${to}`);
+      } finally {
+        setBusy(false);
+      }
+    },
+    [busy, repoRoot, relPath],
+  );
+  const onHunkRef = useRef(runPartial);
+  onHunkRef.current = runPartial;
+  const selectionAction = (action: PartialAction) => {
+    const view = cmRef.current?.view;
+    if (!view) return;
+    const sel = view.state.selection.main;
+    if (sel.empty) return void toast.info("Select the lines first (or use the hunk buttons)");
+    const from = view.state.doc.lineAt(sel.from).number;
+    const to = view.state.doc.lineAt(Math.max(sel.from, sel.to - 1)).number;
+    void runPartial(action, from, to);
+  };
   const extensions = useMemo(
     () => [
       ...SHARED_EXT,
@@ -213,8 +263,9 @@ export function GitDiffPane({ source, chipLabel, active }: Props) {
         collapseUnchanged: { margin: 3, minSize: 6 },
       }),
       DIFF_THEME,
+      ...(hunkActions.length ? [hunkControls(hunkActions, (a, from, to) => onHunkRef.current(a, from, to))] : []),
     ],
-    [originalContent, initialLang],
+    [originalContent, initialLang, hunkActions],
   );
 
   // Resolve and apply syntax highlighting asynchronously when the language pack
@@ -272,6 +323,22 @@ export function GitDiffPane({ source, chipLabel, active }: Props) {
           </span>
         </div>
         <div className="flex shrink-0 items-center gap-3 text-[10.5px] tabular-nums text-muted-foreground">
+          {hunkActions.length && !useFallback && state.kind === "loaded" ? (
+            <div className="flex items-center gap-1">
+              {hunkActions.map((a) => (
+                <button
+                  key={a}
+                  type="button"
+                  disabled={busy}
+                  onClick={() => selectionAction(a)}
+                  className="rounded border border-border/60 px-1.5 py-0.5 hover:bg-muted disabled:opacity-50"
+                  title={`${a[0].toUpperCase()}${a.slice(1)} only the selected lines`}
+                >
+                  {a === "stage" ? "Stage selection" : a === "unstage" ? "Unstage selection" : "Discard selection"}
+                </button>
+              ))}
+            </div>
+          ) : null}
           <span className="truncate max-w-80 font-mono">{repoRoot}</span>
           {useFallback ? (
             <>

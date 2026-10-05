@@ -17,7 +17,6 @@ import {
   autosquashPlan,
   blameTimes,
   BRANCH_FORMAT,
-  filterPatch,
   humanSize,
   largestBlobs,
   parseBranches,
@@ -30,6 +29,7 @@ import {
   type RebaseAction,
 } from "./extras4";
 import { git, gitOrToast, requireRepo } from "./gitCli";
+import { applyLineRange, type PartialAction } from "./partialApply";
 
 const rel = (root: string, p: string) => p.replace(/\\/g, "/").slice(root.replace(/\\/g, "/").replace(/\/+$/, "").length + 1);
 
@@ -53,21 +53,12 @@ async function selectionInRepo() {
   return { root, rel: rel(root, ed.path), from, to };
 }
 
-async function applyPartial(mode: "stage" | "unstage" | "discard"): Promise<void> {
+async function applyPartial(mode: PartialAction): Promise<void> {
   const s = await selectionInRepo();
   if (!s) return;
-  const diffArgs = mode === "unstage" ? ["diff", "--cached", "-U3", "--", s.rel] : ["diff", "-U3", "--", s.rel];
-  const d = await git(s.root, diffArgs);
-  if (!d.ok) return void toast.error(d.stderr.trim() || "git diff failed");
-  const patch = filterPatch(d.stdout, s.from, s.to);
-  if (!patch) return void toast.info(mode === "unstage" ? "No staged changes in the selected lines" : "No changes in the selected lines");
   if (mode === "discard" && !(await confirmPick(`Discard changes in lines ${s.from}–${s.to}?`, "Discard"))) return;
-  const gp = await git(s.root, ["rev-parse", "--git-path", "gear-partial.patch"]);
-  const patchPath = `${s.root}/${gp.stdout.trim()}`.replace(/\\/g, "/");
-  await native.writeFile(patchPath, patch, "user");
-  const args = mode === "stage" ? ["apply", "--cached", "--recount", patchPath] : mode === "unstage" ? ["apply", "--cached", "-R", "--recount", patchPath] : ["apply", "-R", "--recount", patchPath];
-  const r = await git(s.root, args);
-  if (!r.ok) return void toast.error(`git apply failed`, { description: r.stderr.trim().slice(0, 300) });
+  const err = await applyLineRange(s.root, s.rel, mode, s.from, s.to);
+  if (err) return void toast.error(err);
   toast.success(mode === "stage" ? `Staged lines ${s.from}–${s.to}` : mode === "unstage" ? `Unstaged lines ${s.from}–${s.to}` : `Discarded lines ${s.from}–${s.to}`);
 }
 
