@@ -49,6 +49,7 @@ export const FEATURE_DEFAULTS = {
   "terminal.pasteImages": true,
   "editor.colorSwatches": true,
   "editor.todoHighlight": true,
+  "editor.suspiciousChars": true,
   "editor.rulers": "",
   "editor.renderWhitespace": false,
   "editor.highlightTrailingWhitespace": false,
@@ -120,6 +121,11 @@ export const FEATURE_META: Record<FeatureKey, Meta> = {
   "editor.highlightTrailingWhitespace": {
     label: "Highlight trailing whitespace",
     description: "Tint spaces and tabs at the end of lines.",
+    section: "Editor",
+  },
+  "editor.suspiciousChars": {
+    label: "Flag invisible and look-alike characters",
+    description: "Underline bidi control characters (\"Trojan Source\"), zero-width characters, unusual spaces and Cyrillic/Greek letters hiding inside Latin words.",
     section: "Editor",
   },
   "editor.todoHighlight": {

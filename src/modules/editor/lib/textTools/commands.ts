@@ -181,14 +181,14 @@ export async function changeSurround(view: EditorView): Promise<boolean> {
 }
 
 /** The main selection, or the whole document when nothing is selected. */
-function targetRange(view: EditorView): { from: number; to: number; text: string } {
+export function targetRange(view: EditorView): { from: number; to: number; text: string } {
   const sel = view.state.selection.main;
   const from = sel.empty ? 0 : sel.from;
   const to = sel.empty ? view.state.doc.length : sel.to;
   return { from, to, text: view.state.sliceDoc(from, to) };
 }
 
-function replaceTarget(view: EditorView, label: string, transform: (text: string) => string): boolean {
+export function replaceTarget(view: EditorView, label: string, transform: (text: string) => string): boolean {
   const { from, to, text } = targetRange(view);
   let out: string;
   try {
