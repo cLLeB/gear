@@ -47,7 +47,7 @@ const READONLY_EXT = [
   EditorState.readOnly.of(true),
   EditorView.editable.of(false),
 ];
-const DIFF_THEME = EditorView.theme({
+export const DIFF_THEME = EditorView.theme({
   "&.cm-merge-b .cm-changedText, .cm-changedText": {
     background: "rgba(110, 200, 120, 0.20) !important",
     borderRadius: "3px",

@@ -99,7 +99,10 @@ fn sweep_old(dir: &Path) {
 fn read_png_via_cli() -> Option<Vec<u8>> {
     const CANDIDATES: [(&str, &[&str]); 2] = [
         ("wl-paste", &["--no-newline", "--type", "image/png"]),
-        ("xclip", &["-selection", "clipboard", "-t", "image/png", "-o"]),
+        (
+            "xclip",
+            &["-selection", "clipboard", "-t", "image/png", "-o"],
+        ),
     ];
     const PNG_MAGIC: &[u8] = b"\x89PNG\r\n\x1a\n";
     for (bin, args) in CANDIDATES {
