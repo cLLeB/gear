@@ -46,6 +46,7 @@ export const FEATURE_DEFAULTS = {
   "terminal.typoCorrection": true,
   "terminal.commandGuard": true,
   "terminal.commandGuardCaution": false,
+  "terminal.pasteImages": true,
   "editor.colorSwatches": true,
   "editor.todoHighlight": true,
   "editor.rulers": "",
@@ -62,6 +63,12 @@ export type FeatureKey = keyof typeof FEATURE_DEFAULTS;
 export type FeatureValues = { [K in FeatureKey]: (typeof FEATURE_DEFAULTS)[K] };
 
 export const FEATURE_META: Record<FeatureKey, Meta> = {
+  "terminal.pasteImages": {
+    label: "Paste images and copied files as paths",
+    description:
+      "When the clipboard holds a screenshot or copied files instead of text, pasting inserts their file paths (a screenshot is saved to a temporary PNG). Claude Code, Codex and similar tools attach a pasted image path.",
+    section: "Terminal",
+  },
   "terminal.triggers": {
     label: "Triggers",
     description:

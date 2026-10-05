@@ -1,4 +1,5 @@
 pub mod clipboard;
+pub mod clipboard_image;
 pub mod file;
 pub mod grep;
 pub mod mutate;

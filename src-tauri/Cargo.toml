@@ -52,6 +52,8 @@ tauri-plugin-process = "2"
 tauri-plugin-notification = "2"
 # WebKitGTK can't read external clipboard copies; used by the terminal on Linux.
 tauri-plugin-clipboard-manager = "2"
+# Encodes clipboard images (screenshots) to PNG so they can be pasted as a file path.
+png = "0.17"
 reqwest = { version = "0.12", default-features = false, features = [
 	"rustls-tls",
 	"stream",
