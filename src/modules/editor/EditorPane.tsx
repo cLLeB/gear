@@ -64,6 +64,7 @@ import { indentRainbow, rainbowBrackets, stickyScroll } from "./lib/visualAids";
 import { navigationTracker } from "./lib/navHistory";
 import { fileLockFilter } from "./lib/fileLock";
 import { debugGutter } from "@/modules/debug/debugGutter";
+import { testGutter } from "@/modules/testing/testGutter";
 import { editorGuides } from "./lib/editorGuides";
 import { conflictLens } from "./lib/conflictLens";
 import { gitGutter } from "./lib/gitGutter";
@@ -426,6 +427,7 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
         editorGuides(),
         conflictLens(),
         debugGutter(() => pathRef.current),
+        testGutter(() => pathRef.current),
         gitGutter(() => pathRef.current),
         bookmarks(() => pathRef.current),
         keymap.of(bookmarksKeymap()),

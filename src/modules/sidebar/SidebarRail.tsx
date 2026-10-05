@@ -8,6 +8,7 @@ import {
   SidebarLeft01Icon,
   SidebarRight01Icon,
   SparklesIcon,
+  TestTube01Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import type { SidebarViewId } from "./types";
@@ -123,6 +124,12 @@ export function SidebarRail({
         active={sidebarOpen && activeView === "debug"}
         badge={debugBadge}
         onClick={() => onSelectView("debug")}
+      />
+      <RailButton
+        label="Testing"
+        icon={TestTube01Icon}
+        active={sidebarOpen && activeView === "tests"}
+        onClick={() => onSelectView("tests")}
       />
 
       <div className="flex-1" />
