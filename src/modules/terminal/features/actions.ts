@@ -17,8 +17,52 @@ import {
   saveLastCommandAsWorkflow,
 } from "../workflows/runner";
 import { pickProblem, stepProblem } from "./terminalProblems";
+import {
+  commandLog,
+  dockerContainers,
+  listeningPorts,
+  runSelectionInTerminal,
+  sshConnect,
+  toggleRecording,
+} from "./sessionTools";
 
 export const TERMINAL_FEATURE_ACTIONS: TerminalActionDescriptor[] = [
+  {
+    id: "terminal.commandLog",
+    label: "Terminal: Command log for this pane…",
+    keywords: ["history", "commands", "exit code", "duration", "timeline", "rerun", "output", "jump"],
+    run: commandLog,
+  },
+  {
+    id: "terminal.runSelection",
+    label: "Terminal: Run selected text / current line in terminal",
+    keywords: ["send", "execute", "repl", "selection", "line", "editor", "script", "eval"],
+    run: runSelectionInTerminal,
+  },
+  {
+    id: "terminal.ssh",
+    label: "Terminal: SSH to host…",
+    keywords: ["ssh", "remote", "server", "connect", "ssh config", "host"],
+    run: sshConnect,
+  },
+  {
+    id: "terminal.docker",
+    label: "Terminal: Docker containers…",
+    keywords: ["docker", "container", "exec", "shell", "logs", "compose", "stop", "restart"],
+    run: dockerContainers,
+  },
+  {
+    id: "terminal.ports",
+    label: "Terminal: Listening ports (open, kill)…",
+    keywords: ["port", "lsof", "netstat", "kill", "process", "address in use", "eaddrinuse", "server"],
+    run: listeningPorts,
+  },
+  {
+    id: "terminal.record",
+    label: "Terminal: Start / stop recording (asciinema)",
+    keywords: ["record", "asciinema", "cast", "screencast", "demo", "replay"],
+    run: toggleRecording,
+  },
   {
     id: "terminal.explainCommand",
     label: "Terminal: Explain a command (offline)…",

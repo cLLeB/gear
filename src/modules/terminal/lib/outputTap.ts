@@ -8,9 +8,11 @@ import { stripAnsi } from "@/lib/lang/ansi";
 
 export type OutputLinesListener = (leafId: number, lines: string[]) => void;
 export type OutputActivityListener = (leafId: number, bytes: number) => void;
+export type OutputBytesListener = (leafId: number, bytes: Uint8Array) => void;
 
 const lineListeners = new Set<OutputLinesListener>();
 const activityListeners = new Set<OutputActivityListener>();
+const bytesListeners = new Set<OutputBytesListener>();
 
 const MAX_PARTIAL = 8 * 1024;
 
@@ -45,6 +47,7 @@ const splitters = new Map<number, LineSplitter>();
 /** Called by the session layer for every chunk of PTY output. */
 export function tapPtyOutput(leafId: number, bytes: Uint8Array): void {
   for (const l of activityListeners) l(leafId, bytes.byteLength);
+  for (const l of bytesListeners) l(leafId, bytes);
   if (lineListeners.size === 0) return;
   let splitter = splitters.get(leafId);
   if (!splitter) {
@@ -77,5 +80,13 @@ export function onTerminalOutputActivity(cb: OutputActivityListener): () => void
   activityListeners.add(cb);
   return () => {
     activityListeners.delete(cb);
+  };
+}
+
+/** Raw PTY bytes, undecoded (for recorders). Keep listeners cheap. */
+export function onTerminalOutputBytes(cb: OutputBytesListener): () => void {
+  bytesListeners.add(cb);
+  return () => {
+    bytesListeners.delete(cb);
   };
 }
