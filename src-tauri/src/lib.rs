@@ -244,6 +244,7 @@ pub fn run() {
             fs::stats::fs_workspace_stats,
             fs::stats::fs_duplicate_files,
             fs::bytes::fs_read_bytes,
+            fs::sqlite::sqlite_query,
             fs::grep::fs_glob,
             git::commands::git_resolve_repo,
             git::commands::git_panel_snapshot,
