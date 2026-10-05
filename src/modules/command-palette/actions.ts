@@ -30,6 +30,7 @@ import { WORKSPACE_ACTIONS } from "@/modules/workspace/actions";
 import { pickClosedTab } from "@/modules/tabs/tabActions";
 import { deleteSavedLayout, openSavedLayout, saveCurrentLayout } from "@/modules/tabs/layoutActions";
 import { GIT_ACTIONS } from "@/modules/git-actions/actions";
+import { THEME_ACTIONS } from "@/modules/theme/themeActions";
 import { app } from "@/app/appBridge";
 
 type CommandIcon = typeof TerminalIcon;
@@ -415,6 +416,15 @@ export function createCommandPaletteActions(
       group: "Git",
       keywords: ["git", ...action.keywords],
       icon: CodeIcon,
+      run: () => void action.run(),
+      deferRun: true,
+    })),
+    ...THEME_ACTIONS.map((action): CommandPaletteAction => ({
+      id: action.id,
+      label: action.label,
+      group: "View",
+      keywords: ["theme", ...action.keywords],
+      icon: Settings01Icon,
       run: () => void action.run(),
       deferRun: true,
     })),
