@@ -282,6 +282,49 @@ export function scrollLeafToPrompt(leafId: number, dir: -1 | 1): boolean {
   return true;
 }
 
+export interface LeafCommand {
+  index: number;
+  command: string;
+  exitCode: number | null;
+  startedAt: number | null;
+  finishedAt: number | null;
+  /** Buffer line of the prompt; -1 once trimmed out of scrollback. */
+  line: number;
+}
+
+/** Commands shell integration has seen in `leafId`, oldest first. */
+export function listLeafCommands(leafId: number): LeafCommand[] {
+  const s = sessions.get(leafId);
+  if (!s?.marks) return [];
+  return s.marks
+    .list()
+    .map((m, index) => ({
+      index,
+      command: m.command,
+      exitCode: m.exitCode,
+      startedAt: m.startedAt,
+      finishedAt: m.finishedAt,
+      line: m.prompt.isDisposed ? -1 : m.prompt.line,
+    }))
+    .filter((c) => c.command);
+}
+
+/** Output of the `index`-th mark of a bound leaf. */
+export function leafCommandOutput(leafId: number, index: number): string | null {
+  const s = sessions.get(leafId);
+  const slot = getSlotForLeaf(leafId);
+  const mark = s?.marks?.list()[index];
+  if (!slot || !mark) return null;
+  return readCommandOutput(slot.term, mark);
+}
+
+export function scrollLeafToLine(leafId: number, line: number): boolean {
+  const slot = getSlotForLeaf(leafId);
+  if (!slot || line < 0) return false;
+  slot.term.scrollToLine(line);
+  return true;
+}
+
 /** True while a foreground command owns the leaf (OSC 133 C..D or blocks running). */
 export function isLeafCommandRunning(leafId: number): boolean {
   const s = sessions.get(leafId);
