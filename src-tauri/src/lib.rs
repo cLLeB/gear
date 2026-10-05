@@ -242,6 +242,7 @@ pub fn run() {
             fs::search::fs_list_files,
             fs::grep::fs_grep,
             fs::stats::fs_workspace_stats,
+            fs::stats::fs_duplicate_files,
             fs::bytes::fs_read_bytes,
             fs::grep::fs_glob,
             git::commands::git_resolve_repo,

@@ -194,3 +194,91 @@ mod tests {
         assert_eq!(s.by_extension["rs"].blank, 1);
     }
 }
+
+#[derive(Serialize)]
+pub struct DuplicateGroup {
+    pub size: u64,
+    pub files: Vec<String>,
+}
+
+/// Files with identical content (same size, then same BLAKE3 hash), biggest
+/// waste first. Empty files are ignored.
+pub fn find_duplicates(root_path: &std::path::Path, limit: usize) -> Vec<DuplicateGroup> {
+    let mut by_size: HashMap<u64, Vec<std::path::PathBuf>> = HashMap::new();
+    let walker = WalkBuilder::new(root_path)
+        .hidden(true)
+        .git_ignore(true)
+        .git_global(true)
+        .git_exclude(true)
+        .ignore(true)
+        .parents(true)
+        .follow_links(false)
+        .build();
+    for entry in walker.flatten().take(MAX_FILES) {
+        if !entry.file_type().is_some_and(|t| t.is_file()) {
+            continue;
+        }
+        let Ok(meta) = entry.metadata() else { continue };
+        if meta.len() == 0 {
+            continue;
+        }
+        by_size
+            .entry(meta.len())
+            .or_default()
+            .push(entry.into_path());
+    }
+    let mut groups: Vec<DuplicateGroup> = Vec::new();
+    for (size, paths) in by_size.into_iter().filter(|(_, p)| p.len() > 1) {
+        let mut by_hash: HashMap<[u8; 32], Vec<String>> = HashMap::new();
+        for p in paths {
+            let Ok(bytes) = std::fs::read(&p) else {
+                continue;
+            };
+            by_hash
+                .entry(*blake3::hash(&bytes).as_bytes())
+                .or_default()
+                .push(to_canon(&p));
+        }
+        for (_, mut files) in by_hash.into_iter().filter(|(_, f)| f.len() > 1) {
+            files.sort();
+            groups.push(DuplicateGroup { size, files });
+        }
+    }
+    groups.sort_by_key(|g| std::cmp::Reverse(g.size * (g.files.len() as u64 - 1)));
+    groups.truncate(limit);
+    groups
+}
+
+#[tauri::command]
+pub async fn fs_duplicate_files(
+    root: String,
+    workspace: Option<WorkspaceEnv>,
+) -> Result<Vec<DuplicateGroup>, String> {
+    let workspace = WorkspaceEnv::from_option(workspace);
+    let root_path = resolve_path(&root, &workspace);
+    if !root_path.is_dir() {
+        return Err(format!("not a directory: {root}"));
+    }
+    tauri::async_runtime::spawn_blocking(move || find_duplicates(&root_path, 200))
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[cfg(test)]
+mod duplicate_tests {
+    use super::*;
+
+    #[test]
+    fn groups_identical_files() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("a.txt"), "same").unwrap();
+        std::fs::write(dir.path().join("b.txt"), "same").unwrap();
+        std::fs::write(dir.path().join("c.txt"), "diff").unwrap();
+        std::fs::write(dir.path().join("e1"), "").unwrap();
+        std::fs::write(dir.path().join("e2"), "").unwrap();
+        let g = find_duplicates(dir.path(), 10);
+        assert_eq!(g.len(), 1);
+        assert_eq!(g[0].files.len(), 2);
+        assert!(g[0].files[0].ends_with("a.txt"));
+    }
+}
