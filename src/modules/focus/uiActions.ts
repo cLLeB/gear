@@ -10,6 +10,7 @@ import { getFeature } from "@/modules/settings/useFeature";
 import { saveCustomTheme } from "@/modules/theme/customThemes";
 import { inLightWindow, themeFromAccent } from "@/modules/theme/themeGen";
 import { startFocus, stopFocus, useFocusTimer } from "./focusTimer";
+import { FINAL_ACTIONS } from "./finalActions";
 
 export async function focusTimer(): Promise<void> {
   const running = useFocusTimer.getState().endsAt !== null;
@@ -106,6 +107,7 @@ export async function setThemeSchedule(): Promise<void> {
 }
 
 export const UI_ACTIONS = [
+  ...FINAL_ACTIONS,
   { id: "focus.timer", label: "Focus timer (Pomodoro)…", keywords: ["pomodoro", "timer", "focus", "break", "productivity", "countdown"], run: focusTimer },
   { id: "editor.goBack", label: "Go back (previous cursor location)", keywords: ["navigate", "back", "history", "previous location", "jump"], run: () => void (goBack() || toast.info("Nothing to go back to")) },
   { id: "editor.goForward", label: "Go forward", keywords: ["navigate", "forward", "history", "next location"], run: () => void (goForward() || toast.info("Nothing to go forward to")) },
