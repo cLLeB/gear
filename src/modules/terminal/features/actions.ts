@@ -27,8 +27,10 @@ import {
   toggleRecording,
   toggleRerunOnSave,
 } from "./sessionTools";
+import { TERMINAL_EXTRA_ACTIONS } from "./terminalExtrasActions";
 
 export const TERMINAL_FEATURE_ACTIONS: TerminalActionDescriptor[] = [
+  ...TERMINAL_EXTRA_ACTIONS,
   {
     id: "terminal.commandLog",
     label: "Terminal: Command log for this pane…",
