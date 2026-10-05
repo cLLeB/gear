@@ -59,6 +59,7 @@ import { renameSymbolLocal, textToolsKeymap, toggleMarkdownWrap } from "./lib/te
 import { colorSwatches } from "./lib/colorSwatches";
 import { todoHighlight } from "./lib/todoHighlight";
 import { suspiciousChars } from "./lib/suspiciousChars";
+import { recordClip } from "@/modules/clipboard/history";
 import { editorGuides } from "./lib/editorGuides";
 import { conflictLens } from "./lib/conflictLens";
 import { gitGutter } from "./lib/gitGutter";
@@ -370,6 +371,15 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
         EditorView.domEventHandlers({
           focus: (_event, view) => {
             setActiveEditor(view, analyzableLangRef.current, pathRef.current);
+            return false;
+          },
+          // Feed clipboard history with what the editor copies (all ranges).
+          copy: (_event, view) => {
+            recordClip(view.state.selection.ranges.filter((r) => !r.empty).map((r) => view.state.sliceDoc(r.from, r.to)).join("\n"));
+            return false;
+          },
+          cut: (_event, view) => {
+            recordClip(view.state.selection.ranges.filter((r) => !r.empty).map((r) => view.state.sliceDoc(r.from, r.to)).join("\n"));
             return false;
           },
         }),

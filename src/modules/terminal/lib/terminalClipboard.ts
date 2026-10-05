@@ -1,3 +1,4 @@
+import { recordClip } from "@/modules/clipboard/history";
 // WebKitGTK can't read external copies, so the native plugin is Linux-only and
 // lazy-loaded to keep it out of the mac/win bundle.
 const IS_LINUX =
@@ -25,6 +26,7 @@ export async function readTerminalClipboard(): Promise<string> {
 }
 
 export async function writeTerminalClipboard(text: string): Promise<void> {
+  recordClip(text);
   if (IS_LINUX) {
     try {
       const { writeText } = await import("@tauri-apps/plugin-clipboard-manager");
