@@ -1,4 +1,4 @@
-# Improvements — checkpoint 1
+# Improvements
 
 Everything below is reachable from the command palette (Mod+Shift+P) unless
 noted; tunable behaviour lives in **Settings → Features**.
@@ -53,3 +53,45 @@ noted; tunable behaviour lives in **Settings → Features**.
 - Permalinks / open on GitHub-GitLab-Bitbucket-Gitea-Azure, open pull request
 - Switch/create branch, clean up merged/gone branches, file history
 - Undo last commit (soft), fold staged changes into an earlier commit (fixup + autosquash)
+
+# Checkpoint 2
+
+## Terminal
+- Paste screenshots / copied images and files into terminal apps (Claude Code, Codex…) as file paths; "Paste clipboard image as file path"
+- Command log per pane (status, duration, scroll to, rerun, copy output)
+- Run selected text / current line in the terminal; re-run last command on save (toggle)
+- SSH host picker (~/.ssh/config), Docker containers (shell, logs, stats, start/stop, remove), listening ports (preview, kill)
+- Record a pane to asciinema (.cast); environment variable browser
+- Copy on select and right-click paste / copy-else-paste (Settings → Features)
+
+## Tabs, panes & notifications
+- Switch to recent tab (MRU), go to previous tab, duplicate terminal tab
+- Move pane to a new tab / join a tab into the current one (live shells kept)
+- Notification history (every toast and OS notification)
+
+## Editor (Text group)
+- Copy JSON / YAML path (JSONPath, jq, JS, JSON Pointer, dotted)
+- Generate TypeScript / Zod / Go / Rust / Python types from JSON
+- Convert curl to fetch / Python requests / PowerShell
+- Send the HTTP request under the cursor (.http / .rest files)
+- Word count & statistics, sort lines by natural/length/number/column/shuffle
+- Number base conversion, change case (title/sentence/swap)
+- Flag and clean bidi (Trojan Source), zero-width, odd-space and homoglyph characters
+- Select all regex matches, fake data, paste URL as Markdown link, copy as Markdown code block
+- Compare file/selection with clipboard, with another file, or with the saved copy
+
+## Git
+- Stash changes / manage stashes (apply, pop, per-file diff, branch, drop)
+- Worktrees (create in a sibling folder + terminal, open, remove, prune)
+- Create / delete tags with semver suggestions, cherry-pick from a branch
+- Guided bisect (incl. `git bisect run`), reword last commit, restore file from ref, add to .gitignore
+
+## Workspace
+- Replace in files (literal or /regex/iw, $1/$<name>, case operators, preview)
+- Go to symbol in workspace (regex-based, no LSP)
+- Largest files, code statistics per language
+- Generate .gitignore from detected stacks, add a LICENSE file
+
+## Themes
+- Import iTerm2, Windows Terminal, VS Code, Alacritty, Kitty, Ghostty, Xresources and base16 schemes
+- WCAG contrast check of the active theme
