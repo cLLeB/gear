@@ -139,3 +139,32 @@ noted; tunable behaviour lives in **Settings → Features**.
 
 ## Look & feel
 - Generate a theme from an accent colour, light/dark schedule, focus (Pomodoro) timer in the status bar
+
+# Checkpoint 4
+
+## Editor
+- JSON ⇄ JS object literal; escape / unescape for C/Java, Python, shell, PowerShell, SQL, regex, CSV, XML
+- Join / split / wrap lines, SQL IN lists, CSV transpose, duplicate-line frequency table, compare two selections
+- Markdown: paste clipboard image as a saved file + link, callouts, copy as rich text / HTML
+- Colour scales (50–950) as CSS / Tailwind / SCSS; Base32, Base58, ROT13, Morse, binary
+- Inspect UUID / ULID / ObjectId / Snowflake ids and URLs at the cursor
+- Validate JSON / YAML / TOML / XML (jump to error); JSON Schema from a sample; flatten / unflatten JSON; structural JSON diff → JSON Patch; SQL keyword case & minify
+
+## Terminal & tools
+- Run a command in a new split pane; benchmark a command (mean ± σ, median, p95)
+- Check a URL (status, timing breakdown, redirects, headers, security headers); DNS lookup
+- Presentation mode (bigger fonts)
+
+## Git
+- Line ownership, file at another revision, stage / unstage / discard the current file, commit graph
+- Rename / delete branches, sync (pull --rebase + push), history of selected lines, per-repo identity, activity summary
+
+## Workspace
+- Unused / missing npm dependencies, dependency licences, env vars used in code vs .env.example
+- New project via official generators, check links in all Markdown files, bulk rename by regex
+- Go to imported file, find usages across the workspace
+
+## AI
+- Convert commands between Bash / PowerShell / cmd / fish, generate scripts
+- Ask about the project, release notes, summarize uncommitted changes, branch names
+- Add types, mock data, translate selected text
