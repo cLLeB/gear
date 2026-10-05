@@ -2,6 +2,7 @@
 // terminal, SSH / Docker / listening-port pickers and asciinema recording.
 
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { homeDir } from "@tauri-apps/api/path";
 import { toast } from "sonner";
 import { app } from "@/app/appBridge";
@@ -16,6 +17,7 @@ import { writeTerminalClipboard } from "../lib/terminalClipboard";
 import { leafIds } from "../lib/panes";
 import {
   isLeafCommandRunning,
+  lastFinishedCommand,
   leafCommandOutput,
   leafCwd,
   leafTerminal,
@@ -42,7 +44,7 @@ useLastCommandStore.subscribe((s) => {
   if (s.activeLeaf !== null) lastTerminalLeaf = s.activeLeaf;
 });
 
-function targetLeaf(): number | null {
+export function targetLeaf(): number | null {
   const active = app().activeTerminalLeaf();
   if (active !== null) return active;
   return lastTerminalLeaf !== null && leafTerminal(lastTerminalLeaf) ? lastTerminalLeaf : null;
@@ -341,4 +343,87 @@ async function saveRecording(recorder: AsciicastRecorder, dir: string | null): P
   } catch (e) {
     toast.error("Could not save the recording", { description: String(e) });
   }
+}
+
+// ── re-run on save ────────────────────────────────────────────────────────
+
+const watchers = new Map<number, () => void>();
+
+/** Toggle: re-run the pane's last command whenever a file is saved in Gear. */
+export async function toggleRerunOnSave(): Promise<void> {
+  const leaf = app().activeTerminalLeaf();
+  if (leaf === null) {
+    toast.error("Focus a terminal first");
+    return;
+  }
+  const existing = watchers.get(leaf);
+  if (existing) {
+    existing();
+    watchers.delete(leaf);
+    toast.info("Stopped re-running on save");
+    return;
+  }
+  const last = lastFinishedCommand(leaf);
+  if (!last?.command) {
+    toast.error("Run the command once first", { description: "Gear re-runs the pane's last command (needs shell integration)." });
+    return;
+  }
+  const command = last.command;
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  const unlisten = await listen<{ path: string }>("fs:file-written", (e) => {
+    // Skip files the command itself is likely to write (build output, logs).
+    if (/[\\/](node_modules|target|dist|build|\.git)[\\/]|\.log$/.test(e.payload.path)) return;
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => {
+      if (!leafTerminal(leaf)) return;
+      if (isLeafCommandRunning(leaf)) return; // still busy with the previous run
+      void guardedSubmit(leaf, command);
+    }, 300);
+  });
+  watchers.set(leaf, () => {
+    if (timer) clearTimeout(timer);
+    unlisten();
+  });
+  toast.success("Re-running on save", { description: `${command} — run this command again to stop` });
+}
+
+// ── environment ───────────────────────────────────────────────────────────
+
+const SECRET_NAME = /(TOKEN|SECRET|PASSWORD|PASSWD|API_?KEY|PRIVATE|CREDENTIAL|AUTH)/i;
+
+export function parseEnvOutput(out: string): [string, string][] {
+  const vars: [string, string][] = [];
+  for (const line of out.split(/\r?\n/)) {
+    const m = /^([A-Za-z_][\w().]*)=(.*)$/.exec(line);
+    if (m) vars.push([m[1], m[2]]);
+  }
+  return vars.sort((a, b) => a[0].localeCompare(b[0]));
+}
+
+export async function showEnvironment(): Promise<void> {
+  const cwd = app().activeCwd();
+  const r = await native.runCommand(IS_WINDOWS ? "set" : "env", cwd, 10).catch(() => null);
+  if (!r || r.exit_code !== 0) {
+    toast.error("Could not read the environment");
+    return;
+  }
+  const pick = await quickPick(
+    parseEnvOutput(r.stdout).map(([k, v]) => {
+      const secret = SECRET_NAME.test(k);
+      const shown = secret ? `${"•".repeat(Math.min(12, v.length))} (hidden)` : k === "PATH" || k === "Path" ? v.split(IS_WINDOWS ? ";" : ":").slice(0, 4).join(IS_WINDOWS ? ";" : ":") + "…" : v;
+      return { label: k, description: shown.slice(0, 120), keywords: secret ? [k] : [k, v], value: [k, v] as const };
+    }),
+    { title: "Environment variables (as Gear's shells start)", placeholder: "Pick one to copy its value" },
+  );
+  if (!pick) return;
+  const [k, v] = pick;
+  if (k === "PATH" || k === "Path") {
+    const entry = await quickPick(
+      v.split(IS_WINDOWS ? ";" : ":").filter(Boolean).map((p, i) => ({ label: p, description: `#${i + 1}`, value: p })),
+      { title: "PATH entries", placeholder: "Pick one to copy it" },
+    );
+    if (entry) await copy(entry, "path entry");
+    return;
+  }
+  await copy(v, k);
 }

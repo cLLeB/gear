@@ -71,3 +71,14 @@ describe("AsciicastRecorder", () => {
     expect(lines).toHaveLength(4);
   });
 });
+
+describe("parseEnvOutput", async () => {
+  const { parseEnvOutput } = await import("./sessionTools");
+  it("splits KEY=VALUE lines and sorts", () => {
+    expect(parseEnvOutput("B=2\nA=x=y\nnot a var\nProgramFiles(x86)=C:\\P\n")).toEqual([
+      ["A", "x=y"],
+      ["B", "2"],
+      ["ProgramFiles(x86)", "C:\\P"],
+    ]);
+  });
+});

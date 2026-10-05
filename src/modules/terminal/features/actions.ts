@@ -22,8 +22,10 @@ import {
   dockerContainers,
   listeningPorts,
   runSelectionInTerminal,
+  showEnvironment,
   sshConnect,
   toggleRecording,
+  toggleRerunOnSave,
 } from "./sessionTools";
 
 export const TERMINAL_FEATURE_ACTIONS: TerminalActionDescriptor[] = [
@@ -56,6 +58,18 @@ export const TERMINAL_FEATURE_ACTIONS: TerminalActionDescriptor[] = [
     label: "Terminal: Listening ports (open, kill)…",
     keywords: ["port", "lsof", "netstat", "kill", "process", "address in use", "eaddrinuse", "server"],
     run: listeningPorts,
+  },
+  {
+    id: "terminal.rerunOnSave",
+    label: "Terminal: Re-run last command on save (toggle)",
+    keywords: ["watch", "nodemon", "entr", "auto", "rerun", "tests", "save", "live"],
+    run: toggleRerunOnSave,
+  },
+  {
+    id: "terminal.environment",
+    label: "Terminal: Show environment variables…",
+    keywords: ["env", "environment", "variables", "path", "printenv", "set"],
+    run: showEnvironment,
   },
   {
     id: "terminal.record",
