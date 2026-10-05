@@ -1658,6 +1658,7 @@ dependencies = [
  "nucleo-matcher",
  "objc2",
  "objc2-foundation",
+ "png 0.17.16",
  "portable-pty",
  "proptest",
  "reqwest 0.12.28",

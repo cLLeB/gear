@@ -7,7 +7,7 @@ import { copyScrollbackAsHtml, saveScrollback } from "./exportScrollback";
 import { explainLastCommandWithAi } from "../ai/explainFailure";
 import { suggestCommandWithAi } from "../ai/suggestCommand";
 import { armMonitor } from "./monitor";
-import { pasteSpecial } from "./pasteSpecial";
+import { pasteClipboardImage, pasteSpecial } from "./pasteSpecial";
 import { searchHistory } from "./historySearch";
 import { explainCommandAction } from "./explainCommand";
 import { forgetDirectoryHistory, jumpToDirectory } from "./dirJump";
@@ -36,6 +36,12 @@ export const TERMINAL_FEATURE_ACTIONS: TerminalActionDescriptor[] = [
     label: "Terminal: Paste special…",
     keywords: ["paste", "one line", "quote", "escape", "heredoc", "join", "clipboard", "&&"],
     run: pasteSpecial,
+  },
+  {
+    id: "terminal.pasteImage",
+    label: "Terminal: Paste clipboard image as file path",
+    keywords: ["screenshot", "image", "picture", "png", "claude", "attach", "clipboard", "files"],
+    run: pasteClipboardImage,
   },
   {
     id: "terminal.monitor",

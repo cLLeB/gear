@@ -21,9 +21,12 @@ import {
   transitionImeBridgeOwner,
 } from "./imeBridge";
 import {
+  readClipboardAttachmentPaths,
   readTerminalClipboard,
   writeTerminalClipboard,
 } from "./terminalClipboard";
+import { formatDroppedPaths } from "./quoteShellPath";
+import { getFeature } from "@/modules/settings/useFeature";
 import { terminalClipboardIntent, terminalReadlineSequence } from "./keymap";
 import { analyzePaste, pasteNeedsConfirmation } from "./pasteGuard";
 import { usePastePromptStore } from "./pastePrompt";
@@ -262,6 +265,20 @@ async function pasteIntoSlot(slot: Slot, raw: string): Promise<void> {
   slot.term.paste(analysis.text);
 }
 
+/**
+ * A paste from the clipboard. With no text on it, fall back to what else is
+ * there — copied files or a screenshot — pasted as shell-quoted paths, the way
+ * a drag-and-drop would, so image-aware CLIs (Claude Code…) can attach them.
+ */
+async function pasteClipboardIntoSlot(slot: Slot, text: string): Promise<void> {
+  if (text) return pasteIntoSlot(slot, text);
+  if (!getFeature("terminal.pasteImages")) return;
+  const targetLeafId = slot.currentLeafId;
+  const paths = await readClipboardAttachmentPaths();
+  if (!paths.length || slot.currentLeafId !== targetLeafId) return;
+  slot.term.paste(formatDroppedPaths(paths));
+}
+
 function broadcastToPty(sourceLeafId: number, data: string): void {
   adapter?.resolveLeaf(sourceLeafId)?.writeToPty(data);
   for (const peerId of broadcastPeers(sourceLeafId)) {
@@ -352,7 +369,7 @@ function createSlot(): Slot {
       const text = (event as ClipboardEvent).clipboardData?.getData("text");
       event.preventDefault();
       event.stopPropagation();
-      if (text) void pasteIntoSlot(slot, text);
+      void pasteClipboardIntoSlot(slot, text ?? "");
     },
     true,
   );
@@ -442,7 +459,9 @@ function createSlot(): Slot {
     }
     if (clip === "paste") {
       if (event.type === "keydown") {
-        void readTerminalClipboard().then((text) => pasteIntoSlot(slot, text));
+        void readTerminalClipboard().then((text) =>
+          pasteClipboardIntoSlot(slot, text),
+        );
       }
       event.preventDefault();
       return false;

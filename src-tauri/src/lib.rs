@@ -235,6 +235,7 @@ pub fn run() {
             fs::mutate::fs_rename,
             fs::mutate::fs_delete,
             fs::clipboard::clipboard_read_files,
+            fs::clipboard_image::clipboard_save_image,
             fs::watch::fs_watch_add,
             fs::watch::fs_watch_remove,
             fs::search::fs_search,

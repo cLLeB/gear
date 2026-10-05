@@ -50,7 +50,11 @@ import { IS_WINDOWS } from "@/lib/platform";
 import { quickPick } from "@/modules/quick-pick";
 import { toast } from "sonner";
 import { guardedPasteIntoLeaf } from "../lib/rendererPool";
-import { readTerminalClipboard } from "../lib/terminalClipboard";
+import {
+  readClipboardAttachmentPaths,
+  readTerminalClipboard,
+} from "../lib/terminalClipboard";
+import { formatDroppedPaths } from "../lib/quoteShellPath";
 
 export async function pasteSpecial(): Promise<void> {
   const leaf = app().activeTerminalLeaf();
@@ -72,4 +76,20 @@ export async function pasteSpecial(): Promise<void> {
   );
   if (!id) return;
   if (!guardedPasteIntoLeaf(leaf, PASTE_TRANSFORMS[id].apply(clip, IS_WINDOWS))) toast.error("This terminal is not on screen");
+}
+
+/** Paste the clipboard's image (or copied files) as paths even when it also
+ * holds text — e.g. an image copied from a browser carries its HTML too. */
+export async function pasteClipboardImage(): Promise<void> {
+  const leaf = app().activeTerminalLeaf();
+  if (leaf === null) {
+    toast.error("Focus a terminal first");
+    return;
+  }
+  const paths = await readClipboardAttachmentPaths();
+  if (!paths.length) {
+    toast.info("No image or copied files on the clipboard");
+    return;
+  }
+  if (!guardedPasteIntoLeaf(leaf, formatDroppedPaths(paths))) toast.error("This terminal is not on screen");
 }
