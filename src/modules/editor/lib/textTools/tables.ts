@@ -33,11 +33,11 @@ export function splitRow(line: string): string[] {
   return cells;
 }
 
-function isSeparatorRow(cells: string[]): boolean {
+export function isSeparatorRow(cells: string[]): boolean {
   return cells.length > 0 && cells.every((c) => /^:?-{1,}:?$/.test(c.replace(/\s/g, "")));
 }
 
-function alignOf(cell: string): Align {
+export function alignOf(cell: string): Align {
   const c = cell.replace(/\s/g, "");
   const l = c.startsWith(":");
   const r = c.endsWith(":");
@@ -62,7 +62,7 @@ function sepCell(width: number, align: Align): string {
   return "-".repeat(w);
 }
 
-function renderMarkdown(header: string[], aligns: Align[], rows: string[][], indent = ""): string {
+export function renderMarkdown(header: string[], aligns: Align[], rows: string[][], indent = ""): string {
   const cols = Math.max(header.length, ...rows.map((r) => r.length));
   const norm = (r: string[]) => Array.from({ length: cols }, (_, i) => r[i] ?? "");
   const h = norm(header);
