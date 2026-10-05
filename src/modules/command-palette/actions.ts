@@ -41,6 +41,7 @@ import { GIT_ACTIONS } from "@/modules/git-actions/actions";
 import { GIT_EXTRA_ACTIONS } from "@/modules/git-actions/extraActions";
 import { GIT_EXTRA_ACTIONS_2 } from "@/modules/git-actions/extraActions2";
 import { GIT_EXTRA_ACTIONS_3 } from "@/modules/git-actions/extraActions3";
+import { GIT_EXTRA_ACTIONS_4 } from "@/modules/git-actions/extraActions4";
 import { THEME_ACTIONS } from "@/modules/theme/themeActions";
 import { NOTIFICATION_ACTIONS } from "@/modules/notifications/actions";
 import { COMPARE_ACTIONS } from "@/modules/compare/actions";
@@ -430,7 +431,7 @@ export function createCommandPaletteActions(
       run: () => void action.run(),
       deferRun: true,
     })),
-    ...[...GIT_ACTIONS, ...GIT_EXTRA_ACTIONS, ...GIT_EXTRA_ACTIONS_2, ...GIT_EXTRA_ACTIONS_3].map((action): CommandPaletteAction => ({
+    ...[...GIT_ACTIONS, ...GIT_EXTRA_ACTIONS, ...GIT_EXTRA_ACTIONS_2, ...GIT_EXTRA_ACTIONS_3, ...GIT_EXTRA_ACTIONS_4].map((action): CommandPaletteAction => ({
       id: action.id,
       label: action.label,
       group: "Git",
