@@ -8,6 +8,7 @@ import {
 } from "react";
 import type { Tab } from "@/modules/tabs";
 import { leafHasForegroundProcess, leafIds } from "@/modules/terminal";
+import { flushScrollbackBeforeQuit, startScrollbackAutosave } from "@/modules/terminal/features/scrollbackPersist";
 
 async function anyTerminalBusy(tabs: Tab[]): Promise<boolean> {
 	try {
@@ -71,6 +72,7 @@ export function useAppCloseGuard(tabsRef: RefObject<Tab[]>) {
 					setPendingAppClose({ dirtyEditors, busyTerminal });
 				} else {
 					forceClose.current = true;
+					await flushScrollbackBeforeQuit(tabsRef.current);
 					forceCloseWindow();
 				}
 			})
@@ -87,8 +89,10 @@ export function useAppCloseGuard(tabsRef: RefObject<Tab[]>) {
 	const confirmAppClose = useCallback(() => {
 		setPendingAppClose(null);
 		forceClose.current = true;
-		forceCloseWindow();
-	}, []);
+		void flushScrollbackBeforeQuit(tabsRef.current).finally(forceCloseWindow);
+	}, [tabsRef]);
+
+	useEffect(() => startScrollbackAutosave(() => tabsRef.current), [tabsRef]);
 
 	const cancelAppClose = useCallback(() => setPendingAppClose(null), []);
 
