@@ -186,7 +186,7 @@ function callExe(exe: string): string {
   return `${IS_WINDOWS ? "& " : ""}${quoteShellArg(exe)}`;
 }
 
-async function pythonFor(cwd: string): Promise<string | null> {
+export async function pythonFor(cwd: string): Promise<string | null> {
   const configured = getFeature("debug.pythonPath");
   if (configured) return configured;
   for (const venv of [".venv", "venv", "env"]) {

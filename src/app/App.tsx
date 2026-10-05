@@ -180,6 +180,7 @@ import { CompareDialog } from "@/modules/compare/CompareDialog";
 import { MergeEditorDialog } from "@/modules/merge/MergeEditorDialog";
 import { RebaseEditorDialog } from "@/modules/git-actions/RebaseEditorDialog";
 import { DebugPanel } from "@/modules/debug/DebugPanel";
+import { TestPanel } from "@/modules/testing/TestPanel";
 import { isDebugging, isPaused, openLaunchJson, toggleBreakpointAtCursor } from "@/modules/debug/debugActions";
 import { debugCommand, startOrContinue, stopDebugging, useDebugStore } from "@/modules/debug/store";
 import { goToLinePrompt, goToSymbolCmd } from "@/modules/editor/lib/textTools/commands";
@@ -248,7 +249,7 @@ function readSidebarWidth(): number {
 function readSidebarView(): SidebarViewId {
 	try {
 		const stored = window.localStorage.getItem(SIDEBAR_VIEW_STORAGE_KEY);
-		if (stored === "explorer" || stored === "source-control" || stored === "debug") return stored;
+		if (stored === "explorer" || stored === "source-control" || stored === "debug" || stored === "tests") return stored;
 	} catch {
 		// ignore
 	}
@@ -405,10 +406,17 @@ export default function App() {
 			persistSidebarView("debug");
 		};
 		const openLaunch = () => void openLaunchJson();
+		const showTests = () => {
+			const panel = sidebarRef.current;
+			if (panel && panel.getSize().asPercentage <= 0) panel.resize(`${sidebarWidthRef.current}px`);
+			persistSidebarView("tests");
+		};
+		window.addEventListener("gear:show-testing-panel", showTests);
 		window.addEventListener("gear:show-debug-panel", show);
 		window.addEventListener("gear:open-launch-json", openLaunch);
 		return () => {
 			window.removeEventListener("gear:show-debug-panel", show);
+			window.removeEventListener("gear:show-testing-panel", showTests);
 			window.removeEventListener("gear:open-launch-json", openLaunch);
 		};
 	}, [persistSidebarView]);
@@ -2374,6 +2382,8 @@ export default function App() {
 														/>
 													) : sidebarView === "debug" ? (
 														<DebugPanel />
+													) : sidebarView === "tests" ? (
+														<TestPanel />
 													) : (
 														<SourceControlPanel
 															open
@@ -2491,6 +2501,8 @@ export default function App() {
 														/>
 													) : sidebarView === "debug" ? (
 														<DebugPanel />
+													) : sidebarView === "tests" ? (
+														<TestPanel />
 													) : (
 														<SourceControlPanel
 															open

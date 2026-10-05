@@ -287,9 +287,10 @@ export function parseJunit(xml: string): TestResult[] {
     const body = m[3] ?? "";
     const classname = attr(head, "classname") ?? "";
     const name = attr(head, "name") ?? "";
-    const file = attr(head, "file") ?? null;
     // classname is "pkg.module.TestClass" or "pkg.module"; keep a trailing Test* class as the suite.
     const cls = /(?:^|\.)(Test\w*)$/.exec(classname)?.[1];
+    const modulePath = (cls ? classname.slice(0, -cls.length - 1) : classname).replace(/\./g, "/");
+    const file = attr(head, "file") ?? (modulePath ? `${modulePath}.py` : null);
     const fail = /<(failure|error)\b([^>]*)>([\s\S]*?)<\/\1>|<(failure|error)\b([^>]*)\/>/.exec(body);
     const skip = /<skipped\b/.test(body);
     const message = fail ? decodeXml(`${attr(fail[2] ?? fail[5] ?? "", "message") ?? ""}\n${fail[3] ?? ""}`).trim() : undefined;
