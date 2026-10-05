@@ -5,6 +5,7 @@ pub mod file;
 pub mod grep;
 pub mod mutate;
 pub mod search;
+pub mod sqlite;
 pub mod stats;
 pub mod tree;
 pub mod watch;
