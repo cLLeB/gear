@@ -47,6 +47,8 @@ export interface AppBridge {
   breakPaneToTab: (leafId: number) => number | null;
   /** Move every pane of one terminal tab into another as a split. */
   joinTabInto: (srcTabId: number, dstTabId: number, dir?: SplitDir) => boolean;
+  /** Split the active terminal pane and (optionally) run a command in the new pane. */
+  splitAndRun: (dir: SplitDir, command?: string) => boolean;
 }
 
 const noop: AppBridge = {
@@ -66,6 +68,7 @@ const noop: AppBridge = {
   openTerminalLayout: () => [],
   breakPaneToTab: () => null,
   joinTabInto: () => false,
+  splitAndRun: () => false,
 };
 
 let bridge: AppBridge = noop;
