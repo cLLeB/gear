@@ -186,6 +186,15 @@ noted; tunable behaviour lives in **Settings → Features**.
 - **Keys** — F6 start / pause, F5 continue while debugging (else Run file), F9 breakpoint, F10 / F11 / Shift+F11 step (only while paused, so terminal apps keep them), Shift+F5 stop.
 - Integration-tested against real debugpy, gdb and Delve sessions.
 
+### Test explorer
+- **Testing view** — every Vitest / Jest, pytest, Go and Rust test in the workspace, found statically (no run needed) and grouped by file and suite; run all / a file / a suite / one test, debug a test in the debugger, failure messages, durations, failed-only filter and the raw output.
+- **Editor** — a run / status marker beside each test (click to run, right-click to debug or run with coverage), the failure message shown on the failing line, markers that follow edits.
+- **Coverage** — run with coverage (Vitest / Jest lcov, pytest-cov, `go test -coverprofile`) and see covered / missed lines in the gutter of every source file, with per-file percentages.
+- Results come from each framework's machine-readable reporter (JSON, JUnit XML, `go test -json`, cargo output); the parsers are tested against real reporter output.
+
+### Terminal session restore
+- Each terminal's scrollback is saved (compressed, on this machine, every 20 s and on quit) and shown again when Gear reopens, under a "restored session · N min ago" divider. Commands that were still running are offered for a re-run. Private terminals are never saved; can be turned off in Settings → Features.
+
 ## Code analysis
 - Most complex functions across the workspace; hotspots (git churn × complexity); unused exports; circular imports; who imports this file (blast radius) and its local dependencies
 - Workspace structural search with `$metavariables`; structural replace in a file; duplicate code across files; call graph of a file (Mermaid + outline); taint check (user input → eval / exec / SQL / innerHTML)
