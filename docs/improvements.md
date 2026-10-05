@@ -192,6 +192,11 @@ noted; tunable behaviour lives in **Settings → Features**.
 - **Coverage** — run with coverage (Vitest / Jest lcov, pytest-cov, `go test -coverprofile`) and see covered / missed lines in the gutter of every source file, with per-file percentages.
 - Results come from each framework's machine-readable reporter (JSON, JUnit XML, `go test -json`, cargo output); the parsers are tested against real reporter output.
 
+### Jupyter notebooks
+- `.ipynb` files open as notebooks: code and Markdown cells with syntax highlighting, a real Jupyter kernel (any installed kernelspec — Python, R, Julia…) started through a small Python bridge (`pip install ipykernel` is all it needs; the project's `.venv` is used automatically).
+- Rich outputs: streams with progress-bar carriage returns, images, SVG, HTML tables (sanitized — no scripts), Markdown, JSON, coloured tracebacks, live `display` updates and `clear_output`.
+- Jupyter keys (Shift+Enter, Ctrl+Enter, Alt+Enter, Esc, A / B, D D, M / Y / R, ↑ / ↓), run all / above, interrupt, restart, restart & run all, clear outputs, kernel picker, kernel-powered completions, collapse outputs; saves standard nbformat 4.5 (byte-for-byte compatible with Jupyter).
+
 ### Terminal session restore
 - Each terminal's scrollback is saved (compressed, on this machine, every 20 s and on quit) and shown again when Gear reopens, under a "restored session · N min ago" divider. Commands that were still running are offered for a re-run. Private terminals are never saved; can be turned off in Settings → Features.
 
