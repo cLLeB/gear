@@ -44,6 +44,7 @@ import { THEME_ACTIONS } from "@/modules/theme/themeActions";
 import { NOTIFICATION_ACTIONS } from "@/modules/notifications/actions";
 import { COMPARE_ACTIONS } from "@/modules/compare/actions";
 import { AI_TOOL_ACTIONS } from "@/modules/ai/tools/aiActions";
+import { AI_TOOL_ACTIONS_2 } from "@/modules/ai/tools/aiActions2";
 import { installThemeSchedule, UI_ACTIONS } from "@/modules/focus/uiActions";
 
 installThemeSchedule();
@@ -437,7 +438,7 @@ export function createCommandPaletteActions(
       run: () => void action.run(),
       deferRun: true,
     })),
-    ...AI_TOOL_ACTIONS.map((action): CommandPaletteAction => ({
+    ...[...AI_TOOL_ACTIONS, ...AI_TOOL_ACTIONS_2].map((action): CommandPaletteAction => ({
       id: action.id,
       label: action.label,
       group: "AI",
