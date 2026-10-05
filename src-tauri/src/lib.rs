@@ -2,7 +2,7 @@ pub mod modules;
 
 use fs::to_canon;
 use modules::{
-    agent, chronicle, control, fs, git, history, lsp, net, pty, secrets, shell, workspace,
+    agent, chronicle, control, dap, fs, git, history, lsp, net, pty, secrets, shell, workspace,
 };
 use std::sync::Mutex;
 use tauri::{Emitter, Manager, State};
@@ -186,6 +186,7 @@ pub fn run() {
         .manage(control_state)
         .manage(chronicle::ChronicleState::default())
         .manage(lsp::LspState::default())
+        .manage(dap::DapState::default())
         .manage(shell::ShellState::default())
         .manage(history::HistoryState::default())
         .manage(secrets::SecretsState::default())
@@ -221,6 +222,10 @@ pub fn run() {
             lsp::lsp_spawn,
             lsp::lsp_send,
             lsp::lsp_kill,
+            dap::dap_free_port,
+            dap::dap_spawn_tcp,
+            dap::dap_send,
+            dap::dap_kill,
             fs::tree::list_subdirs,
             fs::tree::fs_read_dir,
             fs::file::fs_read_file,
@@ -317,6 +322,9 @@ pub fn run() {
             if matches!(event, tauri::RunEvent::Exit) {
                 if let Some(state) = app.try_state::<control::ControlState>() {
                     state.shutdown();
+                }
+                if let Some(state) = app.try_state::<dap::DapState>() {
+                    state.kill_all();
                 }
             }
         });
