@@ -5,6 +5,7 @@ import {
   requestPermission,
   sendNotification,
 } from "@tauri-apps/plugin-notification";
+import { recordNotification } from "@/modules/notifications/history";
 
 export type OsNotificationResult = "requested" | "denied" | "failed";
 
@@ -39,6 +40,7 @@ export async function osNotify(
   title: string,
   body: string,
 ): Promise<OsNotificationResult> {
+  recordNotification("os", title, body);
   try {
     if (!(await ensurePermission())) {
       void warn(`[notify] permission denied, dropped: ${title}`);

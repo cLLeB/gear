@@ -47,6 +47,8 @@ export const FEATURE_DEFAULTS = {
   "terminal.commandGuard": true,
   "terminal.commandGuardCaution": false,
   "terminal.pasteImages": true,
+  "terminal.copyOnSelect": false,
+  "terminal.rightClick": "menu",
   "editor.colorSwatches": true,
   "editor.todoHighlight": true,
   "editor.suspiciousChars": true,
@@ -64,6 +66,21 @@ export type FeatureKey = keyof typeof FEATURE_DEFAULTS;
 export type FeatureValues = { [K in FeatureKey]: (typeof FEATURE_DEFAULTS)[K] };
 
 export const FEATURE_META: Record<FeatureKey, Meta> = {
+  "terminal.copyOnSelect": {
+    label: "Copy on select",
+    description: "Copy text to the clipboard as soon as you select it in a terminal.",
+    section: "Terminal",
+  },
+  "terminal.rightClick": {
+    label: "Right-click in terminal",
+    description: "What a right click does inside a terminal pane.",
+    section: "Terminal",
+    options: [
+      { value: "menu", label: "Default (context menu)" },
+      { value: "paste", label: "Paste" },
+      { value: "copyPaste", label: "Copy selection, else paste" },
+    ],
+  },
   "terminal.pasteImages": {
     label: "Paste images and copied files as paths",
     description:

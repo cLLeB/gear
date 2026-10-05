@@ -5,7 +5,7 @@
 // implementation on mount; until then every call is a safe no-op.
 
 import type { Tab } from "@/modules/tabs";
-import type { PaneNode } from "@/modules/terminal/lib/panes";
+import type { PaneNode, SplitDir } from "@/modules/terminal/lib/panes";
 
 export interface OpenTerminalOptions {
   cwd?: string | null;
@@ -43,6 +43,10 @@ export interface AppBridge {
   openTerminalLayout: (template: PaneNode, title: string) => number[];
   /** Replace a terminal tab's pane layout (same leaves, new arrangement). */
   setPaneTree: (tabId: number, tree: PaneNode) => void;
+  /** Move a pane into a new tab of its own; returns that tab's id. */
+  breakPaneToTab: (leafId: number) => number | null;
+  /** Move every pane of one terminal tab into another as a split. */
+  joinTabInto: (srcTabId: number, dstTabId: number, dir?: SplitDir) => boolean;
 }
 
 const noop: AppBridge = {
@@ -60,6 +64,8 @@ const noop: AppBridge = {
   reopenClosedTab: () => false,
   openCommitFileDiff: () => {},
   openTerminalLayout: () => [],
+  breakPaneToTab: () => null,
+  joinTabInto: () => false,
 };
 
 let bridge: AppBridge = noop;
