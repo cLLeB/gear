@@ -52,6 +52,10 @@ export const FEATURE_DEFAULTS = {
   "editor.colorSwatches": true,
   "editor.todoHighlight": true,
   "editor.suspiciousChars": true,
+  "editor.rainbowBrackets": true,
+  "theme.schedule": "",
+  "editor.indentRainbow": false,
+  "editor.stickyScroll": true,
   "editor.snippets": "[\n  { \"name\": \"Log JSON\", \"lang\": \"js\", \"body\": \"console.log(JSON.stringify(${1:value}, null, 2));\" }\n]",
   "editor.rulers": "",
   "editor.renderWhitespace": false,
@@ -139,6 +143,26 @@ export const FEATURE_META: Record<FeatureKey, Meta> = {
   "editor.highlightTrailingWhitespace": {
     label: "Highlight trailing whitespace",
     description: "Tint spaces and tabs at the end of lines.",
+    section: "Editor",
+  },
+  "theme.schedule": {
+    label: "Light theme schedule",
+    description: 'Switch to the light theme during this window and dark otherwise, e.g. "07:00-19:00". Leave empty to keep the theme mode you picked.',
+    section: "Editor",
+  },
+  "editor.rainbowBrackets": {
+    label: "Rainbow brackets",
+    description: "Colour matching (), [] and {} by nesting depth and underline unmatched brackets.",
+    section: "Editor",
+  },
+  "editor.indentRainbow": {
+    label: "Indentation rainbow",
+    description: "Tint each indentation level a different colour (handy for YAML and Python).",
+    section: "Editor",
+  },
+  "editor.stickyScroll": {
+    label: "Sticky scroll",
+    description: "Pin the enclosing function / class / heading lines to the top while scrolling; click one to jump to it.",
     section: "Editor",
   },
   "editor.snippets": {
