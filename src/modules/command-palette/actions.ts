@@ -31,6 +31,7 @@ import { WORKSPACE_ACTIONS } from "@/modules/workspace/actions";
 import { pickClosedTab } from "@/modules/tabs/tabActions";
 import { deleteSavedLayout, openSavedLayout, saveCurrentLayout } from "@/modules/tabs/layoutActions";
 import { GIT_ACTIONS } from "@/modules/git-actions/actions";
+import { GIT_EXTRA_ACTIONS } from "@/modules/git-actions/extraActions";
 import { THEME_ACTIONS } from "@/modules/theme/themeActions";
 import { app } from "@/app/appBridge";
 
@@ -411,7 +412,7 @@ export function createCommandPaletteActions(
       run: () => void action.run(),
       deferRun: true,
     })),
-    ...GIT_ACTIONS.map((action): CommandPaletteAction => ({
+    ...[...GIT_ACTIONS, ...GIT_EXTRA_ACTIONS].map((action): CommandPaletteAction => ({
       id: action.id,
       label: action.label,
       group: "Git",
