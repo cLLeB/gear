@@ -67,8 +67,9 @@ function build(state: EditorState, actions: HunkAction[], onAction: HunkBar["onA
   const chunks = info.chunks;
   chunks.forEach((c, i) => {
     const lines = chunkLines(state.doc, c.fromB, c.toB);
-    const at = state.doc.line(Math.min(lines.from, state.doc.lines)).from;
-    b.add(at, at, Decoration.widget({ widget: new HunkBar(lines, actions, onAction, i, chunks.length), block: true, side: -1 }));
+    // Sit above the chunk's deleted lines, which the merge view draws as a widget at fromB.
+    const at = c.fromB < state.doc.length || c.fromB === 0 ? state.doc.lineAt(c.fromB).from : state.doc.line(state.doc.lines).from;
+    b.add(at, at, Decoration.widget({ widget: new HunkBar(lines, actions, onAction, i, chunks.length), block: true, side: -10_000 }));
   });
   return b.finish();
 }
