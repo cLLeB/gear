@@ -38,6 +38,10 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useRef, useState } from "react";
 import { SectionHeader } from "../components/SectionHeader";
+import { importForeignThemes } from "@/modules/theme/importForeign";
+import { auditTheme } from "@/modules/theme/contrast";
+import type { Theme } from "@/modules/theme";
+import { toast } from "sonner";
 import type { WallpaperCategory } from "@/modules/theme/builtinWallpapers";
 import type { GradientCategory } from "@/modules/theme/builtinGradients";
 
@@ -329,11 +333,24 @@ export function ThemesSection() {
   const handleImportTheme = async (file: File) => {
     try {
       const text = await file.text();
-      const theme = parseThemeFile(text);
-      await saveCustomTheme(theme);
+      let themes: Theme[];
+      try {
+        themes = [parseThemeFile(text)];
+      } catch {
+        // Not a Gear theme: try iTerm2 / Windows Terminal / Alacritty / Kitty /
+        // Ghostty / Xresources / base16 / VS Code colour schemes.
+        themes = importForeignThemes(file.name, text);
+      }
+      for (const theme of themes) await saveCustomTheme(theme);
+      if (themes.length === 1) setThemeId(themes[0].id);
+      const low = themes.flatMap((t) => auditTheme(t)).flatMap((r) => r.issues).filter((i) => i.minimum >= 4.5);
+      toast.success(
+        `Imported ${themes.length === 1 ? themes[0].name : `${themes.length} themes`}` +
+          (low.length ? ` — ${low.length} low-contrast text pair${low.length === 1 ? "" : "s"}` : ""),
+      );
       setImportError(null);
     } catch {
-      setImportError("Invalid theme file");
+      setImportError("Unrecognised theme file (Gear, iTerm2, Windows Terminal, Alacritty, Kitty, Ghostty, Xresources, base16, VS Code)");
       setTimeout(() => setImportError(null), 3000);
     } finally {
       if (importInputRef.current) importInputRef.current.value = "";
@@ -382,7 +399,7 @@ export function ThemesSection() {
             <input
               ref={importInputRef}
               type="file"
-              accept={`${THEME_FILE_EXT},application/json`}
+              accept={`${THEME_FILE_EXT},application/json,.json,.itermcolors,.toml,.yml,.yaml,.conf,.Xresources,.theme,.txt`}
               className="sr-only"
               onChange={(e) => {
                 const file = e.target.files?.[0];
