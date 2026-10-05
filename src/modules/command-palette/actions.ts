@@ -40,6 +40,7 @@ import { GIT_EXTRA_ACTIONS_2 } from "@/modules/git-actions/extraActions2";
 import { THEME_ACTIONS } from "@/modules/theme/themeActions";
 import { NOTIFICATION_ACTIONS } from "@/modules/notifications/actions";
 import { COMPARE_ACTIONS } from "@/modules/compare/actions";
+import { AI_TOOL_ACTIONS } from "@/modules/ai/tools/aiActions";
 import { installThemeSchedule, UI_ACTIONS } from "@/modules/focus/uiActions";
 
 installThemeSchedule();
@@ -430,6 +431,15 @@ export function createCommandPaletteActions(
       group: "Git",
       keywords: ["git", ...action.keywords],
       icon: CodeIcon,
+      run: () => void action.run(),
+      deferRun: true,
+    })),
+    ...AI_TOOL_ACTIONS.map((action): CommandPaletteAction => ({
+      id: action.id,
+      label: action.label,
+      group: "AI",
+      keywords: ["ai", ...action.keywords],
+      icon: SparklesIcon,
       run: () => void action.run(),
       deferRun: true,
     })),
