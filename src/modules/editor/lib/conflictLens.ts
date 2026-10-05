@@ -39,6 +39,17 @@ class LensWidget extends WidgetType {
     add("Accept incoming", "incoming", `Take ${this.block.incomingLabel}`);
     add("Accept both", "both", "Current followed by incoming");
     if (this.block.base !== null) add("Accept base", "base", "Common ancestor (diff3)");
+    if (!view.dom.closest(".cm-merge-result")) {
+      const m = document.createElement("button");
+      m.type = "button";
+      m.textContent = "Open merge editor";
+      m.title = "Resolve side by side (ours | result | theirs)";
+      m.addEventListener("mousedown", (e) => {
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent("gear:open-merge-editor"));
+      });
+      row.appendChild(m);
+    }
     return row;
   }
   ignoreEvent() {

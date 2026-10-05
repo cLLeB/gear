@@ -177,6 +177,7 @@ import { noteTabActivated } from "@/modules/tabs/tabActions";
 import { registerAppBridge } from "./appBridge";
 import { QuickPickHost } from "@/modules/quick-pick";
 import { CompareDialog } from "@/modules/compare/CompareDialog";
+import { MergeEditorDialog } from "@/modules/merge/MergeEditorDialog";
 import { goToLinePrompt, goToSymbolCmd } from "@/modules/editor/lib/textTools/commands";
 import { getActiveEditor } from "@/modules/editor/lib/activeEditor";
 import { installTerminalFeatures } from "@/modules/terminal/features";
@@ -2569,6 +2570,7 @@ export default function App() {
 					/>
 					<QuickPickHost />
 					<CompareDialog />
+					<MergeEditorDialog />
 
 					<AgentNotificationsBridge
 						tabs={tabs}
