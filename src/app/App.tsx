@@ -1896,6 +1896,7 @@ export default function App() {
 		openTerminalLayout,
 		breakPaneToTab,
 		joinTabInto,
+		splitActivePane,
 		explorerRoot,
 		launchCwd,
 		home,
@@ -1913,6 +1914,7 @@ export default function App() {
 		openTerminalLayout,
 		breakPaneToTab,
 		joinTabInto,
+		splitActivePane,
 		explorerRoot,
 		launchCwd,
 		home,
@@ -1986,6 +1988,25 @@ export default function App() {
 			setPaneTree: (id, tree) => d().updateTab(id, { paneTree: tree }),
 			breakPaneToTab: (leafId) => d().breakPaneToTab(leafId),
 			joinTabInto: (srcId, dstId, dir) => d().joinTabInto(srcId, dstId, dir),
+			splitAndRun: (dir, command) => {
+				const tab = tabsRef.current.find((x) => x.id === activeIdRef.current);
+				if (tab?.kind !== "terminal") return false;
+				const before = new Set(leafIds(tab.paneTree));
+				d().splitActivePane(tab.id, dir);
+				if (!command) return true;
+				let tries = 0;
+				const tick = () => {
+					const t = tabsRef.current.find((x) => x.id === tab.id);
+					const fresh = t?.kind === "terminal" ? leafIds(t.paneTree).find((l) => !before.has(l)) : undefined;
+					if (fresh === undefined) {
+						if (tries++ < 40) setTimeout(tick, 25);
+						return;
+					}
+					void whenSessionReady(fresh).then(() => submitToLeaf(fresh, command));
+				};
+				tick();
+				return true;
+			},
 		});
 	}, []);
 
