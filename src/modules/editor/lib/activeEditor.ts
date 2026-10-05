@@ -21,6 +21,37 @@ let active: ActiveEditor | null = null;
 /** Record the editor the user is working in (called on focus). */
 export function setActiveEditor(view: EditorView, languageId: string, path?: string): void {
   active = { view, languageId, path };
+  if (path) noteRecentFile(path);
+}
+
+// Most-recently-focused files, persisted per machine for "Open recent file".
+const RECENT_KEY = "gear.recentFiles";
+const RECENT_MAX = 60;
+
+function noteRecentFile(path: string): void {
+  try {
+    const list = recentFiles().filter((p) => p !== path);
+    localStorage.setItem(RECENT_KEY, JSON.stringify([path, ...list].slice(0, RECENT_MAX)));
+  } catch {
+    /* storage unavailable */
+  }
+}
+
+export function recentFiles(): string[] {
+  try {
+    const raw = JSON.parse(localStorage.getItem(RECENT_KEY) ?? "[]") as unknown;
+    return Array.isArray(raw) ? raw.filter((x): x is string => typeof x === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+export function forgetRecentFiles(): void {
+  try {
+    localStorage.removeItem(RECENT_KEY);
+  } catch {
+    /* ignore */
+  }
 }
 
 /** Forget an editor when it unmounts, if it was the active one. */

@@ -2,6 +2,7 @@ import type { TerminalActionDescriptor } from "@/modules/terminal";
 import { checkEnvFiles } from "./envLintAction";
 import { listWorkspaceTodos } from "./todoSearch";
 import { WORKSPACE_TOOL_ACTIONS } from "./workspaceTools";
+import { PROJECT_ACTIONS } from "./projectActions";
 
 /** Workspace-level palette actions. */
 export const WORKSPACE_ACTIONS: TerminalActionDescriptor[] = [
@@ -18,4 +19,5 @@ export const WORKSPACE_ACTIONS: TerminalActionDescriptor[] = [
     run: listWorkspaceTodos,
   },
   ...WORKSPACE_TOOL_ACTIONS,
+  ...PROJECT_ACTIONS,
 ];
