@@ -63,6 +63,7 @@ import { recordClip } from "@/modules/clipboard/history";
 import { indentRainbow, rainbowBrackets, stickyScroll } from "./lib/visualAids";
 import { navigationTracker } from "./lib/navHistory";
 import { fileLockFilter } from "./lib/fileLock";
+import { debugGutter } from "@/modules/debug/debugGutter";
 import { editorGuides } from "./lib/editorGuides";
 import { conflictLens } from "./lib/conflictLens";
 import { gitGutter } from "./lib/gitGutter";
@@ -424,6 +425,7 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
         fileLockFilter(() => pathRef.current),
         editorGuides(),
         conflictLens(),
+        debugGutter(() => pathRef.current),
         gitGutter(() => pathRef.current),
         bookmarks(() => pathRef.current),
         keymap.of(bookmarksKeymap()),

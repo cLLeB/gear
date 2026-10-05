@@ -179,6 +179,9 @@ import { QuickPickHost } from "@/modules/quick-pick";
 import { CompareDialog } from "@/modules/compare/CompareDialog";
 import { MergeEditorDialog } from "@/modules/merge/MergeEditorDialog";
 import { RebaseEditorDialog } from "@/modules/git-actions/RebaseEditorDialog";
+import { DebugPanel } from "@/modules/debug/DebugPanel";
+import { isDebugging, isPaused, openLaunchJson, toggleBreakpointAtCursor } from "@/modules/debug/debugActions";
+import { debugCommand, startOrContinue, stopDebugging, useDebugStore } from "@/modules/debug/store";
 import { goToLinePrompt, goToSymbolCmd } from "@/modules/editor/lib/textTools/commands";
 import { getActiveEditor } from "@/modules/editor/lib/activeEditor";
 import { installTerminalFeatures } from "@/modules/terminal/features";
@@ -245,7 +248,7 @@ function readSidebarWidth(): number {
 function readSidebarView(): SidebarViewId {
 	try {
 		const stored = window.localStorage.getItem(SIDEBAR_VIEW_STORAGE_KEY);
-		if (stored === "explorer" || stored === "source-control") return stored;
+		if (stored === "explorer" || stored === "source-control" || stored === "debug") return stored;
 	} catch {
 		// ignore
 	}
@@ -392,6 +395,23 @@ export default function App() {
 		},
 		[persistSidebarView, sidebarView],
 	);
+	// Debugger: show the Debug view when a session starts, badge paused sessions,
+	// and open (creating if needed) .vscode/launch.json on request.
+	const debugPaused = useDebugStore((st) => st.sessions.filter((e) => e.state.status === "stopped").length);
+	useEffect(() => {
+		const show = () => {
+			const panel = sidebarRef.current;
+			if (panel && panel.getSize().asPercentage <= 0) panel.resize(`${sidebarWidthRef.current}px`);
+			persistSidebarView("debug");
+		};
+		const openLaunch = () => void openLaunchJson();
+		window.addEventListener("gear:show-debug-panel", show);
+		window.addEventListener("gear:open-launch-json", openLaunch);
+		return () => {
+			window.removeEventListener("gear:show-debug-panel", show);
+			window.removeEventListener("gear:open-launch-json", openLaunch);
+		};
+	}, [persistSidebarView]);
 	const persistSidebarWidth = useCallback(
 		(next: number, isUserInteraction: boolean) => {
 			if (!shouldPersistSidebarWidth(next, isUserInteraction)) return;
@@ -1574,7 +1594,14 @@ export default function App() {
 			"shortcuts.open": () => setShortcutsOpen((v) => !v),
 			"settings.open": () => openSettingsTab(),
 			"sidebar.toggle": toggleSidebar,
-			"run.file": () => void runActiveFile(),
+			// While debugging, F5 continues instead of running the file.
+			"run.file": () => (isDebugging() ? void startOrContinue() : void runActiveFile()),
+			"debug.startOrPause": () => (isDebugging() && !isPaused() ? void debugCommand.pause() : void startOrContinue()),
+			"debug.toggleBreakpoint": toggleBreakpointAtCursor,
+			"debug.stepOver": () => void debugCommand.next(),
+			"debug.stepInto": () => void debugCommand.stepIn(),
+			"debug.stepOut": () => void debugCommand.stepOut(),
+			"debug.stop": () => void stopDebugging(),
 			"explorer.focus": toggleExplorerFocus,
 			"view.zoomIn": zoomIn,
 			"view.zoomOut": zoomOut,
@@ -1628,6 +1655,10 @@ export default function App() {
 
 	const shortcutsDisabled = useCallback(
 		(id: ShortcutId, e: KeyboardEvent) => {
+			// Stepping keys belong to terminal apps (mc, htop…) unless a debug session is paused.
+			if (id === "debug.stepOver" || id === "debug.stepInto" || id === "debug.stepOut") return !isPaused();
+			if (id === "debug.stop") return !isDebugging();
+			if (id === "debug.toggleBreakpoint") return activeTab?.kind !== "editor";
 			if (
 				id === "editor.undo" ||
 				id === "editor.redo" ||
@@ -2341,6 +2372,8 @@ export default function App() {
 																		onRunFile={(p) => void runFile(p)}
 																		canRunPath={canRunPath}
 														/>
+													) : sidebarView === "debug" ? (
+														<DebugPanel />
 													) : (
 														<SourceControlPanel
 															open
@@ -2404,6 +2437,7 @@ export default function App() {
 												sidebarOpen={sidebarOpen}
 												onSelectView={cycleSidebarView}
 												changedCount={sourceControl.changedCount}
+												debugBadge={debugPaused}
 												aiActive={panelOpen}
 												onToggleAi={togglePanelAndFocus}
 												onToggleRewind={() =>
@@ -2455,6 +2489,8 @@ export default function App() {
 																		onRunFile={(p) => void runFile(p)}
 																		canRunPath={canRunPath}
 														/>
+													) : sidebarView === "debug" ? (
+														<DebugPanel />
 													) : (
 														<SourceControlPanel
 															open

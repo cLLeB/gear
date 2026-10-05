@@ -44,6 +44,12 @@ export type ShortcutId =
   | "settings.open"
   | "sidebar.toggle"
   | "run.file"
+  | "debug.startOrPause"
+  | "debug.toggleBreakpoint"
+  | "debug.stepOver"
+  | "debug.stepInto"
+  | "debug.stepOut"
+  | "debug.stop"
   | "terminal.clear"
   | "terminal.toggleInput"
   | "blocks.prev"
@@ -374,6 +380,45 @@ export const SHORTCUTS: Shortcut[] = [
     label: "Run current file",
     group: "General",
     defaultBindings: [{ key: "F5" }],
+  },
+  // --- Debug ---
+  {
+    id: "debug.startOrPause",
+    label: "Start debugging / pause",
+    group: "General",
+    defaultBindings: [{ key: "F6" }],
+  },
+  {
+    id: "debug.toggleBreakpoint",
+    label: "Toggle breakpoint",
+    group: "General",
+    defaultBindings: [{ key: "F9" }],
+  },
+  {
+    id: "debug.stepOver",
+    label: "Step over (while paused)",
+    group: "General",
+    defaultBindings: [{ key: "F10" }],
+    allowRepeat: true,
+  },
+  {
+    id: "debug.stepInto",
+    label: "Step into (while paused)",
+    group: "General",
+    defaultBindings: [{ key: "F11" }],
+    allowRepeat: true,
+  },
+  {
+    id: "debug.stepOut",
+    label: "Step out (while paused)",
+    group: "General",
+    defaultBindings: [{ shift: true, key: "F11" }],
+  },
+  {
+    id: "debug.stop",
+    label: "Stop debugging",
+    group: "General",
+    defaultBindings: [{ shift: true, key: "F5" }],
   },
   // --- Terminal ---
   {

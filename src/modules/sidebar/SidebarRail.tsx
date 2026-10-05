@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
 import {
+  Bug01Icon,
   ClockIcon,
   FolderGitTwoIcon,
   FolderTreeIcon,
@@ -22,6 +23,8 @@ type Props = {
   sidebarOpen: boolean;
   onSelectView: (view: SidebarViewId) => void;
   changedCount: number;
+  /** Paused debug sessions (shown as a badge). */
+  debugBadge?: number;
   aiActive: boolean;
   onToggleAi: () => void;
   onToggleRewind: () => void;
@@ -91,6 +94,7 @@ export function SidebarRail({
   sidebarOpen,
   onSelectView,
   changedCount,
+  debugBadge,
   aiActive,
   onToggleAi,
   onToggleRewind,
@@ -112,6 +116,13 @@ export function SidebarRail({
         active={sidebarOpen && activeView === "source-control"}
         badge={changedCount}
         onClick={() => onSelectView("source-control")}
+      />
+      <RailButton
+        label="Run and Debug"
+        icon={Bug01Icon}
+        active={sidebarOpen && activeView === "debug"}
+        badge={debugBadge}
+        onClick={() => onSelectView("debug")}
       />
 
       <div className="flex-1" />

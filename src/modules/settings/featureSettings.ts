@@ -12,6 +12,7 @@ export type FeatureSection =
   | "Commands"
   | "Editor"
   | "Git"
+  | "Debug"
   | "Workspace";
 
 export const FEATURE_SECTIONS: readonly FeatureSection[] = [
@@ -20,6 +21,7 @@ export const FEATURE_SECTIONS: readonly FeatureSection[] = [
   "Commands",
   "Editor",
   "Git",
+  "Debug",
   "Workspace",
 ];
 
@@ -62,6 +64,10 @@ export const FEATURE_DEFAULTS = {
   "editor.highlightTrailingWhitespace": false,
   "editor.gitGutter": true,
   "git.commitLint": "conventional",
+  "debug.pythonPath": "",
+  "debug.jsDebugPath": "",
+  "debug.dlvPath": "",
+  "debug.inlineValues": true,
   "terminal.programNotifications": true,
   "terminal.bell": "badge+flash",
   "terminal.triggers": "# One rule per line: <regex> => highlight[:color] | notify[:message] | bell\n# \\b(ERROR|FATAL|panic)\\b => highlight:red\n# /build (succeeded|failed)/i => notify:Build $1",
@@ -144,6 +150,26 @@ export const FEATURE_META: Record<FeatureKey, Meta> = {
     label: "Highlight trailing whitespace",
     description: "Tint spaces and tabs at the end of lines.",
     section: "Editor",
+  },
+  "debug.pythonPath": {
+    label: "Python interpreter",
+    description: "Interpreter that runs debugpy (needs `pip install debugpy`). Empty = the project's .venv if present, else python3 / python on PATH.",
+    section: "Debug",
+  },
+  "debug.jsDebugPath": {
+    label: "js-debug server path",
+    description: "Path to dapDebugServer.js from the js-debug-dap release (github.com/microsoft/vscode-js-debug/releases), used to debug Node.js.",
+    section: "Debug",
+  },
+  "debug.dlvPath": {
+    label: "Delve path",
+    description: "Path to dlv for Go debugging. Empty = dlv on PATH or in ~/go/bin.",
+    section: "Debug",
+  },
+  "debug.inlineValues": {
+    label: "Inline variable values",
+    description: "While paused, show the current values of local variables at the end of the lines that use them.",
+    section: "Debug",
   },
   "theme.schedule": {
     label: "Light theme schedule",

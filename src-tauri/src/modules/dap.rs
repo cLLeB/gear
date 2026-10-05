@@ -173,6 +173,15 @@ fn spawn_reader(
         });
 }
 
+fn remover(app: tauri::AppHandle, id: u32) -> Arc<dyn Fn() + Send + Sync> {
+    Arc::new(move || {
+        use tauri::Manager;
+        if let Some(s) = app.try_state::<DapState>() {
+            s.sessions.write().unwrap().remove(&id);
+        }
+    })
+}
+
 /// Spawn `command` (which must start a DAP server on `port`) and connect to it.
 #[tauri::command]
 #[allow(clippy::too_many_arguments)]
@@ -197,6 +206,25 @@ pub async fn dap_spawn_tcp(
         .ok_or("dap: a working directory is required")?;
     let id = state.next_id.fetch_add(1, Ordering::Relaxed) + 1;
     let tail: Arc<Mutex<std::collections::VecDeque<String>>> = Arc::default();
+
+    // An empty command connects to an adapter that is already listening
+    // (js-debug opens one connection per child session on the same port).
+    if command.is_empty() {
+        let stream = tauri::async_runtime::spawn_blocking(move || {
+            connect_with_retry(port, Duration::from_secs(5), || true)
+        })
+        .await
+        .map_err(|e| e.to_string())??;
+        let reader = stream.try_clone().map_err(|e| e.to_string())?;
+        let session = Arc::new(DapSession {
+            child: None,
+            stream: Mutex::new(Some(stream)),
+        });
+        state.sessions.write().unwrap().insert(id, session.clone());
+        let remove = remover(app.clone(), id);
+        spawn_reader(id, reader, session, remove, tail, None, on_message, on_exit);
+        return Ok(id);
+    }
 
     let (child, stream) = tauri::async_runtime::spawn_blocking({
         let tail = tail.clone();
@@ -293,15 +321,7 @@ pub async fn dap_spawn_tcp(
         stream: Mutex::new(Some(stream)),
     });
     state.sessions.write().unwrap().insert(id, session.clone());
-    let remove: Arc<dyn Fn() + Send + Sync> = {
-        let app = app.clone();
-        Arc::new(move || {
-            use tauri::Manager;
-            if let Some(s) = app.try_state::<DapState>() {
-                s.sessions.write().unwrap().remove(&id);
-            }
-        })
-    };
+    let remove = remover(app.clone(), id);
     spawn_reader(
         id,
         reader,
