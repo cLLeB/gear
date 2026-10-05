@@ -24,6 +24,7 @@ import { CODE_ACTIONS, runCodeActionOnActiveEditor } from "@/modules/editor/lib/
 import { clearEveryBookmark, listBookmarks, TEXT_ACTIONS } from "@/modules/editor/lib/textTools/commands";
 import { DATA_TEXT_ACTIONS } from "@/modules/editor/lib/textTools/dataCommands";
 import { MORE_TEXT_ACTIONS } from "@/modules/editor/lib/textTools/moreCommands";
+import { FORMAT_ACTIONS } from "@/modules/tools/formatCommands";
 import { copyPermalink, copyReference, openPermalink } from "@/modules/editor/lib/textTools/permalinkAction";
 import { PANE_ACTIONS, TERMINAL_ACTIONS, toggleBroadcast } from "@/modules/terminal";
 import { TERMINAL_FEATURE_ACTIONS } from "@/modules/terminal/features";
@@ -515,7 +516,7 @@ export function createCommandPaletteActions(
       icon: FileEditIcon,
       run: clearEveryBookmark,
     },
-    ...[...TEXT_ACTIONS, ...DATA_TEXT_ACTIONS, ...MORE_TEXT_ACTIONS].map((action): CommandPaletteAction => ({
+    ...[...TEXT_ACTIONS, ...DATA_TEXT_ACTIONS, ...MORE_TEXT_ACTIONS, ...FORMAT_ACTIONS].map((action): CommandPaletteAction => ({
       id: action.id,
       label: action.label,
       group: "Text",
