@@ -168,3 +168,40 @@ noted; tunable behaviour lives in **Settings → Features**.
 - Convert commands between Bash / PowerShell / cmd / fish, generate scripts
 - Ask about the project, release notes, summarize uncommitted changes, branch names
 - Add types, mock data, translate selected text
+
+# Checkpoint 5
+
+## Large features
+
+### Visual git client
+- **Hunk & line staging in the diff tab** — Stage / Unstage / Discard buttons above every hunk, plus "Stage selection" for any line range. Builds a partial patch and applies it with `git apply --cached --recount`; the Source Control panel refreshes immediately.
+- **3-way merge editor** — Ours | editable Result | Theirs. Non-conflicting changes from both sides are merged automatically (line-level diff3 on a Myers diff, fast on 20k-line files); each conflict has Accept ours / theirs / both buttons on the side panes and the inline lens in the result; conflict navigation, All ours / All theirs, Reset; "Save & mark resolved" stages the file and, after the last conflict, offers to continue the merge / rebase / cherry-pick. "Git: Resolve merge conflicts…" lists conflicted files (including deleted-by-us/them) with continue / skip / abort; the inline conflict lens gains "Open merge editor".
+- **Visual interactive rebase** — drag commits to reorder (or Alt+↑/↓), pick / reword / edit / squash / fixup / drop per commit, inline reword (applied with an `exec git commit --amend`, so no editor opens), autosquash for `fixup!`/`squash!`, a live preview of the resulting history, and warnings for pushed commits, dropped fixup targets and uncommitted changes (`--autostash`).
+
+### Debugger (Debug Adapter Protocol)
+- **Run and Debug view** in the sidebar: start / continue / pause / step over / into / out / restart / stop, call stack with threads, variables tree (lazy, double-click to edit), watch expressions, breakpoints list with exception filters, and a debug console with a REPL that evaluates in the selected frame.
+- **Editor integration** — breakpoint gutter (click to toggle; right-click for conditional, hit-count and logpoints, run to line), unverified / disabled styles, the paused line and caller frames highlighted, inline variable values while paused, breakpoints that move with edits.
+- **Adapters** — Python (debugpy), Node.js (js-debug, incl. child sessions), Go (Delve), C / C++ / Rust (lldb-dap, gdb ≥ 14 or CodeLLDB). Stdio adapters reuse the LSP process plumbing; TCP adapters use a new Rust transport. Project `.venv` is picked up automatically.
+- **Configurations** — reads `.vscode/launch.json` (JSONC, `${workspaceFolder}`/`${file}`/`${env:X}`…, `python`/`debugpy`/`node`/`pwa-node`/`go`/`lldb`/`cppdbg` types), or debugs the active file with zero config; `preLaunchCommand` runs a build first.
+- **Keys** — F6 start / pause, F5 continue while debugging (else Run file), F9 breakpoint, F10 / F11 / Shift+F11 step (only while paused, so terminal apps keep them), Shift+F5 stop.
+- Integration-tested against real debugpy, gdb and Delve sessions.
+
+## Code analysis
+- Most complex functions across the workspace; hotspots (git churn × complexity); unused exports; circular imports; who imports this file (blast radius) and its local dependencies
+- Workspace structural search with `$metavariables`; structural replace in a file; duplicate code across files; call graph of a file (Mermaid + outline); taint check (user input → eval / exec / SQL / innerHTML)
+- Refactor: extract function (free variables become parameters, later-used locals become return values; JS/TS and Python), inline variable
+
+## Data & config
+- JSONPath queries (filters, slices, recursive descent) on JSON / YAML; validate against a JSON Schema; OpenAPI / Swagger endpoint browser with curl
+- Linters for Dockerfiles, GitHub Actions workflows (pinning, script injection, deprecated commands) and Kubernetes manifests
+- CSV column statistics, filter rows (`age > 30 and city = London`), sort by column; Markdown table column insert / delete / move / sort
+- Paste re-indented to the cursor; barrel index generator; function ⇄ arrow function; duplicate keys in JSON / YAML
+
+## Terminal
+- Last output as a table (CSV / JSON / Markdown), JSON from output with JSONPath, compare two commands' output, log viewer filtered by level
+- Retry with backoff, watch a command, run in every package folder, commands side by side in split panes, notify when the pane prints a pattern
+- scp / rsync helper, tail the active file, serve a folder over HTTP with preview, read-only SQLite browser (new Rust command), docker compose services
+
+## Git
+- Stage / unstage / discard selected lines; split the last commit per file; stale branches; largest files in history; add a co-author; oldest TODOs dated by blame
+- Clean untracked files with a preview; cherry-pick a range; which branches / tags contain a commit; incoming / outgoing commits
