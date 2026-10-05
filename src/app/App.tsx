@@ -173,6 +173,7 @@ import {
 	WorkspaceInputBar,
 } from "./components/WorkspaceInputBar";
 import { appCloseMessage, useAppCloseGuard } from "./hooks/useAppCloseGuard";
+import { noteTabActivated } from "@/modules/tabs/tabActions";
 import { registerAppBridge } from "./appBridge";
 import { QuickPickHost } from "@/modules/quick-pick";
 import { goToLinePrompt, goToSymbolCmd } from "@/modules/editor/lib/textTools/commands";
@@ -294,6 +295,8 @@ export default function App() {
 		closeTabs,
 		reopenClosedTab,
 		openTerminalLayout,
+		breakPaneToTab,
+		joinTabInto,
 		closePaneByLeaf,
 		resetWorkspace,
 		openSettingsTab,
@@ -1890,6 +1893,8 @@ export default function App() {
 		reopenClosedTab,
 		openCommitFileDiffTab,
 		openTerminalLayout,
+		breakPaneToTab,
+		joinTabInto,
 		explorerRoot,
 		launchCwd,
 		home,
@@ -1905,6 +1910,8 @@ export default function App() {
 		reopenClosedTab,
 		openCommitFileDiffTab,
 		openTerminalLayout,
+		breakPaneToTab,
+		joinTabInto,
 		explorerRoot,
 		launchCwd,
 		home,
@@ -1914,6 +1921,7 @@ export default function App() {
 	useEffect(() => {
 		useLastCommandStore.getState().setActiveLeaf(isTerminalTab ? activeLeafId : null);
 	}, [isTerminalTab, activeLeafId]);
+	useEffect(() => noteTabActivated(activeId), [activeId]);
 
 	useEffect(() => {
 		const d = () => bridgeDeps.current;
@@ -1975,6 +1983,8 @@ export default function App() {
 			openCommitFileDiff: (input) => d().openCommitFileDiffTab(input),
 			openTerminalLayout: (template, title) => d().openTerminalLayout(template, title).leaves,
 			setPaneTree: (id, tree) => d().updateTab(id, { paneTree: tree }),
+			breakPaneToTab: (leafId) => d().breakPaneToTab(leafId),
+			joinTabInto: (srcId, dstId, dir) => d().joinTabInto(srcId, dstId, dir),
 		});
 	}, []);
 

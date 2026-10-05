@@ -374,6 +374,31 @@ function createSlot(): Slot {
     true,
   );
 
+  // Copy-on-select (X11 / PuTTY / Windows Terminal option), debounced so a
+  // drag doesn't write the clipboard on every mouse move.
+  let selectionTimer: ReturnType<typeof setTimeout> | null = null;
+  term.onSelectionChange(() => {
+    if (selectionTimer) clearTimeout(selectionTimer);
+    selectionTimer = setTimeout(() => {
+      if (!getFeature("terminal.copyOnSelect") || !slot.term.hasSelection()) return;
+      const sel = slot.term.getSelection();
+      if (sel.trim()) void writeTerminalClipboard(sel);
+    }, 150);
+  });
+
+  // Right click: paste, or copy-the-selection-else-paste (Windows Terminal / PuTTY).
+  host.addEventListener("contextmenu", (event) => {
+    const mode = getFeature("terminal.rightClick");
+    if (mode === "menu") return;
+    event.preventDefault();
+    if (mode === "copyPaste" && slot.term.hasSelection()) {
+      void writeTerminalClipboard(slot.term.getSelection());
+      slot.term.clearSelection();
+      return;
+    }
+    void readTerminalClipboard().then((text) => pasteClipboardIntoSlot(slot, text));
+  });
+
   // Some WKWebView builds bypass xterm's composition events. The pure bridge
   // repairs that path and stands down when native composition is observed.
   if (IS_MAC) {

@@ -1236,6 +1236,80 @@ export function useTabs() {
 		for (const lid of toDispose) disposeSession(lid);
 	}, []);
 
+	/** tmux break-pane: move one pane of a split into its own tab, keeping its
+	 *  live session. Returns the new tab id, or null when it is the only pane. */
+	const breakPaneToTab = useCallback((leafId: number): number | null => {
+		const src = tabsRef.current.find(
+			(t) => t.kind === "terminal" && hasLeaf(t.paneTree, leafId),
+		);
+		if (!src || src.kind !== "terminal") return null;
+		const remaining = removeLeaf(src.paneTree, leafId);
+		if (remaining === null) return null;
+		const tabId = nextIdRef.current++;
+		const cwd = findLeafCwd(src.paneTree, leafId) ?? src.cwd;
+		setTabs((curr) => {
+			const t = curr.find((x) => x.id === src.id);
+			if (!t || t.kind !== "terminal" || !hasLeaf(t.paneTree, leafId)) return curr;
+			const tree = removeLeaf(t.paneTree, leafId);
+			if (tree === null) return curr;
+			const left = leafIds(tree);
+			const idx = curr.findIndex((x) => x.id === t.id);
+			const moved: Tab = {
+				id: tabId,
+				kind: "terminal",
+				spaceId: t.spaceId,
+				title: t.title,
+				cwd,
+				shellPath: t.shellPath,
+				paneTree: { kind: "leaf", id: leafId, cwd },
+				activeLeafId: leafId,
+			};
+			const next = curr.map((x) =>
+				x.id === t.id
+					? {
+							...t,
+							paneTree: tree,
+							activeLeafId: left.includes(t.activeLeafId) ? t.activeLeafId : left[0],
+						}
+					: x,
+			);
+			next.splice(idx + 1, 0, moved);
+			return next;
+		});
+		setActiveId(tabId);
+		return tabId;
+	}, []);
+
+	/** tmux join-pane: move every pane of `srcId` into `dstId` as a split. */
+	const joinTabInto = useCallback(
+		(srcId: number, dstId: number, dir: SplitDir = "row"): boolean => {
+			const src = tabsRef.current.find((t) => t.id === srcId);
+			const dst = tabsRef.current.find((t) => t.id === dstId);
+			if (src?.kind !== "terminal" || dst?.kind !== "terminal" || srcId === dstId) return false;
+			if (leafIds(src.paneTree).length + leafIds(dst.paneTree).length > MAX_PANES_PER_TAB) return false;
+			const splitId = nextIdRef.current++;
+			setTabs((curr) => {
+				const s = curr.find((t) => t.id === srcId);
+				const d = curr.find((t) => t.id === dstId);
+				if (s?.kind !== "terminal" || d?.kind !== "terminal") return curr;
+				return curr
+					.filter((t) => t.id !== srcId)
+					.map((t) =>
+						t.id === dstId
+							? {
+									...d,
+									paneTree: { kind: "split", id: splitId, dir, children: [d.paneTree, s.paneTree] },
+									activeLeafId: s.activeLeafId,
+								}
+							: t,
+					);
+			});
+			setActiveId(dstId);
+			return true;
+		},
+		[],
+	);
+
 	return {
 		tabs,
 		activeId,
@@ -1268,6 +1342,8 @@ export function useTabs() {
 		closeTabs,
 		reopenClosedTab,
 		openTerminalLayout,
+		breakPaneToTab,
+		joinTabInto,
 		updateTab,
 		selectByIndex,
 		setLeafCwd,

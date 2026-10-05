@@ -28,11 +28,12 @@ import { PANE_ACTIONS, TERMINAL_ACTIONS, toggleBroadcast } from "@/modules/termi
 import { TERMINAL_FEATURE_ACTIONS } from "@/modules/terminal/features";
 import { RUN_TASK_ACTIONS } from "@/modules/run/taskActions";
 import { WORKSPACE_ACTIONS } from "@/modules/workspace/actions";
-import { pickClosedTab } from "@/modules/tabs/tabActions";
+import { pickClosedTab, TAB_ACTIONS } from "@/modules/tabs/tabActions";
 import { deleteSavedLayout, openSavedLayout, saveCurrentLayout } from "@/modules/tabs/layoutActions";
 import { GIT_ACTIONS } from "@/modules/git-actions/actions";
 import { GIT_EXTRA_ACTIONS } from "@/modules/git-actions/extraActions";
 import { THEME_ACTIONS } from "@/modules/theme/themeActions";
+import { NOTIFICATION_ACTIONS } from "@/modules/notifications/actions";
 import { app } from "@/app/appBridge";
 
 type CommandIcon = typeof TerminalIcon;
@@ -421,7 +422,16 @@ export function createCommandPaletteActions(
       run: () => void action.run(),
       deferRun: true,
     })),
-    ...THEME_ACTIONS.map((action): CommandPaletteAction => ({
+    ...TAB_ACTIONS.map((action): CommandPaletteAction => ({
+      id: action.id,
+      label: action.label,
+      group: action.id.startsWith("panes.") ? "Panes" : "Tabs",
+      keywords: ["tab", ...action.keywords],
+      icon: LayoutTwoColumnIcon,
+      run: () => void action.run(),
+      deferRun: true,
+    })),
+    ...[...THEME_ACTIONS, ...NOTIFICATION_ACTIONS].map((action): CommandPaletteAction => ({
       id: action.id,
       label: action.label,
       group: "View",
