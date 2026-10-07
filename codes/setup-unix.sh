@@ -6,18 +6,19 @@
 #   bash setup-unix.sh                 # ~/codes/gear, default branch below
 #   CODES_DIR=~/work BRANCH=main bash setup-unix.sh --dev
 #
-# Flags: --skip-tools  --dev (run `pnpm tauri dev`)  --build (build packages)
+# Flags: --skip-tools  --extras (debugger / notebook / coverage tools)  --dev (run `pnpm tauri dev`)  --build (build packages)
 set -euo pipefail
 
 CODES_DIR="${CODES_DIR:-$HOME/codes}"
 BRANCH="${BRANCH:-claude/jolly-mccarthy-5fwubd}"
 REPO="${REPO:-https://github.com/cLLeB/gear.git}"
-SKIP_TOOLS=0; RUN_DEV=0; RUN_BUILD=0
+SKIP_TOOLS=0; RUN_DEV=0; RUN_BUILD=0; EXTRAS=0
 for a in "$@"; do
   case "$a" in
     --skip-tools) SKIP_TOOLS=1 ;;
     --dev) RUN_DEV=1 ;;
     --build) RUN_BUILD=1 ;;
+    --extras) EXTRAS=1 ;;
     *) echo "unknown flag: $a" >&2; exit 2 ;;
   esac
 done
@@ -89,6 +90,31 @@ fi
 
 step "Installing dependencies (pnpm install)"
 pnpm install
+
+if [ "$EXTRAS" = 1 ]; then
+  step "Installing optional tools (debugger, notebooks, coverage)"
+  # Python debugging (debugpy), Jupyter notebooks (ipykernel) and pytest coverage.
+  PY=$(command -v python3 || command -v python || true)
+  if [ -n "$PY" ]; then
+    "$PY" -m pip install --user --upgrade debugpy ipykernel jupyter_client pytest pytest-cov \
+      || "$PY" -m pip install --user --break-system-packages --upgrade debugpy ipykernel jupyter_client pytest pytest-cov \
+      || echo "    pip install failed — install debugpy and ipykernel in your project's venv instead"
+  else echo "    Python not found; skipped debugpy / ipykernel"; fi
+  # Go debugging (Delve), only when Go is installed.
+  if have go; then go install github.com/go-delve/delve/cmd/dlv@latest; else echo "    Go not installed; skipping Delve"; fi
+  # C / C++ / Rust debugging: gdb 14+ or lldb-dap.
+  if ! have gdb && ! have lldb-dap; then
+    if [ "$(uname -s)" = Darwin ]; then have brew && brew install llvm || true
+    elif have apt-get; then sudo apt-get install -y gdb || true
+    elif have dnf; then sudo dnf install -y gdb || true
+    elif have pacman; then sudo pacman -S --needed --noconfirm gdb || true; fi
+  fi
+  cat <<TXT
+    Node.js debugging needs js-debug: download js-debug-dap-*.tar.gz from
+    https://github.com/microsoft/vscode-js-debug/releases, extract it, and set
+    Settings > Features > Debug > js-debug server path to .../js-debug/src/dapDebugServer.js
+TXT
+fi
 
 printf '\n\033[32mReady: %s\033[0m\n' "$DIR"
 cat <<TXT
