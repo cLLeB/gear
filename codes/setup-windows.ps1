@@ -17,6 +17,7 @@ param(
   [string]$Branch = "claude/jolly-mccarthy-5fwubd",
   [string]$Repo = "https://github.com/cLLeB/gear.git",
   [switch]$SkipTools,   # don't install Git/Node/Rust/Build Tools
+  [switch]$Extras,      # also install the tools the debugger / notebooks / tests use
   [switch]$Dev,         # run `pnpm tauri dev` when done
   [switch]$Build        # build the installer (.exe/.msi) when done
 )
@@ -81,6 +82,23 @@ if (Test-Path (Join-Path $dir ".git")) {
 
 Step "Installing dependencies (pnpm install)"
 pnpm install
+
+if ($Extras) {
+  Step "Installing optional tools (debugger, notebooks, coverage)"
+  # Python debugging (debugpy), Jupyter notebooks (ipykernel) and pytest coverage.
+  $py = @("py", "python", "python3") | Where-Object { Have $_ } | Select-Object -First 1
+  if (-not $py -and (Have winget)) { Winget-Install "Python.Python.3.12"; Refresh-Path; $py = @("py", "python") | Where-Object { Have $_ } | Select-Object -First 1 }
+  if ($py) { & $py -m pip install --user --upgrade debugpy ipykernel jupyter_client pytest pytest-cov | Out-Host } else { Write-Warning "Python not found; skipped debugpy / ipykernel." }
+  # Go debugging (Delve), only when Go is installed.
+  if (Have go) { go install github.com/go-delve/delve/cmd/dlv@latest | Out-Host } else { Write-Host "    Go not installed; skipping Delve (install Go, then: go install github.com/go-delve/delve/cmd/dlv@latest)" }
+  # C / C++ / Rust debugging: lldb-dap ships with LLVM.
+  if (-not (Have lldb-dap) -and (Have winget)) { Winget-Install "LLVM.LLVM" }
+  Write-Host @"
+    Node.js debugging needs js-debug: download js-debug-dap-*.tar.gz from
+    https://github.com/microsoft/vscode-js-debug/releases, extract it, and set
+    Settings > Features > Debug > js-debug server path to ...\js-debug\src\dapDebugServer.js
+"@
+}
 
 Write-Host "`nReady: $dir" -ForegroundColor Green
 Write-Host @"

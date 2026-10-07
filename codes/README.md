@@ -22,6 +22,7 @@ C++ Build Tools and WebView2 (via `winget`), then enables pnpm. Options:
 | `-CodesDir D:\codes` | clone somewhere else |
 | `-Branch main` | use another branch (default: `claude/jolly-mccarthy-5fwubd`) |
 | `-SkipTools` | skip installing tools you already have |
+| `-Extras` | also install what the debugger, notebooks and test coverage use (see below) |
 | `-Dev` | start Gear in dev mode when done |
 | `-Build` | build the `.exe`/`.msi` installers when done |
 
@@ -31,11 +32,27 @@ PATH yet, open a new PowerShell window and run it again.
 ## macOS / Linux
 
 ```bash
-bash setup-unix.sh            # add --dev or --build to continue straight on
+bash setup-unix.sh            # add --extras, --dev or --build
 ```
 
 On Linux it installs the Tauri system libraries with apt, dnf or pacman; on
 macOS it uses Homebrew and the Xcode command line tools.
+
+## Optional tools (`-Extras` / `--extras`)
+
+Gear itself only needs the toolchain above. Some features use tools from the
+language you work in; the extras step installs them:
+
+| Feature | Needs |
+| --- | --- |
+| Debug Python, notebooks, pytest coverage | `pip install debugpy ipykernel jupyter_client pytest pytest-cov` |
+| Debug Go | Delve: `go install github.com/go-delve/delve/cmd/dlv@latest` |
+| Debug C / C++ / Rust | `lldb-dap` (LLVM) or gdb 14+ |
+| Debug Node.js | js-debug (download, then set its path in Settings → Features → Debug) |
+| Vitest / Jest coverage | `@vitest/coverage-v8` / jest in the project you test |
+
+Inside Gear, "Debug: Installed debug adapters" shows what it found. A
+project's `.venv` is used automatically for Python debugging and notebooks.
 
 ## Day to day
 
