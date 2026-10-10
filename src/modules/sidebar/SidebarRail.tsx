@@ -3,6 +3,7 @@ import {
   Bug01Icon,
   ContainerIcon,
   PuzzleIcon,
+  CloudServerIcon,
   Database01Icon,
   ClockIcon,
   FolderGitTwoIcon,
@@ -145,6 +146,12 @@ export function SidebarRail({
         icon={ContainerIcon}
         active={sidebarOpen && activeView === "containers"}
         onClick={() => onSelectView("containers")}
+      />
+      <RailButton
+        label="Remote (SSH)"
+        icon={CloudServerIcon}
+        active={sidebarOpen && activeView === "remote"}
+        onClick={() => onSelectView("remote")}
       />
       <RailButton
         label="Extensions"
