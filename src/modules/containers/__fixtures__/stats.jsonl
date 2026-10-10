@@ -1,0 +1,2 @@
+{"BlockIO":"0B / 0B","CPUPerc":"0.00%","Container":"e2c7c97ca33f56b765808a4a4a8f52db75fa83b2f82b03aaa6a602ee11a52614","ID":"e2c7c97ca33f","MemPerc":"0.01%","MemUsage":"1.105MiB / 15.72GiB","Name":"fx-plain","NetIO":"84B / 126B","PIDs":"1"}
+{"BlockIO":"0B / 0B","CPUPerc":"0.00%","Container":"0608606d083d89ece32dad103d02e24158546d449596b4536ea8af5c9425f435","ID":"0608606d083d","MemPerc":"0.00%","MemUsage":"428KiB / 15.72GiB","Name":"fx-web","NetIO":"126B / 126B","PIDs":"1"}
