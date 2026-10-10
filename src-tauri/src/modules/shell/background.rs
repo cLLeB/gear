@@ -61,7 +61,24 @@ impl BackgroundProc {
         }
     }
 
+    /// Kill the whole tree: the wrapping shell and whatever it started
+    /// (`ssh -L`, `kubectl port-forward`, `docker logs -f`…), which would
+    /// otherwise be orphaned and keep running.
     pub fn kill(&self) {
+        #[cfg(unix)]
+        unsafe {
+            libc::kill(-(self.child.id() as libc::pid_t), libc::SIGKILL);
+        }
+        #[cfg(windows)]
+        if !self.exited.load(Ordering::Acquire) {
+            let mut tk = std::process::Command::new("taskkill");
+            tk.args(["/T", "/F", "/PID", &self.child.id().to_string()])
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null());
+            crate::modules::proc::hide_console(&mut tk);
+            let _ = tk.status();
+        }
         let _ = self.child.kill();
     }
 
@@ -112,6 +129,15 @@ pub fn spawn(
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
     crate::modules::proc::hide_console(&mut cmd);
+    // Own process group, so kill() can take down everything the shell started.
+    #[cfg(unix)]
+    unsafe {
+        use std::os::unix::process::CommandExt;
+        cmd.pre_exec(|| {
+            libc::setpgid(0, 0);
+            Ok(())
+        });
+    }
 
     let shared = Arc::new(SharedChild::spawn(&mut cmd).map_err(|e| e.to_string())?);
     let kill_on_fail = || {
@@ -187,4 +213,40 @@ pub fn spawn(
     }
 
     Ok(proc)
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::*;
+    use std::time::{Duration, Instant};
+
+    #[test]
+    fn kill_takes_down_what_the_shell_started() {
+        let proc =
+            spawn("sleep 30 & echo $!; wait".into(), None, WorkspaceEnv::Local).expect("spawn");
+        let deadline = Instant::now() + Duration::from_secs(5);
+        let grandchild = loop {
+            let out = proc.read_logs(0).bytes;
+            if let Some(pid) = out
+                .lines()
+                .next()
+                .and_then(|l| l.trim().parse::<i32>().ok())
+            {
+                break pid;
+            }
+            assert!(Instant::now() < deadline, "no pid printed");
+            thread::sleep(Duration::from_millis(20));
+        };
+        assert_eq!(
+            unsafe { libc::kill(grandchild, 0) },
+            0,
+            "grandchild should be running"
+        );
+        proc.kill();
+        let deadline = Instant::now() + Duration::from_secs(3);
+        while unsafe { libc::kill(grandchild, 0) } == 0 {
+            assert!(Instant::now() < deadline, "grandchild survived kill()");
+            thread::sleep(Duration::from_millis(20));
+        }
+    }
 }
