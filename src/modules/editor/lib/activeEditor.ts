@@ -20,8 +20,10 @@ let active: ActiveEditor | null = null;
 
 /** Record the editor the user is working in (called on focus). */
 export function setActiveEditor(view: EditorView, languageId: string, path?: string): void {
+  const changed = active?.path !== path || active?.languageId !== languageId;
   active = { view, languageId, path };
   if (path) noteRecentFile(path);
+  if (changed && typeof window !== "undefined") window.dispatchEvent(new CustomEvent("gear:active-editor", { detail: { path, languageId } }));
 }
 
 // Most-recently-focused files, persisted per machine for "Open recent file".

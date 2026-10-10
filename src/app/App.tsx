@@ -183,6 +183,9 @@ import { DebugPanel } from "@/modules/debug/DebugPanel";
 import { TestPanel } from "@/modules/testing/TestPanel";
 import { DatabasePanel } from "@/modules/database/DatabasePanel";
 import { ContainersPanel } from "@/modules/containers/ContainersPanel";
+import { ExtensionsPanel } from "@/modules/extensions/ExtensionsPanel";
+import { extensionCommandActions } from "@/modules/extensions/actions";
+import { allCommands, bootExtensions, installEditorHooks, useExtStore } from "@/modules/extensions/store";
 import { isDebugging, isPaused, openLaunchJson, toggleBreakpointAtCursor } from "@/modules/debug/debugActions";
 import { debugCommand, startOrContinue, stopDebugging, useDebugStore } from "@/modules/debug/store";
 import { goToLinePrompt, goToSymbolCmd } from "@/modules/editor/lib/textTools/commands";
@@ -251,7 +254,7 @@ function readSidebarWidth(): number {
 function readSidebarView(): SidebarViewId {
 	try {
 		const stored = window.localStorage.getItem(SIDEBAR_VIEW_STORAGE_KEY);
-		if (stored === "explorer" || stored === "source-control" || stored === "debug" || stored === "tests" || stored === "database" || stored === "containers") return stored;
+		if (stored === "explorer" || stored === "source-control" || stored === "debug" || stored === "tests" || stored === "database" || stored === "containers" || stored === "extensions") return stored;
 	} catch {
 		// ignore
 	}
@@ -426,6 +429,12 @@ export default function App() {
 			persistSidebarView("containers");
 		};
 		window.addEventListener("gear:show-containers-panel", showContainers);
+		const showExtensions = () => {
+			const panel = sidebarRef.current;
+			if (panel && panel.getSize().asPercentage <= 0) panel.resize(`${sidebarWidthRef.current}px`);
+			persistSidebarView("extensions");
+		};
+		window.addEventListener("gear:show-extensions-panel", showExtensions);
 		window.addEventListener("gear:show-debug-panel", show);
 		window.addEventListener("gear:open-launch-json", openLaunch);
 		return () => {
@@ -433,6 +442,7 @@ export default function App() {
 			window.removeEventListener("gear:show-testing-panel", showTests);
 			window.removeEventListener("gear:show-database-panel", showDb);
 			window.removeEventListener("gear:show-containers-panel", showContainers);
+			window.removeEventListener("gear:show-extensions-panel", showExtensions);
 			window.removeEventListener("gear:open-launch-json", openLaunch);
 		};
 	}, [persistSidebarView]);
@@ -1884,6 +1894,16 @@ export default function App() {
 		gitHistoryHandle,
 	]);
 
+	// Extensions: boot the enabled ones once, and feed editor events to them.
+	useEffect(() => {
+		const off = installEditorHooks();
+		void bootExtensions();
+		return off;
+	}, []);
+	const extInstalled = useExtStore((s) => s.installed);
+	const extEnabled = useExtStore((s) => s.enabled);
+	const extActions = useMemo(() => extensionCommandActions(allCommands(extInstalled, extEnabled)), [extInstalled, extEnabled]);
+
 	const commandPaletteActions = useMemo(
 		() =>
 			createCommandPaletteActions({
@@ -2400,6 +2420,8 @@ export default function App() {
 														<DebugPanel />
 													) : sidebarView === "tests" ? (
 														<TestPanel />
+													) : sidebarView === "extensions" ? (
+														<ExtensionsPanel />
 													) : sidebarView === "containers" ? (
 														<ContainersPanel />
 													) : sidebarView === "database" ? (
@@ -2523,6 +2545,8 @@ export default function App() {
 														<DebugPanel />
 													) : sidebarView === "tests" ? (
 														<TestPanel />
+													) : sidebarView === "extensions" ? (
+														<ExtensionsPanel />
 													) : sidebarView === "containers" ? (
 														<ContainersPanel />
 													) : sidebarView === "database" ? (
@@ -2625,7 +2649,7 @@ export default function App() {
 					<CommandPalette
 						open={commandPaletteOpen}
 						onOpenChange={setCommandPaletteOpen}
-						actions={commandPaletteActions}
+						actions={extActions.length ? [...commandPaletteActions, ...extActions] : commandPaletteActions}
 						workspaceRoot={explorerRoot}
 						onOpenFile={handleOpenFile}
 						onPrefixMode={(mode) => {

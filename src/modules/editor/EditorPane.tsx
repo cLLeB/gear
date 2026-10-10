@@ -313,6 +313,7 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
         }
       }
       onSavedRef.current?.();
+      window.dispatchEvent(new CustomEvent("gear:file-saved", { detail: { path: pathRef.current } }));
     }, []);
     const performSaveRef = useRef(performSave);
     performSaveRef.current = performSave;
