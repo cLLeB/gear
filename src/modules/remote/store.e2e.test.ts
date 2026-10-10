@@ -35,7 +35,7 @@ vi.mock("@/modules/ai/lib/native", () => ({
     writeFile: async (p: string, c: string) => writeFileSync(p, c),
     createDir: async (p: string) => void mkdirSync(p, { recursive: true }),
     shellBgSpawn: async (command: string) => {
-      const p = spawn("sh", ["-c", command]);
+      const p = spawn("sh", ["-c", command], { detached: true }); // own group, like the app
       const id = bg.size + 1;
       const e = { p, out: "", code: null as number | null, exited: false };
       p.stdout!.on("data", (d) => (e.out += d));
@@ -48,7 +48,11 @@ vi.mock("@/modules/ai/lib/native", () => ({
       const e = bg.get(id)!;
       return { bytes: e.out, next_offset: e.out.length, dropped: 0, exited: e.exited, exit_code: e.code };
     },
-    shellBgKill: async (id: number) => void bg.get(id)?.p.kill(),
+    shellBgKill: async (id: number) => {
+      const e = bg.get(id);
+      // Kill the group: the shell and what it started (mirrors the Rust side).
+      if (e?.p.pid) try { process.kill(-e.p.pid, "SIGKILL"); } catch { /* gone */ }
+    },
   },
 }));
 
