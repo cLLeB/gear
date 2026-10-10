@@ -1,0 +1,10 @@
+<module> (work.py:8);main (work.py:7);busy (work.py:4);fib (work.py:1);fib (work.py:1);fib (work.py:1);fib (work.py:1);fib (work.py:1);fib (work.py:1);fib (work.py:1) 1
+<module> (work.py:8);main (work.py:7);busy (work.py:4);fib (work.py:1);fib (work.py:1);fib (work.py:1);fib (work.py:1);fib (work.py:1);fib (work.py:1);fib (work.py:1);fib (work.py:1);fib (work.py:1);fib (work.py:1);fib (work.py:1);fib (work.py:1);fib (work.py:1) 12
+<module> (work.py:8);main (work.py:7);busy (work.py:4);fib (work.py:1);fib (work.py:1);fib (work.py:1);fib (work.py:1);fib (work.py:1);fib (work.py:1);fib (work.py:1);fib (work.py:1);fib (work.py:1);fib (work.py:1);fib (work.py:1);fib (work.py:1);fib (work.py:1);fib (work.py:1) 5
+<module> (work.py:8);main (work.py:7);busy (work.py:4);fib (work.py:1);fib (work.py:1);fib (work.py:1);fib (work.py:1);fib (work.py:1);fib (work.py:1);fib (work.py:1);fib (work.py:1);fib (work.py:1);fib (work.py:1) 6
+<module> (work.py:8);main (work.py:7);busy (work.py:4);fib (work.py:1);fib (work.py:1);fib (work.py:1);fib (work.py:1);fib (work.py:1);fib (work.py:1);fib (work.py:1);fib (work.py:1);fib (work.py:1);fib (work.py:1);fib (work.py:1) 10
+<module> (work.py:8);main (work.py:7);busy (work.py:4);fib (work.py:1);fib (work.py:1);fib (work.py:1);fib (work.py:1);fib (work.py:1);fib (work.py:1);fib (work.py:1);fib (work.py:1);fib (work.py:1);fib (work.py:1);fib (work.py:1);fib (work.py:1) 14
+<module> (work.py:8);main (work.py:7);busy (work.py:4);fib (work.py:1);fib (work.py:1);fib (work.py:1);fib (work.py:1);fib (work.py:1);fib (work.py:1);fib (work.py:1);fib (work.py:1);fib (work.py:1);fib (work.py:1);fib (work.py:1);fib (work.py:1);fib (work.py:1);fib (work.py:1);fib (work.py:1) 5
+<module> (work.py:8);main (work.py:7);busy (work.py:4);fib (work.py:1);fib (work.py:1);fib (work.py:1);fib (work.py:1);fib (work.py:1);fib (work.py:1);fib (work.py:1);fib (work.py:1) 1
+ 2
+<module> (work.py:8);main (work.py:7);busy (work.py:4);fib (work.py:1);fib (work.py:1);fib (work.py:1);fib (work.py:1);fib (work.py:1);fib (work.py:1);fib (work.py:1);fib (work.py:1);fib (work.py:1) 2
