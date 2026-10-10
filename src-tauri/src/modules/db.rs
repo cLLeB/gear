@@ -624,4 +624,80 @@ mod tests {
         );
         run_query(&mut c, "DROP TABLE gear_t", 10).unwrap();
     }
+
+    /// Runs against a real server when GEAR_TEST_MY_PORT is set (MariaDB/MySQL, user gear/pw, database gtest).
+    #[test]
+    fn mysql_end_to_end() {
+        let Ok(port) = std::env::var("GEAR_TEST_MY_PORT") else {
+            return;
+        };
+        let spec = ConnectSpec {
+            kind: "mysql".into(),
+            host: Some("127.0.0.1".into()),
+            port: port.parse().ok(),
+            user: Some("gear".into()),
+            password: Some("pw".into()),
+            database: Some("gtest".into()),
+            path: None,
+            ssl: Some("prefer".into()),
+        };
+        let mut c = connect(&spec).unwrap();
+        run_query(&mut c, "DROP TABLE IF EXISTS gear_t", 10).unwrap();
+        run_query(&mut c, "CREATE TABLE gear_t (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(40) NOT NULL, born DATE NULL, at DATETIME(3) NULL, price DECIMAL(8,2))", 10).unwrap();
+        let ins = run_query(&mut c, "INSERT INTO gear_t (name, born, at, price) VALUES ('ada', '1815-12-10', '2026-01-02 03:04:05.678', 12.50), ('bob', NULL, NULL, NULL)", 10).unwrap();
+        assert_eq!(ins.affected, Some(2));
+        let r = run_query(
+            &mut c,
+            "SELECT id, name, born, at, price FROM gear_t ORDER BY id",
+            10,
+        )
+        .unwrap();
+        assert_eq!(r.columns, ["id", "name", "born", "at", "price"]);
+        assert_eq!(
+            r.rows[0],
+            vec![
+                Some("1".into()),
+                Some("ada".into()),
+                Some("1815-12-10".into()),
+                Some("2026-01-02 03:04:05.678".into()),
+                Some("12.50".into())
+            ]
+        );
+        assert_eq!(r.rows[1][2], None);
+        assert!(run_query(&mut c, "SELECT nope FROM gear_t", 10)
+            .unwrap_err()
+            .contains("nope"));
+        assert!(run_batch(
+            &mut c,
+            &[
+                "UPDATE gear_t SET name = 'x' WHERE id = 1".into(),
+                "UPDATE gear_t SET name = NULL".into()
+            ]
+        )
+        .is_err());
+        assert_eq!(
+            run_query(&mut c, "SELECT name FROM gear_t WHERE id = 1", 10)
+                .unwrap()
+                .rows[0][0]
+                .as_deref(),
+            Some("ada")
+        );
+        let s = schema(&mut c).unwrap();
+        let t = s.iter().find(|t| t.name == "gear_t").unwrap();
+        assert!(
+            t.columns
+                .iter()
+                .find(|c| c.name == "id")
+                .unwrap()
+                .primary_key
+        );
+        assert!(
+            !t.columns
+                .iter()
+                .find(|c| c.name == "name")
+                .unwrap()
+                .nullable
+        );
+        run_query(&mut c, "DROP TABLE gear_t", 10).unwrap();
+    }
 }
