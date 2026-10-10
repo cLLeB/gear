@@ -2,7 +2,7 @@ pub mod modules;
 
 use fs::to_canon;
 use modules::{
-    agent, chronicle, control, dap, fs, git, history, lsp, net, pty, secrets, shell, workspace,
+    agent, chronicle, control, dap, db, fs, git, history, lsp, net, pty, secrets, shell, workspace,
 };
 use std::sync::Mutex;
 use tauri::{Emitter, Manager, State};
@@ -187,6 +187,7 @@ pub fn run() {
         .manage(chronicle::ChronicleState::default())
         .manage(lsp::LspState::default())
         .manage(dap::DapState::default())
+        .manage(db::DbState::default())
         .manage(shell::ShellState::default())
         .manage(history::HistoryState::default())
         .manage(secrets::SecretsState::default())
@@ -226,6 +227,11 @@ pub fn run() {
             dap::dap_spawn_tcp,
             dap::dap_send,
             dap::dap_kill,
+            db::db_connect,
+            db::db_query,
+            db::db_batch,
+            db::db_schema,
+            db::db_close,
             fs::tree::list_subdirs,
             fs::tree::fs_read_dir,
             fs::file::fs_read_file,
