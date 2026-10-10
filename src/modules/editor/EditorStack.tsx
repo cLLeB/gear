@@ -6,6 +6,7 @@ import { ProfilePane } from "@/modules/profiler/ProfilePane";
 import { ConsolePane } from "@/modules/database/ConsolePane";
 import { DockerPane } from "@/modules/containers/DockerPane";
 import { ExtLogPane } from "@/modules/extensions/ExtLogPane";
+import { HttpSplit } from "@/modules/http/HttpSplit";
 import { EditorPane, type EditorPaneHandle } from "./EditorPane";
 
 type Props = {
@@ -112,6 +113,16 @@ export function EditorStack({
                 <ProfilePane ref={getRefCallback(t.id)} path={t.path} />
               ) : /\.ipynb$/i.test(t.path) && !t.languageOverride ? (
                 <NotebookPane ref={getRefCallback(t.id)} path={t.path} onDirtyChange={getDirtyCallback(t.id)} onClose={getCloseCallback(t.id)} />
+              ) : /\.(http|rest)$/i.test(t.path) && !t.languageOverride ? (
+                <HttpSplit path={t.path}>
+                  <EditorPane
+                    ref={getRefCallback(t.id)}
+                    path={t.path}
+                    languageOverride={t.languageOverride}
+                    onDirtyChange={getDirtyCallback(t.id)}
+                    onClose={getCloseCallback(t.id)}
+                  />
+                </HttpSplit>
               ) : (
                 <EditorPane
                   ref={getRefCallback(t.id)}

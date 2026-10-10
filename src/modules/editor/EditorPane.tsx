@@ -1,3 +1,4 @@
+import { httpGutter } from "@/modules/http/httpGutter";
 import { redo, undo } from "@codemirror/commands";
 import {
   findNext,
@@ -429,6 +430,7 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
         conflictLens(),
         debugGutter(() => pathRef.current),
         testGutter(() => pathRef.current),
+        httpGutter(() => pathRef.current),
         gitGutter(() => pathRef.current),
         bookmarks(() => pathRef.current),
         keymap.of(bookmarksKeymap()),
