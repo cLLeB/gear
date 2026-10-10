@@ -184,6 +184,8 @@ import { TestPanel } from "@/modules/testing/TestPanel";
 import { DatabasePanel } from "@/modules/database/DatabasePanel";
 import { ContainersPanel } from "@/modules/containers/ContainersPanel";
 import { ExtensionsPanel } from "@/modules/extensions/ExtensionsPanel";
+import { RemotePanel } from "@/modules/remote/RemotePanel";
+import { installSaveHook as installRemoteSaveHook } from "@/modules/remote/store";
 import { extensionCommandActions } from "@/modules/extensions/actions";
 import { allCommands, bootExtensions, installEditorHooks, useExtStore } from "@/modules/extensions/store";
 import { isDebugging, isPaused, openLaunchJson, toggleBreakpointAtCursor } from "@/modules/debug/debugActions";
@@ -254,7 +256,7 @@ function readSidebarWidth(): number {
 function readSidebarView(): SidebarViewId {
 	try {
 		const stored = window.localStorage.getItem(SIDEBAR_VIEW_STORAGE_KEY);
-		if (stored === "explorer" || stored === "source-control" || stored === "debug" || stored === "tests" || stored === "database" || stored === "containers" || stored === "extensions") return stored;
+		if (stored === "explorer" || stored === "source-control" || stored === "debug" || stored === "tests" || stored === "database" || stored === "containers" || stored === "extensions" || stored === "remote") return stored;
 	} catch {
 		// ignore
 	}
@@ -435,6 +437,12 @@ export default function App() {
 			persistSidebarView("extensions");
 		};
 		window.addEventListener("gear:show-extensions-panel", showExtensions);
+		const showRemote = () => {
+			const panel = sidebarRef.current;
+			if (panel && panel.getSize().asPercentage <= 0) panel.resize(`${sidebarWidthRef.current}px`);
+			persistSidebarView("remote");
+		};
+		window.addEventListener("gear:show-remote-panel", showRemote);
 		window.addEventListener("gear:show-debug-panel", show);
 		window.addEventListener("gear:open-launch-json", openLaunch);
 		return () => {
@@ -443,6 +451,7 @@ export default function App() {
 			window.removeEventListener("gear:show-database-panel", showDb);
 			window.removeEventListener("gear:show-containers-panel", showContainers);
 			window.removeEventListener("gear:show-extensions-panel", showExtensions);
+			window.removeEventListener("gear:show-remote-panel", showRemote);
 			window.removeEventListener("gear:open-launch-json", openLaunch);
 		};
 	}, [persistSidebarView]);
@@ -1897,8 +1906,12 @@ export default function App() {
 	// Extensions: boot the enabled ones once, and feed editor events to them.
 	useEffect(() => {
 		const off = installEditorHooks();
+		const offRemote = installRemoteSaveHook();
 		void bootExtensions();
-		return off;
+		return () => {
+			off();
+			offRemote();
+		};
 	}, []);
 	const extInstalled = useExtStore((s) => s.installed);
 	const extEnabled = useExtStore((s) => s.enabled);
@@ -2420,6 +2433,8 @@ export default function App() {
 														<DebugPanel />
 													) : sidebarView === "tests" ? (
 														<TestPanel />
+													) : sidebarView === "remote" ? (
+														<RemotePanel />
 													) : sidebarView === "extensions" ? (
 														<ExtensionsPanel />
 													) : sidebarView === "containers" ? (
@@ -2545,6 +2560,8 @@ export default function App() {
 														<DebugPanel />
 													) : sidebarView === "tests" ? (
 														<TestPanel />
+													) : sidebarView === "remote" ? (
+														<RemotePanel />
 													) : sidebarView === "extensions" ? (
 														<ExtensionsPanel />
 													) : sidebarView === "containers" ? (
