@@ -219,3 +219,12 @@ noted; tunable behaviour lives in **Settings → Features**.
 ## Git
 - Stage / unstage / discard selected lines; split the last commit per file; stale branches; largest files in history; add a co-author; oldest TODOs dated by blame
 - Clean untracked files with a preview; cherry-pick a range; which branches / tags contain a commit; incoming / outgoing commits
+
+# Checkpoint 6
+
+## Large features
+
+### CPU profiler & flame graphs
+- Open `.cpuprofile` (Node / Chrome), speedscope JSON (py-spy, rbspy…) and collapsed-stack files (perf, py-spy raw, inferno) in a canvas flame graph: click to zoom, double-click to open the source line, regex search highlighting, colours by file / package.
+- Functions table (self, total — recursion counted once — and frame count), click a function to see everything it calls merged into one tree; the hot path of your own code.
+- Record: profile the active Node / TypeScript / Python file, any command (NODE_OPTIONS profiles every node process an npm script starts; py-spy for Python), or attach py-spy to a running process; the profile opens by itself when it's written.

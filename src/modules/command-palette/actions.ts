@@ -46,6 +46,7 @@ import { MERGE_ACTIONS } from "@/modules/merge/mergeActions";
 import { DEBUG_ACTIONS } from "@/modules/debug/debugActions";
 import { TESTING_ACTIONS } from "@/modules/testing/actions";
 import { NOTEBOOK_ACTIONS } from "@/modules/notebook/actions";
+import { PROFILER_ACTIONS } from "@/modules/profiler/actions";
 import { THEME_ACTIONS } from "@/modules/theme/themeActions";
 import { NOTIFICATION_ACTIONS } from "@/modules/notifications/actions";
 import { COMPARE_ACTIONS } from "@/modules/compare/actions";
@@ -453,7 +454,7 @@ export function createCommandPaletteActions(
       run: () => void action.run(),
       deferRun: true,
     })),
-    ...[...DEBUG_ACTIONS, ...TESTING_ACTIONS, ...NOTEBOOK_ACTIONS].map((action): CommandPaletteAction => ({
+    ...[...DEBUG_ACTIONS, ...TESTING_ACTIONS, ...NOTEBOOK_ACTIONS, ...PROFILER_ACTIONS].map((action): CommandPaletteAction => ({
       id: action.id,
       label: action.label,
       group: "Code",
