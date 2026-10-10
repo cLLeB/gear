@@ -3,6 +3,7 @@ import type { EditorTab, Tab } from "@/modules/tabs";
 import { useEffect, useRef } from "react";
 import { NotebookPane } from "@/modules/notebook/NotebookPane";
 import { ProfilePane } from "@/modules/profiler/ProfilePane";
+import { ConsolePane } from "@/modules/database/ConsolePane";
 import { EditorPane, type EditorPaneHandle } from "./EditorPane";
 
 type Props = {
@@ -99,7 +100,9 @@ export function EditorStack({
             aria-hidden={!visible}
           >
             <div className="h-full overflow-hidden rounded-md border border-border/60 bg-background">
-              {/\.(cpuprofile|speedscope\.json|folded|collapsed)$/i.test(t.path) && !t.languageOverride ? (
+              {t.path.startsWith("gear-db://") ? (
+                <ConsolePane ref={getRefCallback(t.id)} path={t.path} />
+              ) : /\.(cpuprofile|speedscope\.json|folded|collapsed)$/i.test(t.path) && !t.languageOverride ? (
                 <ProfilePane ref={getRefCallback(t.id)} path={t.path} />
               ) : /\.ipynb$/i.test(t.path) && !t.languageOverride ? (
                 <NotebookPane ref={getRefCallback(t.id)} path={t.path} onDirtyChange={getDirtyCallback(t.id)} onClose={getCloseCallback(t.id)} />
