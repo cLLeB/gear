@@ -228,3 +228,9 @@ noted; tunable behaviour lives in **Settings → Features**.
 - Open `.cpuprofile` (Node / Chrome), speedscope JSON (py-spy, rbspy…) and collapsed-stack files (perf, py-spy raw, inferno) in a canvas flame graph: click to zoom, double-click to open the source line, regex search highlighting, colours by file / package.
 - Functions table (self, total — recursion counted once — and frame count), click a function to see everything it calls merged into one tree; the hot path of your own code.
 - Record: profile the active Node / TypeScript / Python file, any command (NODE_OPTIONS profiles every node process an npm script starts; py-spy for Python), or attach py-spy to a running process; the profile opens by itself when it's written.
+
+### Database client
+- **Database view**: saved connections to PostgreSQL, MySQL / MariaDB and SQLite (paste a URL or fill the form, test before saving; TLS via rustls; passwords in the OS keychain), schema tree with tables, views, columns, types and keys.
+- **SQL console tabs**: SQL highlighting with table / column completion from the live schema, Ctrl+Enter runs the statement at the cursor (or the selection), Ctrl+Shift+Enter the script, Explain, history, row caps with timing.
+- **Results grid**: virtualized (thousands of rows), sortable, copy as CSV / JSON / Markdown; results of a plain single-table query are editable — change cells, set NULL, add / delete rows — and "Apply" shows the generated statements and runs them in one transaction (all or nothing).
+- Safety: confirmation for DROP / TRUNCATE / DELETE or UPDATE without WHERE, and a per-connection "ask before writing" mode for production. Run selected SQL from any `.sql` file against a connection.

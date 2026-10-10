@@ -1,1 +1,1 @@
-export type SidebarViewId = "explorer" | "source-control" | "debug" | "tests";
+export type SidebarViewId = "explorer" | "source-control" | "debug" | "tests" | "database";
