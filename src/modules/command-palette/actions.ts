@@ -49,6 +49,7 @@ import { NOTEBOOK_ACTIONS } from "@/modules/notebook/actions";
 import { PROFILER_ACTIONS } from "@/modules/profiler/actions";
 import { DATABASE_ACTIONS } from "@/modules/database/actions";
 import { CONTAINER_ACTIONS } from "@/modules/containers/actions";
+import { EXTENSION_ACTIONS } from "@/modules/extensions/actions";
 import { THEME_ACTIONS } from "@/modules/theme/themeActions";
 import { NOTIFICATION_ACTIONS } from "@/modules/notifications/actions";
 import { COMPARE_ACTIONS } from "@/modules/compare/actions";
@@ -456,7 +457,7 @@ export function createCommandPaletteActions(
       run: () => void action.run(),
       deferRun: true,
     })),
-    ...[...DEBUG_ACTIONS, ...TESTING_ACTIONS, ...NOTEBOOK_ACTIONS, ...PROFILER_ACTIONS, ...DATABASE_ACTIONS, ...CONTAINER_ACTIONS].map((action): CommandPaletteAction => ({
+    ...[...DEBUG_ACTIONS, ...TESTING_ACTIONS, ...NOTEBOOK_ACTIONS, ...PROFILER_ACTIONS, ...DATABASE_ACTIONS, ...CONTAINER_ACTIONS, ...EXTENSION_ACTIONS].map((action): CommandPaletteAction => ({
       id: action.id,
       label: action.label,
       group: "Code",

@@ -5,6 +5,7 @@ import { NotebookPane } from "@/modules/notebook/NotebookPane";
 import { ProfilePane } from "@/modules/profiler/ProfilePane";
 import { ConsolePane } from "@/modules/database/ConsolePane";
 import { DockerPane } from "@/modules/containers/DockerPane";
+import { ExtLogPane } from "@/modules/extensions/ExtLogPane";
 import { EditorPane, type EditorPaneHandle } from "./EditorPane";
 
 type Props = {
@@ -105,6 +106,8 @@ export function EditorStack({
                 <ConsolePane ref={getRefCallback(t.id)} path={t.path} />
               ) : t.path.startsWith("gear-docker://") ? (
                 <DockerPane ref={getRefCallback(t.id)} path={t.path} />
+              ) : t.path.startsWith("gear-ext://") ? (
+                <ExtLogPane ref={getRefCallback(t.id)} path={t.path} />
               ) : /\.(cpuprofile|speedscope\.json|folded|collapsed)$/i.test(t.path) && !t.languageOverride ? (
                 <ProfilePane ref={getRefCallback(t.id)} path={t.path} />
               ) : /\.ipynb$/i.test(t.path) && !t.languageOverride ? (

@@ -2,6 +2,7 @@ import { cn } from "@/lib/utils";
 import {
   Bug01Icon,
   ContainerIcon,
+  PuzzleIcon,
   Database01Icon,
   ClockIcon,
   FolderGitTwoIcon,
@@ -144,6 +145,12 @@ export function SidebarRail({
         icon={ContainerIcon}
         active={sidebarOpen && activeView === "containers"}
         onClick={() => onSelectView("containers")}
+      />
+      <RailButton
+        label="Extensions"
+        icon={PuzzleIcon}
+        active={sidebarOpen && activeView === "extensions"}
+        onClick={() => onSelectView("extensions")}
       />
 
       <div className="flex-1" />

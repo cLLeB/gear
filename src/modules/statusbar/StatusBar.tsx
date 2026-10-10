@@ -29,6 +29,7 @@ import { openSettingsWindow } from "@/modules/settings/openSettingsWindow";
 import { useBroadcastEnabled, toggleBroadcast } from "@/modules/terminal/lib/broadcast";
 import { LastCommandPill } from "@/modules/terminal/features/LastCommandPill";
 import { FocusTimerPill } from "@/modules/focus/FocusTimerPill";
+import { ExtensionStatusItems } from "@/modules/extensions/ExtensionsPanel";
 
 type Props = {
   cwd: string | null;
@@ -123,6 +124,7 @@ export function StatusBar({
         )}
       </div>
       <div className="flex shrink-0 items-center gap-1.5">
+        <ExtensionStatusItems />
         {runConfigs && onSelectRunConfig && (
           <RunConfigPicker
             configs={runConfigs}
