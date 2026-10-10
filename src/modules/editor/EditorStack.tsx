@@ -7,6 +7,7 @@ import { ConsolePane } from "@/modules/database/ConsolePane";
 import { DockerPane } from "@/modules/containers/DockerPane";
 import { ExtLogPane } from "@/modules/extensions/ExtLogPane";
 import { HttpSplit } from "@/modules/http/HttpSplit";
+import { K8sPane } from "@/modules/k8s/K8sPane";
 import { EditorPane, type EditorPaneHandle } from "./EditorPane";
 
 type Props = {
@@ -107,6 +108,8 @@ export function EditorStack({
                 <ConsolePane ref={getRefCallback(t.id)} path={t.path} />
               ) : t.path.startsWith("gear-docker://") ? (
                 <DockerPane ref={getRefCallback(t.id)} path={t.path} />
+              ) : t.path.startsWith("gear-k8s://") ? (
+                <K8sPane ref={getRefCallback(t.id)} path={t.path} />
               ) : t.path.startsWith("gear-ext://") ? (
                 <ExtLogPane ref={getRefCallback(t.id)} path={t.path} />
               ) : /\.(cpuprofile|speedscope\.json|folded|collapsed)$/i.test(t.path) && !t.languageOverride ? (

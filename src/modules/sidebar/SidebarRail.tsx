@@ -4,6 +4,7 @@ import {
   ContainerIcon,
   PuzzleIcon,
   CloudServerIcon,
+  CubeIcon,
   Database01Icon,
   ClockIcon,
   FolderGitTwoIcon,
@@ -152,6 +153,12 @@ export function SidebarRail({
         icon={CloudServerIcon}
         active={sidebarOpen && activeView === "remote"}
         onClick={() => onSelectView("remote")}
+      />
+      <RailButton
+        label="Kubernetes"
+        icon={CubeIcon}
+        active={sidebarOpen && activeView === "k8s"}
+        onClick={() => onSelectView("k8s")}
       />
       <RailButton
         label="Extensions"
