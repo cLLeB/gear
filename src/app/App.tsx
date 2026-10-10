@@ -185,6 +185,8 @@ import { DatabasePanel } from "@/modules/database/DatabasePanel";
 import { ContainersPanel } from "@/modules/containers/ContainersPanel";
 import { ExtensionsPanel } from "@/modules/extensions/ExtensionsPanel";
 import { RemotePanel } from "@/modules/remote/RemotePanel";
+import { K8sPanel } from "@/modules/k8s/K8sPanel";
+import { installSaveHook as installK8sSaveHook } from "@/modules/k8s/store";
 import { installSaveHook as installRemoteSaveHook } from "@/modules/remote/store";
 import { extensionCommandActions } from "@/modules/extensions/actions";
 import { allCommands, bootExtensions, installEditorHooks, useExtStore } from "@/modules/extensions/store";
@@ -256,7 +258,7 @@ function readSidebarWidth(): number {
 function readSidebarView(): SidebarViewId {
 	try {
 		const stored = window.localStorage.getItem(SIDEBAR_VIEW_STORAGE_KEY);
-		if (stored === "explorer" || stored === "source-control" || stored === "debug" || stored === "tests" || stored === "database" || stored === "containers" || stored === "extensions" || stored === "remote") return stored;
+		if (stored === "explorer" || stored === "source-control" || stored === "debug" || stored === "tests" || stored === "database" || stored === "containers" || stored === "extensions" || stored === "remote" || stored === "k8s") return stored;
 	} catch {
 		// ignore
 	}
@@ -443,6 +445,12 @@ export default function App() {
 			persistSidebarView("remote");
 		};
 		window.addEventListener("gear:show-remote-panel", showRemote);
+		const showK8s = () => {
+			const panel = sidebarRef.current;
+			if (panel && panel.getSize().asPercentage <= 0) panel.resize(`${sidebarWidthRef.current}px`);
+			persistSidebarView("k8s");
+		};
+		window.addEventListener("gear:show-k8s-panel", showK8s);
 		window.addEventListener("gear:show-debug-panel", show);
 		window.addEventListener("gear:open-launch-json", openLaunch);
 		return () => {
@@ -452,6 +460,7 @@ export default function App() {
 			window.removeEventListener("gear:show-containers-panel", showContainers);
 			window.removeEventListener("gear:show-extensions-panel", showExtensions);
 			window.removeEventListener("gear:show-remote-panel", showRemote);
+			window.removeEventListener("gear:show-k8s-panel", showK8s);
 			window.removeEventListener("gear:open-launch-json", openLaunch);
 		};
 	}, [persistSidebarView]);
@@ -1907,10 +1916,12 @@ export default function App() {
 	useEffect(() => {
 		const off = installEditorHooks();
 		const offRemote = installRemoteSaveHook();
+		const offK8s = installK8sSaveHook();
 		void bootExtensions();
 		return () => {
 			off();
 			offRemote();
+			offK8s();
 		};
 	}, []);
 	const extInstalled = useExtStore((s) => s.installed);
@@ -2433,6 +2444,8 @@ export default function App() {
 														<DebugPanel />
 													) : sidebarView === "tests" ? (
 														<TestPanel />
+													) : sidebarView === "k8s" ? (
+														<K8sPanel />
 													) : sidebarView === "remote" ? (
 														<RemotePanel />
 													) : sidebarView === "extensions" ? (
@@ -2560,6 +2573,8 @@ export default function App() {
 														<DebugPanel />
 													) : sidebarView === "tests" ? (
 														<TestPanel />
+													) : sidebarView === "k8s" ? (
+														<K8sPanel />
 													) : sidebarView === "remote" ? (
 														<RemotePanel />
 													) : sidebarView === "extensions" ? (

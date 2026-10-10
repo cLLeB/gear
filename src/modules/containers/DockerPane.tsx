@@ -83,7 +83,8 @@ const DevLog = forwardRef<EditorPaneHandle, { path: string }>(function DevLog({ 
 const MAX_LINES = 20_000;
 const LEVEL_CLASS: Record<string, string> = { error: "text-red-500", warn: "text-amber-500", debug: "text-muted-foreground" };
 
-const ContainerLogs = forwardRef<EditorPaneHandle, { path: string; id: string; name: string }>(function ContainerLogs({ path, id, name }, ref) {
+/** Live logs: `docker logs -f` by default, or any streaming command (`argv`), e.g. kubectl logs -f. */
+export const ContainerLogs = forwardRef<EditorPaneHandle, { path: string; id: string; name: string; argv?: string[]; onShell?: () => void }>(function ContainerLogs({ path, id, name, argv, onShell }, ref) {
   const [lines, setLines] = useState<LogLine[]>([]);
   const [filter, setFilter] = useState("");
   const [levels, setLevels] = useState<Record<string, boolean>>({ error: true, warn: true, info: true, debug: true, other: true });
@@ -101,7 +102,7 @@ const ContainerLogs = forwardRef<EditorPaneHandle, { path: string; id: string; n
     setLines([]);
     setEnded(null);
     void (async () => {
-      bg = await native.shellBgSpawn(commandLine(["docker", "logs", "--follow", "--timestamps", "--tail", "2000", id], IS_WINDOWS), null);
+      bg = await native.shellBgSpawn(commandLine(argv ?? ["docker", "logs", "--follow", "--timestamps", "--tail", "2000", id], IS_WINDOWS), null);
       let offset = 0;
       while (alive) {
         const r = await native.shellBgLogs(bg, offset).catch(() => null);
@@ -115,7 +116,7 @@ const ContainerLogs = forwardRef<EditorPaneHandle, { path: string; id: string; n
           if (fresh.length) setLines((old) => (old.length + fresh.length > MAX_LINES ? [...old, ...fresh].slice(-MAX_LINES) : [...old, ...fresh]));
         }
         if (r.exited) {
-          setEnded(r.exit_code === 0 ? "Container stopped — log stream ended" : `docker logs exited with ${r.exit_code}`);
+          setEnded(r.exit_code === 0 ? "Log stream ended" : `${(argv ?? ["docker"])[0]} logs exited with ${r.exit_code}`);
           break;
         }
         await new Promise((res) => setTimeout(res, 300));
@@ -125,7 +126,7 @@ const ContainerLogs = forwardRef<EditorPaneHandle, { path: string; id: string; n
       alive = false;
       if (bg !== null) void native.shellBgKill(bg);
     };
-  }, [id, gen]);
+  }, [id, gen, argv?.join("\u0000")]);
 
   const re = useMemo(() => {
     if (!filter) return null;
@@ -191,7 +192,7 @@ const ContainerLogs = forwardRef<EditorPaneHandle, { path: string; id: string; n
         <button type="button" className={btn(false)} onClick={() => setLines([])}>
           Clear
         </button>
-        <button type="button" className={btn(false)} onClick={() => openShell({ id })}>
+        <button type="button" className={btn(false)} onClick={() => (onShell ? onShell() : openShell({ id }))}>
           Shell
         </button>
       </div>
