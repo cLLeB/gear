@@ -157,6 +157,22 @@ jobs:
           prerelease: ${{ needs.resolve.outputs.prerelease == 'true' }}
           args: --bundles ${{ matrix.bundles }} ${{ matrix.extra_args }}
 
+      # Size budget: the Windows app and its installers must stay under 85 MB.
+      # Other platforms' artifacts are listed for reference.
+      - name: Check app size budget
+        shell: bash
+        run: |
+          limit=$((85 * 1024 * 1024))
+          fail=0
+          while IFS= read -r f; do
+            size=$(wc -c < "$f" | tr -d ' ')
+            awk -v s="$size" -v f="$f" 'BEGIN { printf "%8.1f MB  %s\n", s / 1048576, f }'
+            case "$f" in
+              *.exe|*.msi) if [ "$size" -gt "$limit" ]; then echo "::error file=$f::$(basename "$f") is $((size / 1048576)) MB, over the 85 MB budget"; fail=1; fi ;;
+            esac
+          done < <(find src-tauri/target -maxdepth 6 -path '*/release/*' -type f \( -name 'gear' -o -name 'gear.exe' -o -name '*.msi' -o -name '*-setup.exe' -o -name '*.AppImage' -o -name '*.deb' -o -name '*.rpm' -o -name '*.dmg' \) 2>/dev/null)
+          exit $fail
+
       # Strip outdated bundled libwayland-* from the AppImage so it loads the
       # host's libs. The build host's libwayland (1.20) shadows newer Mesa
       # (1.22+ symbols), breaking EGL with EGL_BAD_PARAMETER; host copies are
