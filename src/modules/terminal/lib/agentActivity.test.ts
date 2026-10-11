@@ -123,4 +123,15 @@ describe("isAgentActivePty", () => {
     useAgentActivityStore.getState().clear(4);
     expect(isAgentActivePty(4)).toBe(false);
   });
+
+  it("keeps the agent name on an acknowledged idle session for its icon", () => {
+    expect(tabAgentStatus({ 7: "idle" }, { 7: "gemini" }, [7])).toEqual({
+      state: "idle",
+      agent: "gemini",
+    });
+    expect(tabAgentStatus({ 7: "idle", 8: "finished" }, { 7: "gemini" }, [7, 8])).toEqual({
+      state: "finished",
+      agent: null,
+    });
+  });
 });
