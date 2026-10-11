@@ -32,6 +32,7 @@ export type ShortcutId =
   | "search.focus"
   | "explorer.search"
   | "explorer.focus"
+  | "explorer.toggleHidden"
   | "view.zoomIn"
   | "view.zoomOut"
   | "view.zoomReset"
@@ -281,6 +282,14 @@ export const SHORTCUTS: Shortcut[] = [
     label: "Toggle file explorer focus",
     group: "View",
     defaultBindings: [{ [MOD_PROP]: true, shift: true, key: "e" }],
+  },
+  {
+    id: "explorer.toggleHidden",
+    label: "Toggle hidden files",
+    group: "View",
+    // Finder's toggle. Matched on the physical Period key, so it holds on
+    // layouts where Shift+. types something else.
+    defaultBindings: [{ [MOD_PROP]: true, shift: true, key: "." }],
   },
   {
     id: "view.zoomIn",
@@ -561,9 +570,10 @@ export function matchBinding(
   if (id === "tab.selectByIndex") {
     if (!/^[1-9]$/.test(e.key)) return false;
   } else if (eventKey !== bindingKey) {
-    // Only alt bindings fall back to the physical key — without this an alt
-    // shortcut is unreachable on any layout where Option rewrites the char.
-    if (!binding.alt || keyFromCode(e.code) !== bindingKey) return false;
+    // Alt and Shift bindings fall back to the physical key: Option rewrites the
+    // char on macOS ("«", dead keys) and Shift turns "." into ">".
+    if (!binding.alt && !binding.shift) return false;
+    if (keyFromCode(e.code) !== bindingKey) return false;
   }
 
   return (
