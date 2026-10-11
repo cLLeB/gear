@@ -11,6 +11,7 @@ import { HttpSplit } from "@/modules/http/HttpSplit";
 import { K8sPane } from "@/modules/k8s/K8sPane";
 import { LogPane } from "@/modules/logview/LogPane";
 import { DepsPane } from "@/modules/deps/DepsPane";
+import { SecretsPane } from "@/modules/security/SecretsPane";
 import { isLogFile } from "@/modules/logview/model";
 import { EditorPane, type EditorPaneHandle } from "./EditorPane";
 
@@ -114,6 +115,8 @@ export function EditorStack({
                 <ConsolePane ref={getRefCallback(t.id)} path={t.path} />
               ) : t.path.startsWith("gear-docker://") ? (
                 <DockerPane ref={getRefCallback(t.id)} path={t.path} />
+              ) : t.path.startsWith("gear-secrets://") ? (
+                <SecretsPane ref={getRefCallback(t.id)} path={t.path} />
               ) : t.path.startsWith("gear-deps://") ? (
                 <DepsPane ref={getRefCallback(t.id)} path={t.path} />
               ) : t.path.startsWith("gear-log://") || (isLogFile(t.path) && !t.languageOverride) ? (

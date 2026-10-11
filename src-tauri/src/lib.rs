@@ -241,6 +241,8 @@ pub fn run() {
             modules::logview::log_histogram,
             modules::logview::log_row_at_time,
             modules::logview::log_close,
+            modules::secretscan::secrets_scan,
+            modules::secretscan::secrets_hook_script,
             fs::tree::list_subdirs,
             fs::tree::fs_read_dir,
             fs::file::fs_read_file,

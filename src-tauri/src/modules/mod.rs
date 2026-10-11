@@ -12,5 +12,6 @@ pub mod net;
 pub mod proc;
 pub mod pty;
 pub mod secrets;
+pub mod secretscan;
 pub mod shell;
 pub mod workspace;
