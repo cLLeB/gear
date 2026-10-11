@@ -123,4 +123,12 @@ describe("SHORTCUTS registry", () => {
       ]),
     );
   });
+
+  it("binds both Mod+Y and Mod+Shift+Z to editor.redo", () => {
+    const redo = SHORTCUTS.find((s) => s.id === "editor.redo");
+    expect(redo!.defaultBindings).toEqual([
+      { [MOD_PROP]: true, key: "y" },
+      { [MOD_PROP]: true, shift: true, key: "z" },
+    ]);
+  });
 });
