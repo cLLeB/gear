@@ -141,6 +141,8 @@ export type Preferences = {
   lastWslDistro: string | null;
   zoomLevel: number;
   agentNotifications: boolean;
+  /** Ask before closing a terminal (or quitting) while a command is running. */
+  confirmCloseRunningTerminal: boolean;
   wordWrap: boolean;
   wordWrapColumn: number;
   sidebarPosition: "left" | "right";
@@ -224,6 +226,7 @@ const KEY_TERMINAL_SCROLLBACK = "terminalScrollback";
 const KEY_LAST_WSL_DISTRO = "lastWslDistro";
 const KEY_ZOOM_LEVEL = "zoomLevel";
 const KEY_AGENT_NOTIFICATIONS = "agentNotifications";
+const KEY_CONFIRM_CLOSE_RUNNING_TERMINAL = "confirmCloseRunningTerminal";
 const KEY_WORD_WRAP = "wordWrap";
 const KEY_WORD_WRAP_COLUMN = "wordWrapColumn";
 const KEY_SIDEBAR_POSITION = "sidebarPosition";
@@ -316,6 +319,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   lastWslDistro: null,
   zoomLevel: 1.0,
   agentNotifications: true,
+  confirmCloseRunningTerminal: true,
   wordWrap: false,
   wordWrapColumn: WORD_WRAP_COLUMN_DEFAULT,
   sidebarPosition: "left",
@@ -473,6 +477,9 @@ export async function loadPreferences(): Promise<Preferences> {
     agentNotifications:
       get<boolean>(KEY_AGENT_NOTIFICATIONS) ??
       DEFAULT_PREFERENCES.agentNotifications,
+    confirmCloseRunningTerminal:
+      get<boolean>(KEY_CONFIRM_CLOSE_RUNNING_TERMINAL) ??
+      DEFAULT_PREFERENCES.confirmCloseRunningTerminal,
     wordWrap: get<boolean>(KEY_WORD_WRAP) ?? DEFAULT_PREFERENCES.wordWrap,
     wordWrapColumn: clampWordWrapColumn(
       get<number>(KEY_WORD_WRAP_COLUMN) ?? DEFAULT_PREFERENCES.wordWrapColumn,
@@ -822,6 +829,10 @@ export async function setAgentNotifications(value: boolean): Promise<void> {
   await writePref(KEY_AGENT_NOTIFICATIONS, value);
 }
 
+export async function setConfirmCloseRunningTerminal(value: boolean): Promise<void> {
+  await writePref(KEY_CONFIRM_CLOSE_RUNNING_TERMINAL, value);
+}
+
 function clampAutoSaveDelay(v: number): number {
   if (!Number.isFinite(v)) return 1000;
   return Math.min(60000, Math.max(100, Math.round(v)));
@@ -945,6 +956,7 @@ export async function onPreferencesChange(
     [KEY_LAST_WSL_DISTRO]: "lastWslDistro",
     [KEY_ZOOM_LEVEL]: "zoomLevel",
     [KEY_AGENT_NOTIFICATIONS]: "agentNotifications",
+    [KEY_CONFIRM_CLOSE_RUNNING_TERMINAL]: "confirmCloseRunningTerminal",
     [KEY_WORD_WRAP]: "wordWrap",
     [KEY_WORD_WRAP_COLUMN]: "wordWrapColumn",
     [KEY_SIDEBAR_POSITION]: "sidebarPosition",

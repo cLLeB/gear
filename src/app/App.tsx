@@ -86,6 +86,7 @@ import { RewindPanel, useRewindStore } from "@/modules/rewind";
 import { usePreferencesStore } from "@/modules/settings/preferences";
 import {
 	onKeysChanged,
+	setConfirmCloseRunningTerminal,
 	setRunSelectedConfig,
 	setSidebarPosition,
 	setWordWrap,
@@ -524,6 +525,7 @@ export default function App() {
 
 	const [home, setHome] = useState<string | null>(null);
 	const [pendingCloseTab, setPendingCloseTab] = useState<number | null>(null);
+	const [dontAskRunningClose, setDontAskRunningClose] = useState(false);
 	const [pendingTerminalCloseTab, setPendingTerminalCloseTab] = useState<
 		number | null
 	>(null);
@@ -1014,7 +1016,7 @@ export default function App() {
 				setPendingCloseTab(id);
 				return;
 			}
-			if (t?.kind === "terminal") {
+			if (t?.kind === "terminal" && usePreferencesStore.getState().confirmCloseRunningTerminal) {
 				const leaves = leafIds(t.paneTree);
 				const checks = await Promise.all(leaves.map(leafHasForegroundProcess));
 				if (checks.some(Boolean)) {
@@ -2796,6 +2798,10 @@ export default function App() {
 									A process is running. Closing this tab will terminate it.
 								</AlertDialogDescription>
 							</AlertDialogHeader>
+							<label className="flex items-center gap-2 text-[12px] text-muted-foreground">
+								<input type="checkbox" checked={dontAskRunningClose} onChange={(e) => setDontAskRunningClose(e.target.checked)} />
+								Don't ask again (Settings → General)
+							</label>
 							<AlertDialogFooter>
 								<AlertDialogCancel
 									onClick={() => setPendingTerminalCloseTab(null)}
@@ -2807,6 +2813,7 @@ export default function App() {
 										if (pendingTerminalCloseTab !== null)
 											disposeTab(pendingTerminalCloseTab);
 										setPendingTerminalCloseTab(null);
+										if (dontAskRunningClose) void setConfirmCloseRunningTerminal(false);
 									}}
 								>
 									Close Anyway

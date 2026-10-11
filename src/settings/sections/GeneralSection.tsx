@@ -22,6 +22,7 @@ import {
   TERMINAL_FONT_SIZES,
   TERMINAL_SCROLLBACK_PRESETS,
   setAgentNotifications,
+  setConfirmCloseRunningTerminal,
   type EditorFormatter,
   setEditorAutoSave,
   setEditorAutoSaveDelay,
@@ -179,6 +180,7 @@ export function GeneralSection() {
   const showHidden = usePreferencesStore((s) => s.showHidden);
   const terminalWebglEnabled = usePreferencesStore((s) => s.terminalWebglEnabled);
   const terminalCursorBlink = usePreferencesStore((s) => s.terminalCursorBlink);
+  const confirmCloseRunningTerminal = usePreferencesStore((s) => s.confirmCloseRunningTerminal);
   const terminalCursorStyle = usePreferencesStore((s) => s.terminalCursorStyle);
   const terminalFontWeight = usePreferencesStore((s) => s.terminalFontWeight);
   const terminalFontFamily = usePreferencesStore((s) => s.terminalFontFamily);
@@ -455,6 +457,15 @@ export function GeneralSection() {
           description={t("settings.general.webglRendererDesc")}
         >
           <Switch checked={terminalWebglEnabled} onCheckedChange={onToggleTerminalWebgl} />
+        </SettingRow>
+        <SettingRow
+          title="Confirm closing running terminals"
+          description="Ask before closing a terminal tab or quitting while a command is still running in it. Unsaved editor changes always ask."
+        >
+          <Switch
+            checked={confirmCloseRunningTerminal}
+            onCheckedChange={(v) => void setConfirmCloseRunningTerminal(v)}
+          />
         </SettingRow>
         <SettingRow
           title="Terminal cursor blink"
