@@ -12,6 +12,7 @@ import { K8sPane } from "@/modules/k8s/K8sPane";
 import { LogPane } from "@/modules/logview/LogPane";
 import { DepsPane } from "@/modules/deps/DepsPane";
 import { SecretsPane } from "@/modules/security/SecretsPane";
+import { ProcsPane } from "@/modules/procs/ProcsPane";
 import { isLogFile } from "@/modules/logview/model";
 import { EditorPane, type EditorPaneHandle } from "./EditorPane";
 
@@ -115,6 +116,8 @@ export function EditorStack({
                 <ConsolePane ref={getRefCallback(t.id)} path={t.path} />
               ) : t.path.startsWith("gear-docker://") ? (
                 <DockerPane ref={getRefCallback(t.id)} path={t.path} />
+              ) : t.path.startsWith("gear-procs://") ? (
+                <ProcsPane ref={getRefCallback(t.id)} path={t.path} />
               ) : t.path.startsWith("gear-secrets://") ? (
                 <SecretsPane ref={getRefCallback(t.id)} path={t.path} />
               ) : t.path.startsWith("gear-deps://") ? (
