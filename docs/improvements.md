@@ -317,3 +317,5 @@ noted; tunable behaviour lives in **Settings → Features**.
 - Preview: a note that cookie sign-in may not work in the sandboxed preview, with Open in browser.
 - Home-relative paths (`~/…`) are recognised on Windows regardless of slash direction or letter case.
 - Ports & processes and the test explorer read output with Windows line endings.
+- Windows: dragging works inside the app — explorer rows onto folders or into a terminal, tab reordering, rebase rows.
+- Explorer: Replace on a drag-move keeps the old item until the new one has landed, and a partly failed move or a failed delete says which items were affected.
