@@ -10,7 +10,8 @@ export function writeFsPaths(dt: DataTransfer, paths: readonly string[]): void {
   dt.setData(FS_PATHS_MIME, JSON.stringify(clean));
   // Plain-text fallback so the drag still means something outside a pane.
   dt.setData("text/plain", clean.join(" "));
-  dt.effectAllowed = "copy";
+  // copy: drop into a terminal pastes the path; move: drop on a tree folder moves it.
+  dt.effectAllowed = "copyMove";
 }
 
 export function dragHasFsPaths(dt: DataTransfer | null): boolean {
