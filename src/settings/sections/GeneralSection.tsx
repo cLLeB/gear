@@ -21,6 +21,7 @@ import {
   EDITOR_FONT_SIZES,
   TERMINAL_FONT_SIZES,
   TERMINAL_SCROLLBACK_PRESETS,
+  setAgentNotificationSound,
   setAgentNotifications,
   setConfirmCloseRunningTerminal,
   type EditorFormatter,
@@ -173,7 +174,7 @@ export function GeneralSection() {
       setTimeout(resolve, NOTIFICATION_TEST_DELAY_MS),
     );
     setNotificationTest("sending");
-    setNotificationTest(await testAgentOsNotification());
+    setNotificationTest(await testAgentOsNotification(agentNotificationSound));
   };
   const editorFontSize = usePreferencesStore((s) => s.editorFontSize);
   const editorFormatOnSave = usePreferencesStore((s) => s.editorFormatOnSave);
@@ -189,6 +190,9 @@ export function GeneralSection() {
   const terminalFontSize = usePreferencesStore((s) => s.terminalFontSize);
   const terminalScrollback = usePreferencesStore((s) => s.terminalScrollback);
   const agentNotifications = usePreferencesStore((s) => s.agentNotifications);
+  const agentNotificationSound = usePreferencesStore(
+    (s) => s.agentNotificationSound,
+  );
 
   useEffect(() => {
     let alive = true;
@@ -645,6 +649,16 @@ export function GeneralSection() {
               }}
             />
           </div>
+        </SettingRow>
+        <SettingRow
+          title="Notification sound"
+          description="Play a sound with agent notifications and in-app alerts."
+        >
+          <Switch
+            checked={agentNotificationSound}
+            disabled={!agentNotifications || notificationTestPending}
+            onCheckedChange={(v) => void setAgentNotificationSound(v)}
+          />
         </SettingRow>
       </div>
 
