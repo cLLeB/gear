@@ -6,7 +6,7 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import { dragHasFsPaths, readFsPaths, writeFsPaths } from "@/lib/pathDrag";
-import { parentDir } from "./lib/dragMove";
+import { dropNested, parentDir } from "./lib/dragMove";
 import { cn, isMarkdownPath } from "@/lib/utils";
 import { ArrowRight01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -327,8 +327,12 @@ function EntryRowImpl(props: EntryRowProps) {
           onSelect={(e) => {
             e.preventDefault();
             if (isConfirming) {
-              const targets = bulkActive ? onGetSelectedPaths() : [path];
-              for (const p of targets) void tree.deletePath(p);
+              // Deleting a folder already removes what is inside it; one at a
+              // time so a parent and child never race.
+              const targets = bulkActive ? dropNested(onGetSelectedPaths()) : [path];
+              void (async () => {
+                for (const p of targets) await tree.deletePath(p);
+              })();
             } else {
               setIsConfirming(true);
             }
