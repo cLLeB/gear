@@ -49,6 +49,7 @@ export const FEATURE_DEFAULTS = {
   "terminal.commandGuard": true,
   "terminal.commandGuardCaution": false,
   "terminal.pasteImages": true,
+  "terminal.inlineImages": true,
   "terminal.restoreScrollback": true,
   "terminal.copyOnSelect": false,
   "terminal.rightClick": "menu",
@@ -98,6 +99,11 @@ export const FEATURE_META: Record<FeatureKey, Meta> = {
     label: "Restore terminal contents after restart",
     description:
       "Save each terminal's scrollback (compressed, on this machine) and show it again when Gear reopens, with an offer to re-run commands that were still running. Private terminals are never saved.",
+    section: "Terminal",
+  },
+  "terminal.inlineImages": {
+    label: "Inline images",
+    description: "Draw images that programs print with the Sixel or iTerm2 image protocols (img2sixel, chafa, imgcat, plotting libraries). Works on macOS and Linux; the Windows console layer currently removes image data before it reaches Gear. Applies to terminals opened afterwards.",
     section: "Terminal",
   },
   "terminal.pasteImages": {
