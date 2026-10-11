@@ -292,3 +292,28 @@ noted; tunable behaviour lives in **Settings → Features**.
 - Pick an object to see **why it's alive** — the retaining path from a global (preferred over stack / handle roots, like DevTools) — plus all retainers and an expandable reference tree.
 - **Compare** with an earlier snapshot from the same folder: new / deleted objects and bytes per class, sorted by growth; expand a class to inspect the objects that appeared — the usual way to pin down a leak.
 - "Profile: Run this file with heap snapshots on demand" starts a Node script with `--heapsnapshot-signal`; "Profile: Take a heap snapshot of a Node process…" signals it and opens the snapshot as soon as it's written.
+
+## Look & feel
+- **Window backdrop** (Settings → Themes, off by default): Mica on Windows 11, vibrancy on macOS. Only the outer frame, header and status bar go translucent; panes stay solid.
+- Graphite and Xcode themes.
+- The light-mode terminal background follows the theme background instead of sitting as a paler rectangle inside its pane.
+
+## Agents
+- A sound with in-app agent alerts, and a **Notification sound** switch (Settings → General → Agents) that also silences the native notification.
+- The agent's icon stays on its tab after the alert is acknowledged.
+
+## Terminal
+- Output flow control: a program that prints faster than the terminal can draw is paused briefly instead of growing memory or losing output.
+- A shell that exits while a background job still holds the terminal now closes its tab (Linux, macOS).
+- Restoring a session no longer freezes on scrollback that contains a long run of blank lines.
+- Shells started by a Gear that was itself launched from a Gear terminal no longer inherit the outer instance's control credentials.
+
+## Editor & shortcuts
+- Mod+S saves from anywhere while an editor tab is active; Mod+Shift+Z redoes alongside Mod+Y.
+- Mod+Shift+. toggles hidden files in the explorer.
+- macOS: Cmd+Q goes through the unsaved-changes / running-process confirmation.
+
+## Small fixes
+- Preview: a note that cookie sign-in may not work in the sandboxed preview, with Open in browser.
+- Home-relative paths (`~/…`) are recognised on Windows regardless of slash direction or letter case.
+- Ports & processes and the test explorer read output with Windows line endings.
