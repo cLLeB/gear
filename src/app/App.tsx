@@ -1275,12 +1275,15 @@ export default function App() {
 				const id = handleOpenFile(event.payload, true);
 				if (id != null) setActiveId(id);
 			}).then((un) => {
-				unlistenFile = un;
+				// Unmounted while subscribing: drop it, or it lingers forever.
+				if (cancelled) un();
+				else unlistenFile = un;
 			});
 			listen<string>("gear:launch-dir", (event) => {
 				cdInNewTab(event.payload);
 			}).then((un) => {
-				unlistenDir = un;
+				if (cancelled) un();
+				else unlistenDir = un;
 			});
 		});
 
