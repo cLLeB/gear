@@ -44,6 +44,7 @@ import { GIT_EXTRA_ACTIONS } from "@/modules/git-actions/extraActions";
 import { GIT_EXTRA_ACTIONS_2 } from "@/modules/git-actions/extraActions2";
 import { GIT_EXTRA_ACTIONS_3 } from "@/modules/git-actions/extraActions3";
 import { GIT_EXTRA_ACTIONS_4 } from "@/modules/git-actions/extraActions4";
+import { GITHUB_ACTIONS } from "@/modules/git-actions/githubActions";
 import { MERGE_ACTIONS } from "@/modules/merge/mergeActions";
 import { DEBUG_ACTIONS } from "@/modules/debug/debugActions";
 import { TESTING_ACTIONS } from "@/modules/testing/actions";
@@ -457,7 +458,7 @@ export function createCommandPaletteActions(
       run: () => void action.run(),
       deferRun: true,
     })),
-    ...[...GIT_ACTIONS, ...GIT_EXTRA_ACTIONS, ...GIT_EXTRA_ACTIONS_2, ...GIT_EXTRA_ACTIONS_3, ...GIT_EXTRA_ACTIONS_4, ...MERGE_ACTIONS].map((action): CommandPaletteAction => ({
+    ...[...GIT_ACTIONS, ...GIT_EXTRA_ACTIONS, ...GIT_EXTRA_ACTIONS_2, ...GIT_EXTRA_ACTIONS_3, ...GIT_EXTRA_ACTIONS_4, ...GITHUB_ACTIONS, ...MERGE_ACTIONS].map((action): CommandPaletteAction => ({
       id: action.id,
       label: action.label,
       group: "Git",
