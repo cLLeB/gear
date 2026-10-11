@@ -25,6 +25,13 @@ export function parentDir(p: string): string {
   return i <= 0 ? n.slice(0, i + 1) || "/" : n.slice(0, i);
 }
 
+/** Unique paths, without those inside another listed folder (acting on the folder covers them). */
+export function dropNested(paths: readonly string[], caseInsensitive = false): string[] {
+  const key = (s: string) => (caseInsensitive ? s.toLowerCase() : s);
+  const all = [...new Set(paths.map(norm))];
+  return all.filter((s) => !all.some((o) => o !== s && key(s).startsWith(`${key(o)}/`)));
+}
+
 /**
  * `existing` holds the names already in `destDir`. Paths inside another
  * selected folder are dropped: moving the folder carries them along.
@@ -32,8 +39,7 @@ export function parentDir(p: string): string {
 export function planDragMove(sources: readonly string[], destDir: string, existing: ReadonlySet<string>, caseInsensitive = false): DragMovePlan {
   const dest = norm(destDir);
   const key = (s: string) => (caseInsensitive ? s.toLowerCase() : s);
-  const srcs = [...new Set(sources.map(norm))];
-  const roots = srcs.filter((s) => !srcs.some((o) => o !== s && key(s).startsWith(`${key(o)}/`)));
+  const roots = dropNested(sources, caseInsensitive);
   const taken = new Set([...existing].map(key));
   const plan: DragMovePlan = { moves: [], conflicts: [], unchanged: [], invalid: [] };
   for (const s of roots) {

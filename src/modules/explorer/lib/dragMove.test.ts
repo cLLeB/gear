@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { type MoveOps, parentDir, planDragMove, runDragMove, undoGroups } from "./dragMove";
+import { dropNested, type MoveOps, parentDir, planDragMove, runDragMove, undoGroups } from "./dragMove";
 
 describe("planDragMove", () => {
   it("splits moves, conflicts, no-ops and impossible moves", () => {
@@ -67,6 +67,14 @@ function fakeFs(paths: string[], failMove: (source: string) => boolean = () => f
   };
   return { files, ops };
 }
+
+describe("dropNested", () => {
+  it("keeps a folder and drops what is inside it, once", () => {
+    expect(dropNested(["/w/a", "/w/a/b.txt", "/w/a/c/d.txt", "/w/ab", "/w/a"])).toEqual(["/w/a", "/w/ab"]);
+    expect(dropNested(["C:\\w\\Dir\\x.txt", "C:/w/dir"], true)).toEqual(["C:/w/dir"]);
+    expect(dropNested(["C:/w/Dir/x.txt", "C:/w/dir"])).toEqual(["C:/w/Dir/x.txt", "C:/w/dir"]);
+  });
+});
 
 describe("runDragMove", () => {
   it("replaces an existing item only after the new one has landed", async () => {

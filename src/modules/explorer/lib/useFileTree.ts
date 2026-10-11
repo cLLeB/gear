@@ -1,3 +1,4 @@
+import { toast } from "sonner";
 import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { currentWorkspaceEnv } from "@/modules/workspace";
@@ -348,6 +349,7 @@ export function useFileTree(rootPath: string | null, options?: Options) {
         await fetchChildren(dirname(path));
       } catch (e) {
         console.error("fs_delete failed:", e);
+        toast.error(`Could not delete ${path.replace(/\\/g, "/").split("/").pop()}`, { description: String(e) });
       }
     },
     [fetchChildren, options],
