@@ -179,7 +179,8 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
       void refresh();
       let unlistenKeys: (() => void) | undefined;
       void onKeysChanged(() => void refresh()).then((un) => {
-        unlistenKeys = un;
+        if (cancelled) un();
+        else unlistenKeys = un;
       });
       const unsubPrefs = usePreferencesStore.subscribe((state, prev) => {
         if (state.autocompleteProvider !== prev.autocompleteProvider) {
