@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import {
   deleteBgImage,
@@ -25,6 +26,7 @@ import {
   setBackgroundTintColor,
   setBackgroundTintOpacity,
   setBackgroundNoiseOpacity,
+  setWindowVibrancy,
 } from "@/modules/settings/store";
 import {
   CheckmarkCircle01Icon,
@@ -36,8 +38,10 @@ import {
   PaintBrushIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { SectionHeader } from "../components/SectionHeader";
+import { SettingRow } from "../components/SettingRow";
+import { type Backdrop, getBackdropKind } from "@/modules/theme/vibrancy";
 import { importForeignThemes } from "@/modules/theme/importForeign";
 import { auditTheme } from "@/modules/theme/contrast";
 import type { Theme } from "@/modules/theme";
@@ -292,6 +296,18 @@ export function ThemesSection() {
   const backgroundTintColor = usePreferencesStore((s) => s.backgroundTintColor);
   const backgroundTintOpacity = usePreferencesStore((s) => s.backgroundTintOpacity);
   const backgroundNoiseOpacity = usePreferencesStore((s) => s.backgroundNoiseOpacity);
+  const windowVibrancy = usePreferencesStore((s) => s.windowVibrancy);
+
+  const [backdrop, setBackdrop] = useState<Backdrop>("none");
+  useEffect(() => {
+    let alive = true;
+    void getBackdropKind().then((k) => {
+      if (alive) setBackdrop(k);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   const builtinThemes = listBuiltinThemes();
   const allThemes = [...builtinThemes, ...customThemes];
@@ -439,6 +455,22 @@ export function ThemesSection() {
           </div>
         )}
       </div>
+
+      {backdrop === "none" ? null : (
+        <SettingRow
+          title={backdrop === "mica" ? "Mica background" : "Window vibrancy"}
+          description={
+            backdrop === "mica"
+              ? "Blend the header, status bar and gutters into the desktop wallpaper. Windows 11 only."
+              : "Frost the header, status bar and gutters over what is behind the window. Panes stay solid."
+          }
+        >
+          <Switch
+            checked={windowVibrancy}
+            onCheckedChange={(v) => void setWindowVibrancy(v)}
+          />
+        </SettingRow>
+      )}
 
       {/* Background */}
       <div className="flex flex-col gap-3">

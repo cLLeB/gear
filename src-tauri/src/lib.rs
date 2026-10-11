@@ -2,7 +2,8 @@ pub mod modules;
 
 use fs::to_canon;
 use modules::{
-    agent, chronicle, control, dap, db, fs, git, history, lsp, net, pty, secrets, shell, workspace,
+    agent, chronicle, control, dap, db, fs, git, history, lsp, net, pty, secrets, shell, vibrancy,
+    workspace,
 };
 use std::sync::Mutex;
 use tauri::{Emitter, Manager, State};
@@ -219,6 +220,8 @@ pub fn run() {
             history::history_commands,
             history::history_record,
             history::history_list,
+            vibrancy::window_backdrop_kind,
+            vibrancy::window_set_backdrop,
             lsp::lsp_detect,
             lsp::lsp_host_pid,
             lsp::lsp_resolve_root,

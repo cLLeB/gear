@@ -30,7 +30,8 @@ tauri-build = { version = "2", features = [] }
 serde_json = "1"
 
 [dependencies]
-tauri = { version = "2", features = ["protocol-asset", "devtools"] }
+# macos-private-api backs the transparent window NSVisualEffectView needs.
+tauri = { version = "2", features = ["macos-private-api", "protocol-asset", "devtools"] }
 tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -90,13 +91,18 @@ keyring = { version = "3.6", default-features = false, features = [
 ] }
 objc2 = "0.6"
 objc2-foundation = { version = "0.3", features = ["NSString", "NSUserDefaults"] }
+# Same version Tauri already links, so the window backdrop adds no new code.
+window-vibrancy = "0.6"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 keyring = { version = "3.6", default-features = false, features = [
 	"windows-native",
 ] }
+window-vibrancy = "0.6"
 windows-sys = { version = "0.59", features = [
+	"Wdk_System_SystemServices",
 	"Win32_Foundation",
+	"Win32_Graphics_Dwm",
 	"Win32_Security",
 	"Win32_Storage_FileSystem",
 	"Win32_System_Console",
@@ -110,6 +116,7 @@ windows-sys = { version = "0.59", features = [
 	"Win32_System_Threading",
 	"Win32_System_Diagnostics_ToolHelp",
 	"Win32_System_ProcessStatus",
+	"Win32_System_SystemInformation",
 ] }
 
 [features]

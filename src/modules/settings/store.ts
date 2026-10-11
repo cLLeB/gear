@@ -91,6 +91,7 @@ export type Preferences = {
   backgroundImageId: string | null;
   backgroundOpacity: number;
   backgroundBlur: number;
+  windowVibrancy: boolean;
   backgroundTintColor: string | null;
   backgroundTintOpacity: number;
   backgroundNoiseOpacity: number;
@@ -179,6 +180,7 @@ const KEY_BG_KIND = "backgroundKind";
 const KEY_BG_IMAGE_ID = "backgroundImageId";
 const KEY_BG_OPACITY = "backgroundOpacity";
 const KEY_BG_BLUR = "backgroundBlur";
+const KEY_WINDOW_VIBRANCY = "windowVibrancy";
 const KEY_BG_TINT_COLOR = "backgroundTintColor";
 const KEY_BG_TINT_OPACITY = "backgroundTintOpacity";
 const KEY_BG_NOISE_OPACITY = "backgroundNoiseOpacity";
@@ -273,6 +275,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   backgroundImageId: null,
   backgroundOpacity: 0.7,
   backgroundBlur: 16,
+  windowVibrancy: false,
   backgroundTintColor: null,
   backgroundTintOpacity: 0,
   backgroundNoiseOpacity: 0,
@@ -361,6 +364,8 @@ export async function loadPreferences(): Promise<Preferences> {
     backgroundImageId: get<string | null>(KEY_BG_IMAGE_ID) ?? DEFAULT_PREFERENCES.backgroundImageId,
     backgroundOpacity: clampBgOpacity(get<number>(KEY_BG_OPACITY) ?? DEFAULT_PREFERENCES.backgroundOpacity),
     backgroundBlur: clampBlur(get<number>(KEY_BG_BLUR) ?? DEFAULT_PREFERENCES.backgroundBlur),
+    windowVibrancy:
+      get<boolean>(KEY_WINDOW_VIBRANCY) ?? DEFAULT_PREFERENCES.windowVibrancy,
     backgroundTintColor: get<string | null>(KEY_BG_TINT_COLOR) ?? DEFAULT_PREFERENCES.backgroundTintColor,
     backgroundTintOpacity: clampBgOpacity(get<number>(KEY_BG_TINT_OPACITY) ?? DEFAULT_PREFERENCES.backgroundTintOpacity),
     backgroundNoiseOpacity: clampBgOpacity(get<number>(KEY_BG_NOISE_OPACITY) ?? DEFAULT_PREFERENCES.backgroundNoiseOpacity),
@@ -566,6 +571,10 @@ export async function setBackgroundOpacity(value: number): Promise<void> {
 
 export async function setBackgroundBlur(value: number): Promise<void> {
   await writePref(KEY_BG_BLUR, clampBlur(value));
+}
+
+export async function setWindowVibrancy(value: boolean): Promise<void> {
+  await writePref(KEY_WINDOW_VIBRANCY, value);
 }
 
 export async function setBackgroundTintColor(value: string | null): Promise<void> {
@@ -910,6 +919,7 @@ export async function onPreferencesChange(
     [KEY_BG_IMAGE_ID]: "backgroundImageId",
     [KEY_BG_OPACITY]: "backgroundOpacity",
     [KEY_BG_BLUR]: "backgroundBlur",
+    [KEY_WINDOW_VIBRANCY]: "windowVibrancy",
     [KEY_BG_TINT_COLOR]: "backgroundTintColor",
     [KEY_BG_TINT_OPACITY]: "backgroundTintOpacity",
     [KEY_BG_NOISE_OPACITY]: "backgroundNoiseOpacity",
