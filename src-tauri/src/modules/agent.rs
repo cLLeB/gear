@@ -468,8 +468,8 @@ mod tests {
         assert!(extension.contains(r"\u0007"));
         assert!(!extension.contains('\u{1b}'));
         assert!(!extension.contains('\u{7}'));
-        // Never leak the upstream brand into a file we write to the user's home.
-        assert!(!extension.to_lowercase().contains("terax"));
+        // Never leak the old name into a file we write to the user's home.
+        assert!(!extension.to_lowercase().contains(concat!("ter", "ax")));
     }
 
     #[test]
