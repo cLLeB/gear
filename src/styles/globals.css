@@ -142,12 +142,14 @@
   --editor-font-size: 13px;
 }
 
-/* Light-mode terminal: GitHub-style palette readable on a light surface */
+/* Light-mode terminal: GitHub-style palette readable on a light surface.
+ * The background follows the theme, as in dark mode, so the terminal never
+ * sits as an off-colour rectangle inside its pane. */
 :root {
-  --terminal-background: #f6f8fa;
+  --terminal-background: var(--background);
   --terminal-foreground: #24292e;
   --terminal-cursor: #24292e;
-  --terminal-cursor-accent: #f6f8fa;
+  --terminal-cursor-accent: var(--background);
   --terminal-selection: #c8d3e0;
   --terminal-ansi-black: #24292e;
   --terminal-ansi-red: #d73a49;
