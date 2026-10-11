@@ -157,7 +157,8 @@ export function parseIssues(json: string): Issue[] | null {
   );
 }
 
-const ANSI = /\x1b\[[0-9;?]*[ -/]*[@-~]/g;
+// gh prints the escape character as a literal ^[ when its output is piped.
+const ANSI = /(?:\x1b|\^\[)\[[0-9;?]*[ -/]*[@-~]/g;
 const LOG_TIME = /^\uFEFF?\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d+)?Z ?/;
 
 /**

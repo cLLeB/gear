@@ -119,6 +119,10 @@ describe("cleanRunLog", () => {
     );
   });
 
+  it("strips colour codes that gh printed in caret notation", () => {
+    expect(cleanRunLog('a\tb\t2026-10-11T15:01:09.0Z ^[[31;1mProgram "komac.exe" ended^[[0m')).toBe('── a › b ──\nProgram "komac.exe" ended');
+  });
+
   it("leaves plain text alone", () => {
     expect(cleanRunLog("just a line\nand another")).toBe("just a line\nand another");
   });
