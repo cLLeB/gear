@@ -62,6 +62,7 @@ import { todoHighlight } from "./lib/todoHighlight";
 import { suspiciousChars } from "./lib/suspiciousChars";
 import { recordClip } from "@/modules/clipboard/history";
 import { indentRainbow, rainbowBrackets, stickyScroll } from "./lib/visualAids";
+import { minimap } from "./lib/minimap";
 import { navigationTracker } from "./lib/navHistory";
 import { fileLockFilter } from "./lib/fileLock";
 import { debugGutter } from "@/modules/debug/debugGutter";
@@ -425,6 +426,7 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
         rainbowBrackets(() => analyzableLangRef.current),
         indentRainbow(),
         stickyScroll(),
+        minimap(),
         navigationTracker(() => pathRef.current),
         fileLockFilter(() => pathRef.current),
         editorGuides(),
