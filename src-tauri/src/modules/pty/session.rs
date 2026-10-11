@@ -192,6 +192,7 @@ pub fn spawn(
     let spawn_at = Instant::now();
 
     let pending_r = pending.clone();
+    let read_gate_w = read_gate.clone();
     let writer_for_da = writer.clone();
     let app_reader = app.clone();
     // Shared so the Windows notify pipe can drive the same detector as the
@@ -309,6 +310,8 @@ pub fn spawn(
                 }
             };
             exited_w.store(true, Ordering::Release);
+            // The shell is gone: a pause must not hold back its last output.
+            read_gate_w.set_paused(false);
             // Wait for the reader to hit EOF before taking a final snapshot of
             // `pending`, so the last line of output never races the Exit event.
             #[cfg(windows)]
