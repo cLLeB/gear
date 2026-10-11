@@ -1,7 +1,7 @@
 // store.send end to end: real curl against a local server, with the Tauri
 // bridge replaced by real processes / files and scripts run in a VM.
 
-import { spawn, type ChildProcess } from "node:child_process";
+import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { createServer, type Server } from "node:http";
 import { tmpdir } from "node:os";
@@ -78,7 +78,11 @@ beforeAll(async () => {
 });
 afterAll(() => server.close());
 
-describe("http store", () => {
+// The bridge below runs commands through a POSIX shell, like the app does on
+// Unix; a Windows machine without one on PATH cannot run this.
+const hasSh = spawnSync("sh", ["-c", "exit 0"]).status === 0;
+
+describe.skipIf(!hasSh)("http store", () => {
   it("chains, runs scripts, keeps globals, and reads environments", async () => {
     const s = await import("./store");
     writeFileSync(`${work}/http-client.env.json`, JSON.stringify({ local: { host: `http://127.0.0.1:${port}` } }));
