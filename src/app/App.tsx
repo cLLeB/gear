@@ -160,7 +160,7 @@ import {
 	whenSessionReady,
 	writeToSession,
 } from "@/modules/terminal";
-import { ThemeProvider } from "@/modules/theme";
+import { ThemeProvider, WindowVibrancyBridge } from "@/modules/theme";
 import { UpdaterDialog, WhatsNewDialog } from "@/modules/updater";
 import {
 	getWslHome,
@@ -2355,7 +2355,7 @@ export default function App() {
 	const shell = (
 		<ThemeProvider>
 			<TooltipProvider>
-				<div className="relative flex h-screen flex-col overflow-hidden bg-background text-foreground">
+				<div className="gear-frame relative flex h-screen flex-col overflow-hidden bg-background text-foreground">
 					{!zenMode && (
 						<div
 							data-tauri-drag-region
@@ -2401,7 +2401,7 @@ export default function App() {
 						/>
 					)}
 
-					<main className="zoom-content flex flex-col min-h-0 flex-1 relative bg-background">
+					<main className="gear-frame-clear zoom-content flex flex-col min-h-0 flex-1 relative bg-background">
 						<ResizablePanelGroup
 							orientation="horizontal"
 							className="min-h-0 flex-1"
@@ -2482,7 +2482,7 @@ export default function App() {
 							)}
 							<ResizablePanel id="workspace" defaultSize="78%" minSize="30%">
 								<div className="flex h-full min-h-0 flex-col p-2 pl-1 pr-1">
-									<div className="relative min-h-0 flex-1 rounded-xl border border-border/40 bg-background/90 backdrop-blur shadow-sm overflow-hidden">
+									<div className="gear-pane-solid relative min-h-0 flex-1 rounded-xl border border-border/40 bg-background/90 backdrop-blur shadow-sm overflow-hidden">
 										{workspaceSurface}
 									</div>
 									{isBlockTab && blockLeafId != null ? (
@@ -2708,6 +2708,8 @@ export default function App() {
 					<CompareDialog />
 					<MergeEditorDialog />
 					<RebaseEditorDialog />
+
+					<WindowVibrancyBridge />
 
 					<AgentNotificationsBridge
 						tabs={tabs}

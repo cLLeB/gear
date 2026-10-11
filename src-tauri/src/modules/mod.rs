@@ -15,4 +15,5 @@ pub mod pty;
 pub mod secrets;
 pub mod secretscan;
 pub mod shell;
+pub mod vibrancy;
 pub mod workspace;

@@ -234,6 +234,31 @@ html[data-chrome="borderless"] #settings-root {
   background: var(--background);
 }
 
+/* Window backdrop (macOS NSVisualEffectView / Windows 11 Mica). Only the
+ * frame goes translucent: panes keep their own surfaces so terminal and
+ * editor text stays readable. */
+html[data-vibrancy],
+html[data-vibrancy] body {
+  background: transparent;
+}
+html[data-vibrancy] .gear-frame {
+  background: color-mix(in oklab, var(--card) 55%, transparent);
+}
+html[data-vibrancy] .gear-frame-clear,
+html[data-vibrancy][data-chrome="borderless"] #root {
+  background: transparent;
+}
+/* Solid, so the terminal canvas still matches its container. */
+html[data-vibrancy] .gear-pane-solid {
+  background: var(--background);
+}
+/* Windows rounds a Mica window itself; a second CSS radius would leave the
+ * backdrop showing outside it. */
+html[data-vibrancy="mica"][data-chrome="borderless"] #root {
+  border-radius: 0;
+  border: 0;
+}
+
 /*
  * xterm.js overrides — kept outside @layer so they win against the addon's
  * own stylesheet (which is not in any layer and would otherwise override).
