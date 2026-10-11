@@ -189,6 +189,7 @@ pub fn run() {
         .manage(dap::DapState::default())
         .manage(db::DbState::default())
         .manage(modules::logview::LogState::default())
+        .manage(modules::heapsnap::HeapState::default())
         .manage(shell::ShellState::default())
         .manage(history::HistoryState::default())
         .manage(secrets::SecretsState::default())
@@ -243,6 +244,15 @@ pub fn run() {
             modules::logview::log_close,
             modules::secretscan::secrets_scan,
             modules::secretscan::secrets_hook_script,
+            modules::heapsnap::heap_open,
+            modules::heapsnap::heap_summary,
+            modules::heapsnap::heap_instances,
+            modules::heapsnap::heap_references,
+            modules::heapsnap::heap_retainers,
+            modules::heapsnap::heap_path,
+            modules::heapsnap::heap_diff,
+            modules::heapsnap::heap_new_instances,
+            modules::heapsnap::heap_close,
             fs::tree::list_subdirs,
             fs::tree::fs_read_dir,
             fs::file::fs_read_file,

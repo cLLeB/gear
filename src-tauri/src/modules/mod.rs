@@ -5,6 +5,7 @@ pub mod dap;
 pub mod db;
 pub mod fs;
 pub mod git;
+pub mod heapsnap;
 pub mod history;
 pub mod logview;
 pub mod lsp;
