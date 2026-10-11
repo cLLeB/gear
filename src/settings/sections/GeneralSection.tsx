@@ -68,6 +68,7 @@ import {
   testAgentOsNotification,
 } from "@/modules/agents/lib/notify";
 import { SectionHeader } from "../components/SectionHeader";
+import { LspServersGroup } from "../components/LspServersGroup";
 import { SettingRow } from "../components/SettingRow";
 
 const FORMATTER_ORDER: EditorFormatter[] = [
@@ -420,6 +421,8 @@ export function GeneralSection() {
           </SettingRow>
         )}
       </div>
+
+      <LspServersGroup />
 
       <div className="flex flex-col gap-2">
         <Label>{t("settings.general.explorer")}</Label>
