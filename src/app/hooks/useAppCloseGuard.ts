@@ -6,11 +6,14 @@ import {
 	useRef,
 	useState,
 } from "react";
+import { usePreferencesStore } from "@/modules/settings/preferences";
 import type { Tab } from "@/modules/tabs";
 import { leafHasForegroundProcess, leafIds } from "@/modules/terminal";
 import { flushScrollbackBeforeQuit, startScrollbackAutosave } from "@/modules/terminal/features/scrollbackPersist";
 
 async function anyTerminalBusy(tabs: Tab[]): Promise<boolean> {
+	// Opted out: skip the per-leaf IPC entirely rather than run it and ignore it.
+	if (!usePreferencesStore.getState().confirmCloseRunningTerminal) return false;
 	try {
 		const leaves = tabs.flatMap((t) =>
 			t.kind === "terminal" ? leafIds(t.paneTree) : [],
