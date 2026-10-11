@@ -6,6 +6,7 @@ pub mod db;
 pub mod fs;
 pub mod git;
 pub mod history;
+pub mod logview;
 pub mod lsp;
 pub mod net;
 pub mod proc;
