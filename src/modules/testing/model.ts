@@ -311,7 +311,11 @@ function decodeXml(s: string): string {
 }
 
 /** `go test -json` event stream. */
+/** Output that came through a terminal or SSH ends its lines with CRLF. */
+const lf = (s: string): string => s.replace(/\r\n?/g, "\n");
+
 export function parseGoJson(stream: string): TestResult[] {
+  stream = lf(stream);
   const out = new Map<string, TestResult>();
   const output = new Map<string, string[]>();
   for (const line of stream.split(/\r?\n/)) {
@@ -343,6 +347,7 @@ export function parseGoJson(stream: string): TestResult[] {
 
 /** `cargo test` human output. */
 export function parseCargo(output: string): TestResult[] {
+  output = lf(output);
   const out = new Map<string, TestResult>();
   for (const m of output.matchAll(/^test (\S+) \.\.\. (ok|FAILED|ignored)/gm)) {
     out.set(m[1], { file: null, id: m[1], status: m[2] === "ok" ? "passed" : m[2] === "FAILED" ? "failed" : "skipped" });
@@ -372,6 +377,7 @@ export interface FileCoverage {
 
 /** lcov tracefile → per-file line hits (paths as written in SF:). */
 export function parseLcov(text: string): Map<string, FileCoverage> {
+  text = lf(text);
   const out = new Map<string, FileCoverage>();
   let cur: FileCoverage | null = null;
   let file = "";
@@ -400,6 +406,7 @@ export function parseLcov(text: string): Map<string, FileCoverage> {
 
 /** Go cover profile (`-coverprofile`) → per-file line hits; paths are import paths. */
 export function parseGoCover(text: string): Map<string, FileCoverage> {
+  text = lf(text);
   const out = new Map<string, FileCoverage>();
   for (const line of text.split(/\r?\n/)) {
     const m = /^(.+\.go):(\d+)\.\d+,(\d+)\.\d+ \d+ (\d+)$/.exec(line.trim());
