@@ -102,6 +102,7 @@ import {
 	ShortcutsDialog,
 	shouldDisablePaneSwapShortcut,
 	useGlobalShortcuts,
+	useShortcutLabel,
 } from "@/modules/shortcuts";
 import { SidebarRail, type SidebarViewId } from "@/modules/sidebar";
 import {
@@ -756,6 +757,7 @@ export default function App() {
 
 	const [shortcutsOpen, setShortcutsOpen] = useState(false);
 	const [zenMode, setZenMode] = useState(false);
+	const zenModeLabel = useShortcutLabel("view.zenMode");
 	const [newEditorOpen, setNewEditorOpen] = useState(false);
 	const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
 	const miniOpen = useChatStore((s) => s.mini.open);
@@ -2753,7 +2755,7 @@ export default function App() {
 								transition={{ delay: 1.5, duration: 0.4 }}
 								className="pointer-events-none fixed bottom-3 right-3 z-50 rounded-md border border-border/40 bg-background/60 px-2 py-1 text-[10px] text-muted-foreground/60 backdrop-blur"
 							>
-								Zen Mode — press Ctrl+Shift+Z to exit
+								Zen Mode — press {zenModeLabel} to exit
 							</motion.div>
 						) : null}
 					</AnimatePresence>
