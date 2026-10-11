@@ -98,6 +98,7 @@ import {
 	useWorkspaceConfigStore,
 } from "@/modules/settings/workspaceConfig";
 import {
+	GlobalHotkeyBridge,
 	type ShortcutHandlers,
 	type ShortcutId,
 	ShortcutsDialog,
@@ -2723,6 +2724,7 @@ export default function App() {
 					<RebaseEditorDialog />
 
 					<WindowVibrancyBridge />
+					<GlobalHotkeyBridge />
 
 					<AgentNotificationsBridge
 						tabs={tabs}

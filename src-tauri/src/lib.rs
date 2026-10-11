@@ -171,6 +171,7 @@ pub fn run() {
                 .with_state_flags(StateFlags::all() & !StateFlags::VISIBLE)
                 .build(),
         )
+        .plugin(modules::hotkey::plugin())
         .plugin(tauri_plugin_autostart::Builder::new().build())
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_os::init())
@@ -231,6 +232,7 @@ pub fn run() {
             history::history_list,
             vibrancy::window_backdrop_kind,
             vibrancy::window_set_backdrop,
+            modules::hotkey::window_set_global_hotkey,
             lsp::lsp_detect,
             lsp::lsp_host_pid,
             lsp::lsp_resolve_root,

@@ -1,6 +1,7 @@
 // Palette actions: focus timer, editor navigation history and visual aids,
 // accent-generated themes and scheduled light/dark switching.
 
+import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { toast } from "sonner";
 import { inputBox, quickPick } from "@/modules/quick-pick";
@@ -72,6 +73,27 @@ async function toggleAlwaysOnTop(): Promise<void> {
   }
 }
 
+async function setGlobalHotkey(): Promise<void> {
+  const current = getFeature("window.globalHotkey");
+  const next = await inputBox({
+    title: "Global show / hide hotkey",
+    placeholder: "Ctrl+` or Alt+Space — empty for none",
+    value: current,
+    prompt: "Works in any app: brings Gear forward, or hides it when it is already in front.",
+  });
+  if (next === undefined) return;
+  const shortcut = next.trim();
+  try {
+    await invoke("window_set_global_hotkey", { shortcut });
+  } catch (e) {
+    // Put the previous one back; the failed attempt cleared it.
+    await invoke("window_set_global_hotkey", { shortcut: current }).catch(() => {});
+    return void toast.error("Hotkey not set", { description: String(e) });
+  }
+  await setFeatureSetting("window.globalHotkey", shortcut);
+  toast.success(shortcut ? `${shortcut} now shows and hides Gear` : "Global hotkey removed");
+}
+
 export async function themeFromAccentAction(): Promise<void> {
   const accent = await inputBox({ title: "Accent colour", placeholder: "#7c3aed", value: "#7c3aed" });
   if (!accent) return;
@@ -129,6 +151,7 @@ export const UI_ACTIONS = [
   { id: "editor.toggleRainbow", label: "Toggle rainbow brackets", keywords: ["brackets", "rainbow", "colour", "pairs"], run: () => toggleFeature("editor.rainbowBrackets", "Rainbow brackets") },
   { id: "editor.toggleIndentRainbow", label: "Toggle indentation rainbow", keywords: ["indent", "rainbow", "yaml", "python", "whitespace"], run: () => toggleFeature("editor.indentRainbow", "Indentation rainbow") },
   { id: "window.alwaysOnTop", label: "Window: Toggle always on top", keywords: ["pin", "float", "topmost", "above", "stay on top", "window"], run: toggleAlwaysOnTop },
+  { id: "window.globalHotkey", label: "Window: Set the global show / hide hotkey…", keywords: ["quake", "drop-down", "dropdown", "hotkey", "global", "summon", "visor", "show", "hide"], run: setGlobalHotkey },
   { id: "theme.fromAccent", label: "Theme: Generate from an accent colour…", keywords: ["theme", "accent", "colour", "brand", "generate", "palette"], run: themeFromAccentAction },
   { id: "theme.schedule", label: "Theme: Switch light/dark on a schedule…", keywords: ["theme", "schedule", "night", "day", "auto", "dark mode", "time"], run: setThemeSchedule },
 ];
