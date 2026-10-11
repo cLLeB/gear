@@ -1,0 +1,62 @@
+{
+  "query_optimization": {
+    "r_total_time_ms": 0.875396795
+  },
+  "query_block": {
+    "select_id": 1,
+    "r_loops": 1,
+    "r_total_time_ms": 58.67226194,
+    "filesort": {
+      "sort_key": "sum(o.total) desc",
+      "r_loops": 1,
+      "r_total_time_ms": 0.045033594,
+      "r_used_priority_queue": false,
+      "r_output_rows": 4,
+      "r_buffer_size": "480",
+      "r_sort_mode": "sort_key,rowid",
+      "temporary_table": {
+        "nested_loop": [
+          {
+            "table": {
+              "table_name": "c",
+              "access_type": "ALL",
+              "possible_keys": ["PRIMARY"],
+              "r_loops": 1,
+              "rows": 2000,
+              "r_rows": 2000,
+              "r_table_time_ms": 0.297868351,
+              "r_other_time_ms": 0.228402915,
+              "r_engine_stats": {
+                "pages_accessed": 6
+              },
+              "filtered": 100,
+              "r_filtered": 100
+            }
+          },
+          {
+            "table": {
+              "table_name": "o",
+              "access_type": "ref",
+              "possible_keys": ["customer_id"],
+              "key": "customer_id",
+              "key_length": "5",
+              "used_key_parts": ["customer_id"],
+              "ref": ["gtest.c.id"],
+              "r_loops": 2000,
+              "rows": 12,
+              "r_rows": 25,
+              "r_table_time_ms": 45.563865,
+              "r_other_time_ms": 12.50543638,
+              "r_engine_stats": {
+                "pages_accessed": 104071
+              },
+              "filtered": 100,
+              "r_filtered": 49.234,
+              "attached_condition": "o.created > '2026-06-01'"
+            }
+          }
+        ]
+      }
+    }
+  }
+}

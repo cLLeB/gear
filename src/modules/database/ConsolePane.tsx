@@ -3,6 +3,8 @@
 // virtualized results grid, inline editing for single-table queries (applied
 // as one reviewed transaction), export and history.
 
+import { PlanView } from "./PlanView";
+import { explainSql, parseMysqlPlan, parsePgPlan, parseSqlitePlan, planJson, safeToAnalyze, type Plan } from "./plan";
 import { MySQL, PostgreSQL, SQLite, sql as sqlLang } from "@codemirror/lang-sql";
 import { Prec } from "@codemirror/state";
 import { EditorView, keymap } from "@codemirror/view";
@@ -275,6 +277,7 @@ export const ConsolePane = forwardRef<EditorPaneHandle, { path: string }>(functi
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [path, profile?.kind]);
   const [grid, setGrid] = useState<Grid | null>(null);
+  const [plan, setPlan] = useState<{ plan: Plan; sql: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
   const [split, setSplit] = useState(0.38);
@@ -296,6 +299,45 @@ export const ConsolePane = forwardRef<EditorPaneHandle, { path: string }>(functi
         const result = await runQuery(profileId, sql);
         const last = statements[statements.length - 1]?.text ?? sql;
         setGrid({ sql: last, result, table: statements.length === 1 ? editableTable(last) : null });
+        setPlan(null);
+      } catch (e) {
+        setError(String(e));
+      } finally {
+        setRunning(false);
+      }
+    },
+    [profile, profileId],
+  );
+
+  const explain = useCallback(
+    async (analyze: boolean) => {
+      const v = cm.current?.view;
+      if (!v || !profile) return;
+      const sel = v.state.selection.main;
+      const s = (sel.empty ? statementAt(v.state.doc.toString(), sel.head, profile.kind)?.text : v.state.sliceDoc(sel.from, sel.to))?.trim();
+      if (!s) return;
+      if (analyze && !safeToAnalyze(s)) {
+        if (!(await confirmPick("Explain analyze runs the statement for real", "Show the estimated plan instead", "Only plain SELECT / WITH queries are analyzed automatically."))) return;
+        analyze = false;
+      }
+      setRunning(true);
+      setError(null);
+      try {
+        let parsed: Plan;
+        if (profile.kind === "sqlite") parsed = parseSqlitePlan((await runQuery(profileId, explainSql("sqlite", s, false, false))).rows);
+        else if (profile.kind === "postgres") parsed = parsePgPlan(planJson((await runQuery(profileId, explainSql("postgres", s, analyze, false))).rows));
+        else {
+          // MariaDB has ANALYZE FORMAT=JSON; MySQL doesn't (fall back to the estimate).
+          let r;
+          try {
+            r = await runQuery(profileId, explainSql("mysql", s, analyze, true));
+          } catch (e) {
+            if (!analyze) throw e;
+            r = await runQuery(profileId, explainSql("mysql", s, false, false));
+          }
+          parsed = parseMysqlPlan(planJson(r.rows));
+        }
+        setPlan({ plan: parsed, sql: s });
       } catch (e) {
         setError(String(e));
       } finally {
@@ -429,16 +471,16 @@ export const ConsolePane = forwardRef<EditorPaneHandle, { path: string }>(functi
         <button
           type="button"
           className="rounded px-2 py-0.5 hover:bg-muted"
-          title="Show the query plan"
-          onClick={() => {
-            const v = cm.current?.view;
-            if (!v) return;
-            const s = statementAt(v.state.doc.toString(), v.state.selection.main.head, profile.kind)?.text;
-            if (s) void exec(`${profile.kind === "sqlite" ? "EXPLAIN QUERY PLAN" : profile.kind === "postgres" ? "EXPLAIN (ANALYZE false, COSTS true, VERBOSE false)" : "EXPLAIN"} ${s}`);
-          }}
+          title="Show the estimated query plan (doesn't run the query)"
+          onClick={() => void explain(false)}
         >
           Explain
         </button>
+        {profile.kind !== "sqlite" && (
+          <button type="button" className="rounded px-2 py-0.5 hover:bg-muted" title="Run the query and show where the time went" onClick={() => void explain(true)}>
+            Explain analyze
+          </button>
+        )}
         {running ? <span className="ml-2 animate-pulse text-muted-foreground">running…</span> : null}
       </div>
       <div className="min-h-0 overflow-hidden border-b border-border/60" style={{ flex: `0 0 ${split * 100}%` }}>
@@ -462,6 +504,8 @@ export const ConsolePane = forwardRef<EditorPaneHandle, { path: string }>(functi
       <div className="min-h-0 flex-1">
         {error ? (
           <pre className="m-2 whitespace-pre-wrap rounded bg-red-500/10 p-2 font-mono text-[12px] text-red-700 dark:text-red-300">{error}</pre>
+        ) : plan ? (
+          <PlanView plan={plan.plan} sql={plan.sql} onClose={() => setPlan(null)} />
         ) : grid ? (
           <ResultGrid grid={grid} profileId={profileId} onReload={() => void exec(grid.sql)} />
         ) : (
