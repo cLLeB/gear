@@ -27,6 +27,7 @@ import { consumeLaunchFiles } from "@/lib/launchDir";
 import { useControlBridge } from "@/modules/control";
 import { shouldPersistSidebarWidth } from "@/modules/sidebar";
 import { quoteShellArg } from "@/lib/shellQuote";
+import { fmtShortcut } from "@/lib/platform";
 import { useZoom } from "@/lib/useZoom";
 import { cn } from "@/lib/utils";
 import { AgentNotificationsBridge } from "@/modules/agents";
@@ -757,7 +758,9 @@ export default function App() {
 
 	const [shortcutsOpen, setShortcutsOpen] = useState(false);
 	const [zenMode, setZenMode] = useState(false);
-	const zenModeLabel = useShortcutLabel("view.zenMode");
+	const zenModeLabel = fmtShortcut(
+		...useShortcutLabel("view.zenMode").split(" ").filter(Boolean),
+	);
 	const [newEditorOpen, setNewEditorOpen] = useState(false);
 	const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
 	const miniOpen = useChatStore((s) => s.mini.open);
