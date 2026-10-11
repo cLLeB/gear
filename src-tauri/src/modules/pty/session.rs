@@ -53,10 +53,12 @@ pub struct Session {
     // Set by the waiter once the child exits, so pty_open can reap a shell
     // that died before it was registered.
     pub(super) exited: Arc<AtomicBool>,
+    pub(super) read_gate: Arc<super::flow::ReadGate>,
 }
 
 impl Drop for Session {
     fn drop(&mut self) {
+        self.read_gate.set_paused(false);
         #[cfg(unix)]
         self.reader_control.cancel();
         // If the session Arc is dropped without an explicit pty_close (e.g.
@@ -169,6 +171,7 @@ pub fn spawn(
     };
 
     let exited = Arc::new(AtomicBool::new(false));
+    let read_gate = Arc::new(super::flow::ReadGate::default());
 
     let session = Arc::new(Session {
         #[cfg(windows)]
@@ -180,6 +183,7 @@ pub fn spawn(
         writer: writer.clone(),
         master: Mutex::new(pair.master),
         exited: exited.clone(),
+        read_gate: read_gate.clone(),
     });
 
     let pending: Arc<(Mutex<Vec<u8>>, Condvar)> =
@@ -204,6 +208,7 @@ pub fn spawn(
             let mut dropped_bytes: u64 = 0;
             let mut logged_first = false;
             loop {
+                read_gate.wait(super::flow::MAX_PAUSE);
                 match reader.read(&mut buf) {
                     Ok(0) => break,
                     Ok(n) => {

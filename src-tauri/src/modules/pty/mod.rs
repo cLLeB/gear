@@ -1,5 +1,6 @@
 mod agent_detect;
 mod da_filter;
+mod flow;
 #[cfg(windows)]
 mod job;
 #[cfg(windows)]
@@ -208,6 +209,14 @@ pub fn pty_resize(
             e.to_string()
         });
     result
+}
+
+/// Flow control from the webview: stop or resume reading this pty's output.
+#[tauri::command]
+pub fn pty_set_paused(state: tauri::State<PtyState>, id: u32, paused: bool) {
+    if let Some(session) = state.sessions.read().unwrap().get(&id) {
+        session.read_gate.set_paused(paused);
+    }
 }
 
 #[tauri::command]

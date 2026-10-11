@@ -20,6 +20,7 @@ import {
   registerPromptTracker,
 } from "./osc-handlers";
 import { openPty, type PtySession } from "./pty-bridge";
+import { PtyFlowControl } from "./ptyFlowControl";
 import { useTerminalFont } from "./useTerminalFont";
 import "../block/block.css";
 import { ensureAgentActivityListener, isAgentActivePty } from "./agentActivity";
@@ -812,6 +813,25 @@ function ensureSession(
   return session;
 }
 
+type LeafFlow = { flow: PtyFlowControl; pty: PtySession; term: object };
+const leafFlows = new Map<number, LeafFlow>();
+
+// One backlog counter per (pty, terminal) pair: a respawned shell or a slot
+// handed to another terminal starts clean and lifts any pause it left behind.
+function flowFor(leafId: number, pty: PtySession, term: object): PtyFlowControl {
+  const current = leafFlows.get(leafId);
+  if (current && current.pty === pty && current.term === term) return current.flow;
+  current?.flow.reset();
+  const flow = new PtyFlowControl((paused) => pty.setPaused(paused));
+  leafFlows.set(leafId, { flow, pty, term });
+  return flow;
+}
+
+function dropLeafFlow(leafId: number): void {
+  leafFlows.get(leafId)?.flow.reset();
+  leafFlows.delete(leafId);
+}
+
 function deliverPtyBytes(leafId: number, bytes: Uint8Array): void {
   const s = sessions.get(leafId);
   if (!s) return;
@@ -819,8 +839,14 @@ function deliverPtyBytes(leafId: number, bytes: Uint8Array): void {
   // Retained slots keep parsing live (render paused); the ring is only for
   // leaves whose buffer was stolen or never bound.
   const slot = getLiveSlotForLeaf(leafId);
-  if (slot) slot.term.write(bytes);
-  else s.dormantRing.push(bytes);
+  if (!slot) {
+    dropLeafFlow(leafId);
+    s.dormantRing.push(bytes);
+  } else if (s.pty) {
+    slot.term.write(bytes, flowFor(leafId, s.pty, slot.term).track(bytes.length));
+  } else {
+    slot.term.write(bytes);
+  }
 }
 
 const SPAWN_RETRY_DELAY_MS = 250;
@@ -1164,6 +1190,7 @@ export function disposeSession(leafId: number): void {
   s.pty?.close();
   s.pty = null;
   s.pendingInput = "";
+  dropLeafFlow(leafId);
   sessions.delete(leafId);
   forgetTapLeaf(leafId);
   usePaneLockStore.getState().unlock(leafId);
