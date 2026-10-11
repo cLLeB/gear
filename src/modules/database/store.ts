@@ -29,11 +29,21 @@ export interface ColumnInfo {
   primaryKey: boolean;
 }
 
+export interface ForeignKey {
+  name: string;
+  columns: string[];
+  refSchema: string;
+  refTable: string;
+  refColumns: string[];
+}
+
 export interface TableInfo {
   schema: string;
   name: string;
   kind: "table" | "view";
   columns: ColumnInfo[];
+  /** Older backends don't send it. */
+  foreignKeys?: ForeignKey[];
 }
 
 export interface QueryResult {

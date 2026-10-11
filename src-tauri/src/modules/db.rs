@@ -55,6 +55,41 @@ pub struct TableInfo {
     /// "table" | "view"
     pub kind: String,
     pub columns: Vec<ColumnInfo>,
+    pub foreign_keys: Vec<ForeignKey>,
+}
+
+#[derive(Serialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct ForeignKey {
+    pub name: String,
+    pub columns: Vec<String>,
+    pub ref_schema: String,
+    pub ref_table: String,
+    pub ref_columns: Vec<String>,
+}
+
+/// Add a (constraint, column pair) row to the table's foreign keys, grouping composite keys.
+fn push_fk(
+    t: &mut TableInfo,
+    name: &str,
+    col: String,
+    ref_schema: String,
+    ref_table: String,
+    ref_col: String,
+) {
+    match t.foreign_keys.iter_mut().find(|f| f.name == name) {
+        Some(f) => {
+            f.columns.push(col);
+            f.ref_columns.push(ref_col);
+        }
+        None => t.foreign_keys.push(ForeignKey {
+            name: name.to_string(),
+            columns: vec![col],
+            ref_schema,
+            ref_table,
+            ref_columns: vec![ref_col],
+        }),
+    }
 }
 
 pub enum Conn {
@@ -368,7 +403,35 @@ pub fn schema(conn: &mut Conn) -> Result<Vec<TableInfo>, String> {
                         primary_key: c[5].as_deref().is_some_and(|p| p != "0"),
                     })
                     .collect(),
+                foreign_keys: vec![],
             });
+        }
+        // PRAGMA foreign_key_list: id, seq, table, from, to (NULL = the target's primary key), …
+        for i in 0..tables.len() {
+            let fks = rows_of(
+                conn,
+                &format!(
+                    "PRAGMA foreign_key_list(\"{}\")",
+                    tables[i].name.replace('"', "\"\"")
+                ),
+            )?;
+            for r in fks {
+                let id = r[0].clone().unwrap_or_default();
+                let seq: usize = r[1].as_deref().and_then(|x| x.parse().ok()).unwrap_or(0);
+                let target = r[2].clone().unwrap_or_default();
+                let from = r[3].clone().unwrap_or_default();
+                let to = match r[4].clone() {
+                    Some(t) => t,
+                    None => tables
+                        .iter()
+                        .find(|t| t.name == target)
+                        .and_then(|t| t.columns.iter().filter(|c| c.primary_key).nth(seq))
+                        .map(|c| c.name.clone())
+                        .unwrap_or_default(),
+                };
+                let name = format!("fk_{}_{}", tables[i].name, id);
+                push_fk(&mut tables[i], &name, from, "main".into(), target, to);
+            }
         }
         return Ok(tables);
     }
@@ -383,6 +446,7 @@ pub fn schema(conn: &mut Conn) -> Result<Vec<TableInfo>, String> {
             name: key.1,
             kind: r[2].clone().unwrap_or_default(),
             columns: vec![],
+            foreign_keys: vec![],
         });
     }
     for r in rows_of(conn, csql)? {
@@ -412,6 +476,16 @@ pub fn schema(conn: &mut Conn) -> Result<Vec<TableInfo>, String> {
             {
                 c.primary_key = true;
             }
+        }
+    }
+    let fksql = match conn {
+        Conn::Pg(_) => "SELECT con.conname, ns.nspname, cl.relname, att.attname, fns.nspname, fcl.relname, fatt.attname FROM pg_constraint con JOIN pg_class cl ON cl.oid = con.conrelid JOIN pg_namespace ns ON ns.oid = cl.relnamespace JOIN pg_class fcl ON fcl.oid = con.confrelid JOIN pg_namespace fns ON fns.oid = fcl.relnamespace CROSS JOIN LATERAL unnest(con.conkey, con.confkey) WITH ORDINALITY AS u(k, fk, ord) JOIN pg_attribute att ON att.attrelid = con.conrelid AND att.attnum = u.k JOIN pg_attribute fatt ON fatt.attrelid = con.confrelid AND fatt.attnum = u.fk WHERE con.contype = 'f' AND ns.nspname NOT IN ('pg_catalog', 'information_schema') ORDER BY ns.nspname, cl.relname, con.conname, u.ord",
+        _ => "SELECT constraint_name, table_schema, table_name, column_name, referenced_table_schema, referenced_table_name, referenced_column_name FROM information_schema.key_column_usage WHERE table_schema = DATABASE() AND referenced_table_name IS NOT NULL ORDER BY table_name, constraint_name, ordinal_position",
+    };
+    for r in rows_of(conn, fksql)? {
+        let v = |i: usize| r[i].clone().unwrap_or_default();
+        if let Some(&i) = index.get(&(v(1), v(2))) {
+            push_fk(&mut tables[i], &v(0), v(3), v(4), v(5), v(6));
         }
     }
     Ok(tables)
@@ -699,5 +773,119 @@ mod tests {
                 .nullable
         );
         run_query(&mut c, "DROP TABLE gear_t", 10).unwrap();
+    }
+
+    fn check_fks(s: &[TableInfo]) {
+        let line = s.iter().find(|t| t.name == "fk_line").expect("fk_line");
+        let mut fks = line.foreign_keys.clone();
+        fks.sort_by(|a, b| a.ref_table.cmp(&b.ref_table));
+        assert_eq!(fks.len(), 2, "{fks:?}");
+        assert_eq!(
+            (
+                fks[0].ref_table.as_str(),
+                fks[0].columns.clone(),
+                fks[0].ref_columns.clone()
+            ),
+            (
+                "fk_order",
+                vec!["order_id".to_string(), "region".to_string()],
+                vec!["id".to_string(), "region".to_string()]
+            )
+        );
+        assert_eq!(
+            (
+                fks[1].ref_table.as_str(),
+                fks[1].columns.clone(),
+                fks[1].ref_columns.clone()
+            ),
+            (
+                "fk_product",
+                vec!["product_id".to_string()],
+                vec!["id".to_string()]
+            )
+        );
+        assert!(s
+            .iter()
+            .find(|t| t.name == "fk_product")
+            .unwrap()
+            .foreign_keys
+            .is_empty());
+    }
+
+    const FK_SQL: &str = "CREATE TABLE fk_product (id INTEGER PRIMARY KEY, name TEXT); CREATE TABLE fk_order (id INTEGER NOT NULL, region VARCHAR(8) NOT NULL, PRIMARY KEY (id, region)); CREATE TABLE fk_line (id INTEGER PRIMARY KEY, order_id INTEGER, region VARCHAR(8), product_id INTEGER REFERENCES fk_product, FOREIGN KEY (order_id, region) REFERENCES fk_order (id, region))";
+
+    #[test]
+    fn sqlite_foreign_keys() {
+        let mut c = lite();
+        run_batch(
+            &mut c,
+            &FK_SQL.split("; ").map(String::from).collect::<Vec<_>>(),
+        )
+        .unwrap();
+        check_fks(&schema(&mut c).unwrap());
+    }
+
+    #[test]
+    fn postgres_mysql_foreign_keys() {
+        if let Ok(port) = std::env::var("GEAR_TEST_PG_PORT") {
+            let spec = ConnectSpec {
+                kind: "postgres".into(),
+                host: Some("127.0.0.1".into()),
+                port: port.parse().ok(),
+                user: Some("gear".into()),
+                password: None,
+                database: Some("postgres".into()),
+                path: None,
+                ssl: Some("prefer".into()),
+            };
+            let mut c = connect(&spec).unwrap();
+            run_query(
+                &mut c,
+                "DROP TABLE IF EXISTS fk_line, fk_order, fk_product",
+                10,
+            )
+            .unwrap();
+            // Postgres needs the referenced column spelled out for an explicit FK to a table.
+            run_batch(
+                &mut c,
+                &FK_SQL
+                    .replace("REFERENCES fk_product,", "REFERENCES fk_product (id),")
+                    .split("; ")
+                    .map(String::from)
+                    .collect::<Vec<_>>(),
+            )
+            .unwrap();
+            check_fks(&schema(&mut c).unwrap());
+        }
+        if let Ok(port) = std::env::var("GEAR_TEST_MY_PORT") {
+            let spec = ConnectSpec {
+                kind: "mysql".into(),
+                host: Some("127.0.0.1".into()),
+                port: port.parse().ok(),
+                user: Some("gear".into()),
+                password: Some("pw".into()),
+                database: Some("gtest".into()),
+                path: None,
+                ssl: Some("disable".into()),
+            };
+            let mut c = connect(&spec).unwrap();
+            run_query(
+                &mut c,
+                "DROP TABLE IF EXISTS fk_line, fk_order, fk_product",
+                10,
+            )
+            .unwrap();
+            // MySQL ignores inline REFERENCES; use table-level constraints.
+            let sql = FK_SQL.replace(
+                "product_id INTEGER REFERENCES fk_product,",
+                "product_id INTEGER, FOREIGN KEY (product_id) REFERENCES fk_product (id),",
+            );
+            run_batch(
+                &mut c,
+                &sql.split("; ").map(String::from).collect::<Vec<_>>(),
+            )
+            .unwrap();
+            check_fks(&schema(&mut c).unwrap());
+        }
     }
 }

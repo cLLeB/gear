@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { app } from "@/app/appBridge";
 import { getActiveEditor } from "@/modules/editor/lib/activeEditor";
 import { quickPick } from "@/modules/quick-pick";
+import { erPath } from "./ErPane";
 import { statementAt } from "./model";
 import { consolePath, useDbStore } from "./store";
 
@@ -40,7 +41,13 @@ async function runSqlFromEditor(): Promise<void> {
   app().openFile(consolePath(id));
 }
 
+async function erDiagram(): Promise<void> {
+  const id = await pickProfile("ER diagram of…");
+  if (id) app().openFile(erPath(id));
+}
+
 export const DATABASE_ACTIONS = [
+  { id: "db.er", label: "Database: Show ER diagram…", keywords: ["database", "er", "diagram", "schema", "relationships", "foreign keys", "erd"], run: () => void erDiagram() },
   { id: "db.show", label: "Database: Show connections", keywords: ["database", "sql", "postgres", "mysql", "sqlite", "db", "tables"], run: showView },
   { id: "db.console", label: "Database: New SQL console…", keywords: ["database", "sql", "console", "query", "postgres", "mysql"], run: () => void newConsole() },
   { id: "db.runSelection", label: "Database: Run selected SQL against a connection…", keywords: ["sql", "run", "execute", "query", "selection", "database"], run: () => void runSqlFromEditor() },

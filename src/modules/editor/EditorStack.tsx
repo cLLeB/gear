@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { NotebookPane } from "@/modules/notebook/NotebookPane";
 import { ProfilePane } from "@/modules/profiler/ProfilePane";
 import { ConsolePane } from "@/modules/database/ConsolePane";
+import { ErPane } from "@/modules/database/ErPane";
 import { DockerPane } from "@/modules/containers/DockerPane";
 import { ExtLogPane } from "@/modules/extensions/ExtLogPane";
 import { HttpSplit } from "@/modules/http/HttpSplit";
@@ -107,7 +108,9 @@ export function EditorStack({
             aria-hidden={!visible}
           >
             <div className="h-full overflow-hidden rounded-md border border-border/60 bg-background">
-              {t.path.startsWith("gear-db://") ? (
+              {t.path.startsWith("gear-er://") ? (
+                <ErPane ref={getRefCallback(t.id)} path={t.path} />
+              ) : t.path.startsWith("gear-db://") ? (
                 <ConsolePane ref={getRefCallback(t.id)} path={t.path} />
               ) : t.path.startsWith("gear-docker://") ? (
                 <DockerPane ref={getRefCallback(t.id)} path={t.path} />
