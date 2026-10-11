@@ -58,3 +58,60 @@ export function undoGroups(moved: { from: string; to: string }[]): Map<string, s
   }
   return groups;
 }
+
+export interface MoveOps {
+  /** Moves `source` into `destDir`, returning where it landed. */
+  move(source: string, destDir: string): Promise<string>;
+  rename(from: string, to: string): Promise<void>;
+  remove(path: string): Promise<void>;
+}
+
+export interface MoveOutcome {
+  moved: { from: string; to: string }[];
+  failed: { path: string; reason: string }[];
+  /** Set-aside copies of replaced items that could not be removed or put back. */
+  stranded: string[];
+}
+
+/**
+ * Moves each source on its own, so one failure neither hides nor undoes the
+ * others. A replaced item is set aside first and only deleted once its
+ * replacement has landed; if the move fails it is put back. Only names in
+ * `existing` are replaced: two dragged items sharing a name keep both.
+ */
+export async function runDragMove(
+  sources: readonly string[],
+  replace: ReadonlySet<string>,
+  destDir: string,
+  existing: readonly string[],
+  ops: MoveOps,
+  token: string,
+  caseInsensitive = false,
+): Promise<MoveOutcome> {
+  const key = (s: string) => (caseInsensitive ? s.toLowerCase() : s);
+  const dest = norm(destDir);
+  const out: MoveOutcome = { moved: [], failed: [], stranded: [] };
+  for (const src of sources) {
+    const current = replace.has(src) ? existing.find((n) => key(n) === key(baseName(src))) : undefined;
+    let parked: { target: string; aside: string } | null = null;
+    if (current !== undefined) {
+      const target = `${dest}/${current}`;
+      const aside = `${target}.replaced-${token}`;
+      try {
+        await ops.rename(target, aside);
+        parked = { target, aside };
+      } catch (e) {
+        out.failed.push({ path: src, reason: String(e) });
+        continue;
+      }
+    }
+    try {
+      out.moved.push({ from: src, to: await ops.move(src, destDir) });
+      if (parked) await ops.remove(parked.aside).catch(() => out.stranded.push(parked!.aside));
+    } catch (e) {
+      out.failed.push({ path: src, reason: String(e) });
+      if (parked) await ops.rename(parked.aside, parked.target).catch(() => out.stranded.push(parked!.aside));
+    }
+  }
+  return out;
+}

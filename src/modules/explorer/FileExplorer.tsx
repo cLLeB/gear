@@ -31,7 +31,7 @@ import { toast } from "sonner";
 import { useExplorerClipboard } from "./lib/clipboard";
 import { copyToClipboard, revealInFinder } from "./lib/contextActions";
 import { pasteInto } from "./lib/pasteRunner";
-import { baseName, parentDir, planDragMove, undoGroups } from "./lib/dragMove";
+import { baseName, type MoveOps, parentDir, planDragMove, runDragMove, undoGroups } from "./lib/dragMove";
 import { dragHasFsPaths, readFsPaths } from "@/lib/pathDrag";
 import { invoke } from "@tauri-apps/api/core";
 import { IS_MAC, IS_WINDOWS } from "@/lib/platform";
@@ -463,39 +463,49 @@ export const FileExplorer = forwardRef<FileExplorerHandle, Props>(
           } else if (choice === "both") toMove = [...plan.moves, ...plan.conflicts];
         }
         if (!toMove.length) return;
-        try {
-          for (const src of replace) {
-            const target = `${destDir.replace(/[\\/]+$/, "")}/${baseName(src)}`;
-            await invoke("fs_delete", { path: target, workspace });
-          }
-          const written = await invoke<string[]>("fs_move", { sources: toMove, destDir, workspace });
-          const moved = toMove.map((from, i) => ({ from, to: written[i] }));
-          for (const m of moved) onPathRenamed?.(m.from, m.to);
-          for (const dir of new Set([destDir, ...toMove.map(parentDir)])) tree.refresh(dir);
-          tree.expand(destDir);
-          setSelectedPaths(new Set(written));
-          setAnchorPath(written[0] ?? null);
-          toast.success(`Moved ${written.length === 1 ? baseName(written[0]) : `${written.length} items`} to ${baseName(destDir)}`, {
-            action: replace.length
-              ? undefined
-              : {
-                  label: "Undo",
-                  onClick: () => {
-                    void (async () => {
-                      for (const [dir, items] of undoGroups(moved)) {
-                        const back = await invoke<string[]>("fs_move", { sources: items, destDir: dir, workspace });
-                        items.forEach((to, i) => onPathRenamed?.(to, back[i]));
-                        tree.refresh(dir);
-                      }
-                      tree.refresh(destDir);
-                    })().catch((e) => toast.error(`Undo failed: ${String(e)}`));
-                  },
-                },
-          });
-        } catch (e) {
-          toast.error(`Move failed: ${String(e)}`);
-          for (const dir of new Set([destDir, ...toMove.map(parentDir)])) tree.refresh(dir);
+        const ops: MoveOps = {
+          move: async (source, dir) => (await invoke<string[]>("fs_move", { sources: [source], destDir: dir, workspace }))[0],
+          rename: (from, to) => invoke("fs_rename", { from, to, workspace }),
+          remove: (path) => invoke("fs_delete", { path, workspace }),
+        };
+        const { moved, failed, stranded } = await runDragMove(
+          toMove,
+          new Set(replace),
+          destDir,
+          existing.map((e) => e.name),
+          ops,
+          Date.now().toString(36),
+          IS_WINDOWS || IS_MAC,
+        );
+        const written = moved.map((m) => m.to);
+        for (const m of moved) onPathRenamed?.(m.from, m.to);
+        for (const dir of new Set([destDir, ...toMove.map(parentDir)])) tree.refresh(dir);
+        if (failed.length) {
+          const names = failed.map((f) => baseName(f.path)).join(", ");
+          toast.error(moved.length ? `Some items could not be moved: ${names}` : `Move failed: ${names}`, { description: failed[0].reason });
         }
+        if (stranded.length) toast.warning(`The replaced item was kept as ${stranded.map(baseName).join(", ")}`);
+        if (!moved.length) return;
+        tree.expand(destDir);
+        setSelectedPaths(new Set(written));
+        setAnchorPath(written[0] ?? null);
+        toast.success(`Moved ${written.length === 1 ? baseName(written[0]) : `${written.length} items`} to ${baseName(destDir)}`, {
+          action: replace.length
+            ? undefined
+            : {
+                label: "Undo",
+                onClick: () => {
+                  void (async () => {
+                    for (const [dir, items] of undoGroups(moved)) {
+                      const back = await invoke<string[]>("fs_move", { sources: items, destDir: dir, workspace });
+                      items.forEach((to, i) => onPathRenamed?.(to, back[i]));
+                      tree.refresh(dir);
+                    }
+                    tree.refresh(destDir);
+                  })().catch((e) => toast.error(`Undo failed: ${String(e)}`));
+                },
+              },
+        });
       },
       [tree, onPathRenamed],
     );
