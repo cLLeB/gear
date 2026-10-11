@@ -57,6 +57,7 @@ export type ShortcutId =
   | "blocks.next"
   | "editor.undo"
   | "editor.redo"
+  | "editor.save"
   | "editor.findReplace"
   | "editor.fold"
   | "editor.unfold"
@@ -333,6 +334,14 @@ export const SHORTCUTS: Shortcut[] = [
     label: "Redo",
     group: "Editor",
     defaultBindings: [{ [MOD_PROP]: true, key: "y" }],
+  },
+  // Mod+S at the app layer so WKWebView cannot steal "Save Page".
+  // CodeMirror also binds Mod-s; the global handler preventDefaults first.
+  {
+    id: "editor.save",
+    label: "Save file",
+    group: "Editor",
+    defaultBindings: [{ [MOD_PROP]: true, key: "s" }],
   },
   {
     id: "editor.findReplace",

@@ -1667,6 +1667,9 @@ export default function App() {
 			"view.zoomReset": zoomReset,
 			"editor.undo": () => editorRefs.current.get(activeId)?.undo(),
 			"editor.redo": () => editorRefs.current.get(activeId)?.redo(),
+			"editor.save": () => {
+				void editorRefs.current.get(activeId)?.save();
+			},
 			"editor.findReplace": () =>
 				editorRefs.current.get(activeId)?.openFindReplace(),
 			"editor.toggleBlame": () =>
@@ -1718,6 +1721,8 @@ export default function App() {
 			if (id === "debug.stepOver" || id === "debug.stepInto" || id === "debug.stepOut") return !isPaused();
 			if (id === "debug.stop") return !isDebugging();
 			if (id === "debug.toggleBreakpoint") return activeTab?.kind !== "editor";
+			// Virtual editor tabs (database, HTTP, notebooks…) keep their own Mod+S.
+			if (id === "editor.save") return !editorRefs.current.has(activeId);
 			if (
 				id === "editor.undo" ||
 				id === "editor.redo" ||
