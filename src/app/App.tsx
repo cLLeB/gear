@@ -87,6 +87,7 @@ import { usePreferencesStore } from "@/modules/settings/preferences";
 import {
 	onKeysChanged,
 	setConfirmCloseRunningTerminal,
+	setShowHidden,
 	setRunSelectedConfig,
 	setSidebarPosition,
 	setWordWrap,
@@ -1657,6 +1658,10 @@ export default function App() {
 			"debug.stepOut": () => void debugCommand.stepOut(),
 			"debug.stop": () => void stopDebugging(),
 			"explorer.focus": toggleExplorerFocus,
+			"explorer.toggleHidden": () => {
+				persistSidebarView("explorer");
+				void setShowHidden(!usePreferencesStore.getState().showHidden);
+			},
 			"view.zoomIn": zoomIn,
 			"view.zoomOut": zoomOut,
 			"view.zoomReset": zoomReset,

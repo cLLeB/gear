@@ -38,6 +38,8 @@ import { WORKSPACE_ACTIONS } from "@/modules/workspace/actions";
 import { pickClosedTab, TAB_ACTIONS } from "@/modules/tabs/tabActions";
 import { deleteSavedLayout, openSavedLayout, saveCurrentLayout } from "@/modules/tabs/layoutActions";
 import { GIT_ACTIONS } from "@/modules/git-actions/actions";
+import { usePreferencesStore } from "@/modules/settings/preferences";
+import { setShowHidden } from "@/modules/settings/store";
 import { GIT_EXTRA_ACTIONS } from "@/modules/git-actions/extraActions";
 import { GIT_EXTRA_ACTIONS_2 } from "@/modules/git-actions/extraActions2";
 import { GIT_EXTRA_ACTIONS_3 } from "@/modules/git-actions/extraActions3";
@@ -386,6 +388,15 @@ export function createCommandPaletteActions(
       icon: SidebarLeftIcon,
       shortcutId: "sidebar.toggle",
       run: ctx.toggleSidebar,
+    },
+    {
+      id: "explorer.toggleHidden",
+      label: "Toggle hidden files",
+      group: "View",
+      keywords: ["dotfiles", "explorer", "show hidden", "gitignored"],
+      icon: SidebarLeftIcon,
+      shortcutId: "explorer.toggleHidden",
+      run: () => void setShowHidden(!usePreferencesStore.getState().showHidden),
     },
     {
       id: "explorer.search",

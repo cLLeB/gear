@@ -62,6 +62,14 @@ describe("matchBinding", () => {
     ).toBe(true);
   });
 
+  it("falls back to the physical key for Shift bindings", () => {
+    const binding = { key: ".", ctrl: true, shift: true };
+    expect(matchBinding(event({ key: ">", code: "Period", ctrlKey: true, shiftKey: true }), binding)).toBe(true);
+    expect(matchBinding(event({ key: ">", code: "Comma", ctrlKey: true, shiftKey: true }), binding)).toBe(false);
+    // Without Shift in the binding there's no fallback.
+    expect(matchBinding(event({ key: ">", code: "Period", ctrlKey: true }), { key: ".", ctrl: true })).toBe(false);
+  });
+
   it("fails when a required modifier is missing", () => {
     expect(matchBinding(event({ key: "c" }), { key: "c", ctrl: true })).toBe(
       false,
