@@ -13,7 +13,7 @@ import { pythonFor } from "@/modules/debug/store";
 import { getActiveEditor } from "@/modules/editor/lib/activeEditor";
 import { inputBox, quickPick } from "@/modules/quick-pick";
 
-const PROFILE_RE = /\.(cpuprofile|speedscope\.json|folded|collapsed)$/i;
+const PROFILE_RE = /\.(cpuprofile|speedscope\.json|folded|collapsed|heapsnapshot)$/i;
 
 async function outDir(): Promise<string> {
   const base = (await appCacheDir()).replace(/\\/g, "/").replace(/\/+$/, "");
@@ -118,7 +118,7 @@ async function attachPython(): Promise<void> {
 
 async function openProfile(): Promise<void> {
   const root = app().workspaceRoot();
-  const hits = root ? ((await native.glob({ pattern: "**/*.{cpuprofile,folded,collapsed}", root, maxResults: 200 }).catch(() => null))?.hits ?? []) : [];
+  const hits = root ? ((await native.glob({ pattern: "**/*.{cpuprofile,folded,collapsed,heapsnapshot}", root, maxResults: 200 }).catch(() => null))?.hits ?? []) : [];
   const ss = root ? ((await native.glob({ pattern: "**/*.speedscope.json", root, maxResults: 200 }).catch(() => null))?.hits ?? []) : [];
   const cache = `${(await appCacheDir()).replace(/\\/g, "/").replace(/\/+$/, "")}/profiles`;
   const recent = await native.glob({ pattern: "**/*.{cpuprofile,json}", root: cache, maxResults: 50 }).catch(() => null);
@@ -128,14 +128,71 @@ async function openProfile(): Promise<void> {
       ...[...hits, ...ss].filter((h) => !/node_modules/.test(h.rel)).map((h) => ({ label: h.rel, description: "workspace", value: h.path })),
       { label: "Enter a path…", value: "" },
     ],
-    { title: "Open a CPU profile (.cpuprofile, speedscope, collapsed stacks)" },
+    { title: "Open a profile (.cpuprofile, speedscope, collapsed stacks, .heapsnapshot)" },
   );
   if (pick === undefined) return;
   const path = pick || (await inputBox({ title: "Profile path" }));
   if (path) app().openFile(path);
 }
 
+// ── heap snapshots ────────────────────────────────────────────────────────
+
+/** Run a Node script that writes a heap snapshot each time it gets SIGUSR2. */
+async function heapRun(): Promise<void> {
+  if (IS_WINDOWS) return void toast.info("Signal-triggered snapshots need macOS or Linux", { description: "On Windows, call require('v8').writeHeapSnapshot() from the script, or use Chrome DevTools with --inspect." });
+  const path = getActiveEditor()?.path?.replace(/\\/g, "/");
+  if (!path || !/\.(m?[jt]s|cjs|tsx)$/.test(path)) return void toast.info("Open a JavaScript / TypeScript entry file first");
+  const cwd = path.replace(/\/[^/]*$/, "");
+  runInTerminal(`node --heapsnapshot-signal=SIGUSR2 ${/\.tsx?$|\.mts$/.test(path) ? "--import tsx " : ""}${q(path)}`, cwd);
+  toast.info("Running with heap snapshots on demand", { description: "Use “Profile: Take a heap snapshot of a Node process” now and again after the suspected leak, then compare them." });
+}
+
+/** Signal a running Node process (started with --heapsnapshot-signal) and open the snapshot it writes. */
+async function heapSnapshotOf(): Promise<void> {
+  if (IS_WINDOWS) return void toast.info("Signal-triggered snapshots need macOS or Linux");
+  const { useProcStore, sample } = await import("@/modules/procs/store");
+  await sample(true);
+  const nodes = useProcStore.getState().procs.filter((p) => /(^|\/)node(js)?$/.test(p.name) || /^node\b/.test(p.args));
+  const ready = nodes.filter((p) => p.args.includes("--heapsnapshot-signal"));
+  const pid = await quickPick(
+    [...ready, ...nodes.filter((p) => !ready.includes(p))].map((p) => ({ label: `${p.pid}  ${p.args.slice(0, 120)}`, description: ready.includes(p) ? "ready" : "not started with --heapsnapshot-signal", detail: p.cwd, value: p.pid })),
+    { title: "Take a heap snapshot of…" },
+  );
+  if (pid === undefined) return;
+  const proc = nodes.find((p) => p.pid === pid)!;
+  if (!ready.includes(proc)) return void toast.error("That process can't be signalled for a snapshot", { description: "Start it with node --heapsnapshot-signal=SIGUSR2 (“Profile: Run this file with heap snapshots”)." });
+  const signal = /--heapsnapshot-signal=(\w+)/.exec(proc.args)?.[1] ?? "SIGUSR2";
+  const cwd = proc.cwd ?? app().workspaceRoot() ?? "";
+  const before = new Set((await native.glob({ pattern: "*.heapsnapshot", root: cwd, maxResults: 500 }).catch(() => null))?.hits.map((h) => h.path) ?? []);
+  const r = await native.runCommand(`kill -${signal.replace(/^SIG/, "")} ${pid}`, null, 10);
+  if (r.exit_code !== 0) return void toast.error("Couldn't signal the process", { description: r.stderr });
+  const t = toast.loading("Writing the heap snapshot…");
+  // V8 writes Heap.<date>.<pid>.<n>.heapsnapshot into the process's working folder.
+  for (let i = 0; i < 120; i++) {
+    await new Promise((res) => setTimeout(res, 500));
+    const hits = (await native.glob({ pattern: "*.heapsnapshot", root: cwd, maxResults: 500 }).catch(() => null))?.hits ?? [];
+    const fresh = hits.find((h) => !before.has(h.path));
+    if (fresh) {
+      // Wait until the file stops growing.
+      let size = -1;
+      for (let k = 0; k < 120; k++) {
+        const s = (await native.readDir(cwd).catch(() => [])).find((e) => fresh.path.endsWith(`/${e.name}`) || fresh.path.endsWith(`\\${e.name}`))?.size ?? 0;
+        if (s > 0 && s === size) break;
+        size = s;
+        await new Promise((res) => setTimeout(res, 400));
+      }
+      toast.dismiss(t);
+      app().openFile(fresh.path);
+      return;
+    }
+  }
+  toast.dismiss(t);
+  toast.error("No snapshot appeared", { description: `Looked in ${cwd}` });
+}
+
 export const PROFILER_ACTIONS = [
+  { id: "profiler.heapRun", label: "Profile: Run this file with heap snapshots on demand (Node)", keywords: ["heap", "memory", "leak", "snapshot", "heapsnapshot", "node"], run: () => void heapRun() },
+  { id: "profiler.heapSnapshot", label: "Profile: Take a heap snapshot of a Node process…", keywords: ["heap", "memory", "leak", "snapshot", "heapsnapshot", "node", "signal"], run: () => void heapSnapshotOf() },
   { id: "profiler.currentFile", label: "Profile: Record a CPU profile of this file (Node / Python)", keywords: ["profile", "cpu", "flamegraph", "performance", "slow", "py-spy", "cpu-prof"], run: () => void profileCurrentFile() },
   { id: "profiler.command", label: "Profile: Record a command…", keywords: ["profile", "cpu", "flamegraph", "npm", "node", "python", "performance"], run: () => void profileCommand() },
   { id: "profiler.attach", label: "Profile: Attach to a running Python process (py-spy)…", keywords: ["profile", "attach", "pid", "py-spy", "live", "production"], run: () => void attachPython() },

@@ -3,6 +3,7 @@ import type { EditorTab, Tab } from "@/modules/tabs";
 import { useEffect, useRef } from "react";
 import { NotebookPane } from "@/modules/notebook/NotebookPane";
 import { ProfilePane } from "@/modules/profiler/ProfilePane";
+import { HeapPane } from "@/modules/profiler/HeapPane";
 import { ConsolePane } from "@/modules/database/ConsolePane";
 import { ErPane } from "@/modules/database/ErPane";
 import { DockerPane } from "@/modules/containers/DockerPane";
@@ -128,6 +129,8 @@ export function EditorStack({
                 <K8sPane ref={getRefCallback(t.id)} path={t.path} />
               ) : t.path.startsWith("gear-ext://") ? (
                 <ExtLogPane ref={getRefCallback(t.id)} path={t.path} />
+              ) : /\.heapsnapshot$/i.test(t.path) && !t.languageOverride ? (
+                <HeapPane ref={getRefCallback(t.id)} path={t.path} />
               ) : /\.(cpuprofile|speedscope\.json|folded|collapsed)$/i.test(t.path) && !t.languageOverride ? (
                 <ProfilePane ref={getRefCallback(t.id)} path={t.path} />
               ) : /\.ipynb$/i.test(t.path) && !t.languageOverride ? (

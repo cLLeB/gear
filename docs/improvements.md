@@ -285,3 +285,9 @@ noted; tunable behaviour lives in **Settings → Features**.
 - "Processes: Show ports and processes": every listening TCP port with its process (ss / lsof on Linux and macOS, Get-NetTCPConnection on Windows), common dev ports labelled; open one in the preview, jump to its process, or stop it.
 - A live process tree (every 2 s, pausable) with CPU and memory per process and per subtree, uptime, user and command line; sort by CPU / memory / PID / name, filter (matches keep their parents for context), collapse branches, and "this workspace" for processes whose working folder or command line is inside the open folder.
 - Stop (TERM), stop with children, or force kill (KILL / Stop-Process -Force / taskkill /T), open a terminal in a process's folder, copy its command line. "Processes: Stop whatever is listening on a port…" answers "address already in use" in one step.
+
+### Heap snapshots (memory leaks)
+- `.heapsnapshot` files (Chrome DevTools, Node's `v8.writeHeapSnapshot()` / `--heapsnapshot-signal`) open in a memory view computed in Rust: dominator tree, retained sizes, distances. The summary lists classes (DevTools-style grouping) with object count, shallow size and retained size (instances held by same-class instances aren't double-counted); expand a class for its biggest instances.
+- Pick an object to see **why it's alive** — the retaining path from a global (preferred over stack / handle roots, like DevTools) — plus all retainers and an expandable reference tree.
+- **Compare** with an earlier snapshot from the same folder: new / deleted objects and bytes per class, sorted by growth; expand a class to inspect the objects that appeared — the usual way to pin down a leak.
+- "Profile: Run this file with heap snapshots on demand" starts a Node script with `--heapsnapshot-signal`; "Profile: Take a heap snapshot of a Node process…" signals it and opens the snapshot as soon as it's written.
