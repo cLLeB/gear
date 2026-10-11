@@ -5,6 +5,7 @@ import { useAgentStore } from "../store/agentStore";
 import { resolveAgentNotificationDelivery } from "./delivery";
 import { createAgentNotificationGate } from "./notificationGate";
 import { osNotify } from "./notify";
+import { playAgentNotificationSound } from "./sound";
 import type { AgentSource, NotificationKind } from "./types";
 
 const shouldDeliver = createAgentNotificationGate();
@@ -38,7 +39,8 @@ export function routeAgentNotification({
   leafId = 0,
   onActivate,
 }: RouteArgs): void {
-  if (!usePreferencesStore.getState().agentNotifications) {
+  const preferences = usePreferencesStore.getState();
+  if (!preferences.agentNotifications) {
     void info(`[route] ${agent}/${kind} dropped: agentNotifications disabled`);
     return;
   }
@@ -60,11 +62,13 @@ export function routeAgentNotification({
 
   if (delivery === "native") {
     void info(`[route] ${agent}/${kind} -> OS notification`);
-    void osNotify(title, body ?? agent);
+    void osNotify(title, body ?? agent, preferences.agentNotificationSound);
     return;
   }
   if (delivery === "toast") {
     void info(`[route] ${agent}/${kind} -> in-app toast`);
+    // Native toasts carry the platform's own sound; in-app ones need ours.
+    if (preferences.agentNotificationSound) playAgentNotificationSound();
     showAgentToast({ agent, title, body, onActivate });
     return;
   }

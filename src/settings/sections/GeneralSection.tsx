@@ -21,7 +21,9 @@ import {
   EDITOR_FONT_SIZES,
   TERMINAL_FONT_SIZES,
   TERMINAL_SCROLLBACK_PRESETS,
+  setAgentNotificationSound,
   setAgentNotifications,
+  setConfirmCloseRunningTerminal,
   type EditorFormatter,
   setEditorAutoSave,
   setEditorAutoSaveDelay,
@@ -67,6 +69,7 @@ import {
   testAgentOsNotification,
 } from "@/modules/agents/lib/notify";
 import { SectionHeader } from "../components/SectionHeader";
+import { LspServersGroup } from "../components/LspServersGroup";
 import { SettingRow } from "../components/SettingRow";
 
 const FORMATTER_ORDER: EditorFormatter[] = [
@@ -171,7 +174,7 @@ export function GeneralSection() {
       setTimeout(resolve, NOTIFICATION_TEST_DELAY_MS),
     );
     setNotificationTest("sending");
-    setNotificationTest(await testAgentOsNotification());
+    setNotificationTest(await testAgentOsNotification(agentNotificationSound));
   };
   const editorFontSize = usePreferencesStore((s) => s.editorFontSize);
   const editorFormatOnSave = usePreferencesStore((s) => s.editorFormatOnSave);
@@ -179,6 +182,7 @@ export function GeneralSection() {
   const showHidden = usePreferencesStore((s) => s.showHidden);
   const terminalWebglEnabled = usePreferencesStore((s) => s.terminalWebglEnabled);
   const terminalCursorBlink = usePreferencesStore((s) => s.terminalCursorBlink);
+  const confirmCloseRunningTerminal = usePreferencesStore((s) => s.confirmCloseRunningTerminal);
   const terminalCursorStyle = usePreferencesStore((s) => s.terminalCursorStyle);
   const terminalFontWeight = usePreferencesStore((s) => s.terminalFontWeight);
   const terminalFontFamily = usePreferencesStore((s) => s.terminalFontFamily);
@@ -186,6 +190,9 @@ export function GeneralSection() {
   const terminalFontSize = usePreferencesStore((s) => s.terminalFontSize);
   const terminalScrollback = usePreferencesStore((s) => s.terminalScrollback);
   const agentNotifications = usePreferencesStore((s) => s.agentNotifications);
+  const agentNotificationSound = usePreferencesStore(
+    (s) => s.agentNotificationSound,
+  );
 
   useEffect(() => {
     let alive = true;
@@ -419,6 +426,8 @@ export function GeneralSection() {
         )}
       </div>
 
+      <LspServersGroup />
+
       <div className="flex flex-col gap-2">
         <Label>{t("settings.general.explorer")}</Label>
         <SettingRow
@@ -455,6 +464,15 @@ export function GeneralSection() {
           description={t("settings.general.webglRendererDesc")}
         >
           <Switch checked={terminalWebglEnabled} onCheckedChange={onToggleTerminalWebgl} />
+        </SettingRow>
+        <SettingRow
+          title="Confirm closing running terminals"
+          description="Ask before closing a terminal tab or quitting while a command is still running in it. Unsaved editor changes always ask."
+        >
+          <Switch
+            checked={confirmCloseRunningTerminal}
+            onCheckedChange={(v) => void setConfirmCloseRunningTerminal(v)}
+          />
         </SettingRow>
         <SettingRow
           title="Terminal cursor blink"
@@ -631,6 +649,16 @@ export function GeneralSection() {
               }}
             />
           </div>
+        </SettingRow>
+        <SettingRow
+          title="Notification sound"
+          description="Play a sound with agent notifications and in-app alerts."
+        >
+          <Switch
+            checked={agentNotificationSound}
+            disabled={!agentNotifications || notificationTestPending}
+            onCheckedChange={(v) => void setAgentNotificationSound(v)}
+          />
         </SettingRow>
       </div>
 

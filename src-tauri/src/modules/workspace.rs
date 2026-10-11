@@ -460,8 +460,10 @@ pub fn decode_command_output(bytes: &[u8]) -> String {
             0
         };
         let units: Vec<u16> = bytes[start..]
-            .chunks_exact(2)
-            .map(|c| u16::from_le_bytes([c[0], c[1]]))
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .map(|c| u16::from_le_bytes(*c))
             .collect();
         String::from_utf16_lossy(&units)
     } else {
@@ -885,7 +887,15 @@ mod auth_tests {
         #[cfg(unix)]
         std::os::unix::fs::symlink(&outside, &link).expect("symlink");
         #[cfg(windows)]
-        std::os::windows::fs::symlink_dir(&outside, &link).expect("symlink");
+        if let Err(e) = std::os::windows::fs::symlink_dir(&outside, &link) {
+            // ERROR_PRIVILEGE_NOT_HELD: creating symlinks needs Developer Mode
+            // or an elevated shell, so there is nothing to test here.
+            if e.raw_os_error() == Some(1314) {
+                eprintln!("skipped: no privilege to create symlinks");
+                return;
+            }
+            panic!("symlink: {e}");
+        }
         let reg = WorkspaceRegistry::default();
         reg.authorize(&allowed).expect("authorize root");
         let s = link.to_string_lossy().into_owned();

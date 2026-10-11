@@ -117,8 +117,8 @@ fn stage_then_commit_produces_log_entry() {
     assert!(entry.staged);
     assert!(!entry.untracked);
 
-    let commit =
-        operations::commit(&fx.registry, &fx.repo_str(), "add a", &fx.workspace).expect("commit");
+    let commit = operations::commit(&fx.registry, &fx.repo_str(), "add a", false, &fx.workspace)
+        .expect("commit");
     assert_eq!(commit.summary, "add a");
     assert_eq!(commit.commit_sha.len(), 40);
 
@@ -174,7 +174,7 @@ fn commit_with_empty_message_is_rejected() {
     fx.write_file("a.txt", "alpha\n");
     fx.run_git(&["add", "a.txt"]);
 
-    match operations::commit(&fx.registry, &fx.repo_str(), "   ", &fx.workspace) {
+    match operations::commit(&fx.registry, &fx.repo_str(), "   ", false, &fx.workspace) {
         Err(GitError::EmptyCommitMessage) => {}
         Err(other) => panic!("expected EmptyCommitMessage, got {other}"),
         Ok(_) => panic!("expected error for empty message"),

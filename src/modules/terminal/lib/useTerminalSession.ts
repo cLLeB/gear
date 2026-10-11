@@ -20,6 +20,7 @@ import {
   registerPromptTracker,
 } from "./osc-handlers";
 import { openPty, type PtySession } from "./pty-bridge";
+import { PtyFlowControl } from "./ptyFlowControl";
 import { useTerminalFont } from "./useTerminalFont";
 import "../block/block.css";
 import { ensureAgentActivityListener, isAgentActivePty } from "./agentActivity";
@@ -50,6 +51,23 @@ import {
   setSlotFocused,
 } from "./rendererPool";
 import { isPowerShellShellPath } from "./keymap";
+import { forgetTapLeaf, tapPtyOutput } from "./outputTap";
+import { allowUserInput, usePaneLockStore } from "./paneLock";
+import { toast } from "sonner";
+
+let lockedToastAt = 0;
+function notifyLocked(): void {
+  const now = Date.now();
+  if (now - lockedToastAt < 4000) return;
+  lockedToastAt = now;
+  toast.info("This pane is read-only", { description: "Unlock it from the palette: Terminal: Toggle read-only pane." });
+}
+import {
+  adjacentPromptLine,
+  type CommandMarks,
+  readCommandOutput,
+  registerCommandMarks,
+} from "./commandMarks";
 
 type Callbacks = {
   onSearchReady?: (addon: SearchAddon) => void;
@@ -104,7 +122,252 @@ type Session = {
   commandRunning: boolean;
   hiddenReleaseTimer: ReturnType<typeof setTimeout> | null;
   spawnFailed: boolean;
+  // OSC 133 command boundaries for the currently bound slot (null while the
+  // leaf is released — markers belong to the pooled xterm instance).
+  marks: CommandMarks | null;
+  // Survives slot rebinds, unlike `marks`.
+  lastCommand: FinishedCommand | null;
 };
+
+/** A command observed to finish via OSC 133 D. */
+export type FinishedCommand = {
+  leafId: number;
+  command: string;
+  exitCode: number | null;
+  durationMs: number | null;
+  /** Output text, captured when the command finished (may be truncated). */
+  output: string | null;
+  cwd: string | null;
+  finishedAt: number;
+};
+
+const MAX_CAPTURED_OUTPUT = 64 * 1024;
+
+const commandFinishedListeners = new Set<(cmd: FinishedCommand) => void>();
+
+/**
+ * Subscribe to every command that finishes in any terminal with shell
+ * integration. Listeners must be cheap and must not throw into the parser.
+ */
+export function onTerminalCommandFinished(
+  cb: (cmd: FinishedCommand) => void,
+): () => void {
+  commandFinishedListeners.add(cb);
+  return () => {
+    commandFinishedListeners.delete(cb);
+  };
+}
+
+function attachCommandMarks(
+  leafId: number,
+  s: Session,
+  term: Parameters<typeof registerCommandMarks>[0],
+): () => void {
+  const cm = registerCommandMarks(term);
+  s.marks = cm.marks;
+  cm.marks.onCommandFinished((mark) => {
+    let output = readCommandOutput(term, mark);
+    if (output && output.length > MAX_CAPTURED_OUTPUT) {
+      output = output.slice(-MAX_CAPTURED_OUTPUT);
+    }
+    const finished: FinishedCommand = {
+      leafId,
+      command: mark.command,
+      exitCode: mark.exitCode,
+      durationMs:
+        mark.startedAt !== null && mark.finishedAt !== null
+          ? mark.finishedAt - mark.startedAt
+          : null,
+      output,
+      cwd: s.lastCwd,
+      finishedAt: mark.finishedAt ?? Date.now(),
+    };
+    s.lastCommand = finished;
+    // Deferred: this fires inside xterm's parse loop.
+    queueMicrotask(() => {
+      for (const l of commandFinishedListeners) {
+        try {
+          l(finished);
+        } catch (e) {
+          console.error("[gear] command-finished listener failed:", e);
+        }
+      }
+    });
+  });
+  return () => {
+    if (s.marks === cm.marks) s.marks = null;
+    cm.dispose();
+  };
+}
+
+const cwdListeners = new Set<(leafId: number, cwd: string, isPrivate: boolean) => void>();
+
+/** Subscribe to shell-reported directory changes (OSC 7) in any pane. */
+export function onTerminalCwd(
+  cb: (leafId: number, cwd: string, isPrivate: boolean) => void,
+): () => void {
+  cwdListeners.add(cb);
+  return () => {
+    cwdListeners.delete(cb);
+  };
+}
+
+function emitCwd(leafId: number, cwd: string, isPrivate: boolean): void {
+  for (const l of cwdListeners) {
+    try {
+      l(leafId, cwd, isPrivate);
+    } catch (e) {
+      console.error("[gear] cwd listener failed:", e);
+    }
+  }
+}
+
+/**
+ * Per-terminal hooks that features attach whenever a pane binds to an xterm
+ * instance (OSC handlers, bell listeners, decorations). Returned disposers
+ * run when the pane releases the instance.
+ */
+export type TerminalExtension = (
+  leafId: number,
+  term: Parameters<typeof registerCommandMarks>[0],
+) => (() => void) | void;
+
+const terminalExtensions = new Set<TerminalExtension>();
+
+export function registerTerminalExtension(ext: TerminalExtension): () => void {
+  terminalExtensions.add(ext);
+  return () => {
+    terminalExtensions.delete(ext);
+  };
+}
+
+function attachExtensions(
+  leafId: number,
+  term: Parameters<typeof registerCommandMarks>[0],
+): () => void {
+  const disposers: Array<() => void> = [];
+  for (const ext of terminalExtensions) {
+    try {
+      const d = ext(leafId, term);
+      if (d) disposers.push(d);
+    } catch (e) {
+      console.error("[gear] terminal extension failed:", e);
+    }
+  }
+  return () => {
+    for (const d of disposers) d();
+  };
+}
+
+/** The most recent finished command in `leafId`, if shell integration saw one. */
+export function lastFinishedCommand(leafId: number): FinishedCommand | null {
+  return sessions.get(leafId)?.lastCommand ?? null;
+}
+
+/**
+ * Scroll `leafId` so the previous/next prompt sits at the top of the viewport
+ * (iTerm2's "jump to mark"). Returns false when there is nowhere to go.
+ */
+export function scrollLeafToPrompt(leafId: number, dir: -1 | 1): boolean {
+  const s = sessions.get(leafId);
+  const slot = getSlotForLeaf(leafId);
+  if (!s?.marks || !slot) return false;
+  const lines = s.marks.list().map((m) => m.prompt.line);
+  const top = slot.term.buffer.active.viewportY;
+  const target = adjacentPromptLine(lines, top, dir);
+  if (target === null) {
+    if (dir > 0) slot.term.scrollToBottom();
+    return dir > 0;
+  }
+  slot.term.scrollToLine(target);
+  return true;
+}
+
+export interface LeafCommand {
+  index: number;
+  command: string;
+  exitCode: number | null;
+  startedAt: number | null;
+  finishedAt: number | null;
+  /** Buffer line of the prompt; -1 once trimmed out of scrollback. */
+  line: number;
+}
+
+/** Commands shell integration has seen in `leafId`, oldest first. */
+export function listLeafCommands(leafId: number): LeafCommand[] {
+  const s = sessions.get(leafId);
+  if (!s?.marks) return [];
+  return s.marks
+    .list()
+    .map((m, index) => ({
+      index,
+      command: m.command,
+      exitCode: m.exitCode,
+      startedAt: m.startedAt,
+      finishedAt: m.finishedAt,
+      line: m.prompt.isDisposed ? -1 : m.prompt.line,
+    }))
+    .filter((c) => c.command);
+}
+
+/** Output of the `index`-th mark of a bound leaf. */
+export function leafCommandOutput(leafId: number, index: number): string | null {
+  const s = sessions.get(leafId);
+  const slot = getSlotForLeaf(leafId);
+  const mark = s?.marks?.list()[index];
+  if (!slot || !mark) return null;
+  return readCommandOutput(slot.term, mark);
+}
+
+export function scrollLeafToLine(leafId: number, line: number): boolean {
+  const slot = getSlotForLeaf(leafId);
+  if (!slot || line < 0) return false;
+  slot.term.scrollToLine(line);
+  return true;
+}
+
+/** True while a foreground command owns the leaf (OSC 133 C..D or blocks running). */
+export function isLeafCommandRunning(leafId: number): boolean {
+  const s = sessions.get(leafId);
+  return !!s && s.commandRunning;
+}
+
+/** Scrollback of a bound pane as plain text, ANSI or standalone HTML. */
+export function serializeLeaf(
+  leafId: number,
+  format: "text" | "ansi" | "html",
+): string | null {
+  const slot = getSlotForLeaf(leafId);
+  if (!slot) return null;
+  if (format === "html") {
+    return slot.serializeAddon.serializeAsHTML({ includeGlobalBackground: true });
+  }
+  if (format === "ansi") return slot.serializeAddon.serialize();
+  const buf = slot.term.buffer.active;
+  const lines: string[] = [];
+  for (let y = 0; y < buf.length; y++) {
+    const line = buf.getLine(y);
+    if (!line) continue;
+    const text = line.translateToString(true);
+    if (line.isWrapped && lines.length > 0) lines[lines.length - 1] += text;
+    else lines.push(text);
+  }
+  while (lines.length > 0 && lines[lines.length - 1] === "") lines.pop();
+  return lines.join("\n");
+}
+
+/** Clear scrollback and screen of one pane, keeping the prompt line. */
+export function clearLeafScrollback(leafId: number): boolean {
+  const slot = getSlotForLeaf(leafId);
+  if (!slot) return false;
+  slot.term.clear();
+  return true;
+}
+
+/** Live xterm instance for a leaf, when it is bound to a renderer slot. */
+export function leafTerminal(leafId: number) {
+  return getSlotForLeaf(leafId)?.term ?? null;
+}
 
 const sessions = new Map<number, Session>();
 
@@ -383,6 +646,10 @@ configureRendererPool({
     if (!s) return null;
     return {
       writeToPty: (data) => {
+        if (!allowUserInput(leafId, data)) {
+          notifyLocked();
+          return;
+        }
         // Shell spawn failed (bad cwd, missing binary): Enter retries.
         if (s.spawnFailed) {
           if (data.includes("\r")) void respawnSession(leafId);
@@ -435,6 +702,10 @@ configureRendererPool({
       s.shellPath || usePreferencesStore.getState().terminalShell || undefined;
     return isPowerShellShellPath(shell, IS_WINDOWS);
   },
+  leafCwd(leafId) {
+    const s = sessions.get(leafId);
+    return s ? (s.lastCwd ?? s.initialCwd ?? null) : null;
+  },
   storeSnapshot(leafId, out) {
     const s = sessions.get(leafId);
     if (!s) return;
@@ -444,6 +715,40 @@ configureRendererPool({
     s.altScreenAtRelease = out.altScreen;
   },
 });
+
+const pendingRestore = new Map<number, string>();
+
+/** Queue saved scrollback for a leaf whose session hasn't been created yet. */
+export function seedLeafRestore(leafId: number, ansi: string): void {
+  const s = sessions.get(leafId);
+  if (!s) pendingRestore.set(leafId, ansi);
+  else if (!s.hasSlot && !s.snapshot) s.snapshot = ansi;
+}
+
+/** A leaf's scrollback as ANSI for persisting (bound slot, else the parked snapshot). */
+export function exportLeafScrollback(leafId: number, maxLines: number): string | null {
+  const s = sessions.get(leafId);
+  if (!s || s.isPrivate) return null;
+  const slot = getSlotForLeaf(leafId);
+  if (slot) {
+    try {
+      // The alternate screen (vim, htop) isn't history worth restoring.
+      if (slot.term.buffer.active.type === "alternate") return null;
+      return slot.serializeAddon.serialize({ scrollback: maxLines, excludeAltBuffer: true });
+    } catch {
+      return null;
+    }
+  }
+  return s.snapshot ?? pendingRestore.get(leafId) ?? null;
+}
+
+/** The command a leaf was running (shell integration), if any. */
+export function runningCommand(leafId: number): string | null {
+  const s = sessions.get(leafId);
+  if (!s?.commandRunning || !s.marks) return null;
+  const last = s.marks.list().filter((m) => m.command).pop();
+  return last && last.exitCode === null ? last.command : null;
+}
 
 function ensureSession(
   leafId: number,
@@ -489,8 +794,16 @@ function ensureSession(
     commandRunning: false,
     hiddenReleaseTimer: null,
     spawnFailed: false,
+    marks: null,
+    lastCommand: null,
   };
   sessions.set(leafId, session);
+  // Scrollback saved before the last quit is replayed ahead of the new shell.
+  const restored = pendingRestore.get(leafId);
+  if (restored !== undefined) {
+    pendingRestore.delete(leafId);
+    session.snapshot = restored;
+  }
 
   session.ready = (async () => {
     await ensureMonoFontsLoaded();
@@ -500,14 +813,40 @@ function ensureSession(
   return session;
 }
 
+type LeafFlow = { flow: PtyFlowControl; pty: PtySession; term: object };
+const leafFlows = new Map<number, LeafFlow>();
+
+// One backlog counter per (pty, terminal) pair: a respawned shell or a slot
+// handed to another terminal starts clean and lifts any pause it left behind.
+function flowFor(leafId: number, pty: PtySession, term: object): PtyFlowControl {
+  const current = leafFlows.get(leafId);
+  if (current && current.pty === pty && current.term === term) return current.flow;
+  current?.flow.reset();
+  const flow = new PtyFlowControl((paused) => pty.setPaused(paused));
+  leafFlows.set(leafId, { flow, pty, term });
+  return flow;
+}
+
+function dropLeafFlow(leafId: number): void {
+  leafFlows.get(leafId)?.flow.reset();
+  leafFlows.delete(leafId);
+}
+
 function deliverPtyBytes(leafId: number, bytes: Uint8Array): void {
   const s = sessions.get(leafId);
   if (!s) return;
+  tapPtyOutput(leafId, bytes);
   // Retained slots keep parsing live (render paused); the ring is only for
   // leaves whose buffer was stolen or never bound.
   const slot = getLiveSlotForLeaf(leafId);
-  if (slot) slot.term.write(bytes);
-  else s.dormantRing.push(bytes);
+  if (!slot) {
+    dropLeafFlow(leafId);
+    s.dormantRing.push(bytes);
+  } else if (s.pty) {
+    slot.term.write(bytes, flowFor(leafId, s.pty, slot.term).track(bytes.length));
+  } else {
+    slot.term.write(bytes);
+  }
 }
 
 const SPAWN_RETRY_DELAY_MS = 250;
@@ -633,6 +972,7 @@ function bindLeafToSlot(leafId: number, s: Session): void {
             if (s.lastCwd === next) return;
             s.lastCwd = next;
             s.callbacks.onCwd?.(next);
+            emitCwd(leafId, next, s.isPrivate);
           },
           onMode: (mode) => applyBlockMode(leafId, mode),
           onViewport: () => {
@@ -645,7 +985,12 @@ function bindLeafToSlot(leafId: number, s: Session): void {
           if (s.blockMode === "prompt") s.inputFocus?.();
         };
         term.textarea?.addEventListener("focus", onGridFocus);
+        // Registered last so its non-consuming OSC 133 handler runs first.
+        const marks = attachCommandMarks(leafId, s, term);
+        const exts = attachExtensions(leafId, term);
         return [
+          marks,
+          exts,
           () => {
             s.blockDecorations = null;
             osc52();
@@ -686,6 +1031,7 @@ function bindLeafToSlot(leafId: number, s: Session): void {
           if (s.lastCwd === next) return;
           s.lastCwd = next;
           s.callbacks.onCwd?.(next);
+          emitCwd(leafId, next, s.isPrivate);
         },
         shellState,
       );
@@ -694,7 +1040,9 @@ function bindLeafToSlot(leafId: number, s: Session): void {
         isAlternateScreen: () => term.buffer.active.type === "alternate",
         onConfirm: (text, apply) => confirmClipboardWrite(text, apply),
       });
-      return [prompt.dispose, cwd, osc52];
+      const marks = attachCommandMarks(leafId, s, term);
+      const exts = attachExtensions(leafId, term);
+      return [prompt.dispose, cwd, osc52, marks, exts];
     },
     onSearchReady: (addon) => s.callbacks.onSearchReady?.(addon),
   });
@@ -842,7 +1190,10 @@ export function disposeSession(leafId: number): void {
   s.pty?.close();
   s.pty = null;
   s.pendingInput = "";
+  dropLeafFlow(leafId);
   sessions.delete(leafId);
+  forgetTapLeaf(leafId);
+  usePaneLockStore.getState().unlock(leafId);
   blockViewportListeners.delete(leafId);
   readyLeaves.delete(leafId);
   const waiters = readyWaiters.get(leafId);

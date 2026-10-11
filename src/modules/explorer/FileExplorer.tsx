@@ -31,6 +31,12 @@ import { toast } from "sonner";
 import { useExplorerClipboard } from "./lib/clipboard";
 import { copyToClipboard, revealInFinder } from "./lib/contextActions";
 import { pasteInto } from "./lib/pasteRunner";
+import { baseName, type MoveOps, parentDir, planDragMove, runDragMove, undoGroups } from "./lib/dragMove";
+import { dragHasFsPaths, readFsPaths } from "@/lib/pathDrag";
+import { invoke } from "@tauri-apps/api/core";
+import { IS_MAC, IS_WINDOWS } from "@/lib/platform";
+import { quickPick } from "@/modules/quick-pick";
+import { currentWorkspaceEnv } from "@/modules/workspace";
 import { fileIconUrl, folderIconUrl } from "./lib/iconResolver";
 import { COMPACT_CONTENT, COMPACT_ITEM } from "./lib/menuItemClass";
 import { cn } from "@/lib/utils";
@@ -425,6 +431,85 @@ export const FileExplorer = forwardRef<FileExplorerHandle, Props>(
       [getCreateParent, getSelectedPaths, tree],
     );
 
+    /** Drag a selection onto a folder: move it, asking about name clashes, with undo. */
+    const handleDropPaths = useCallback(
+      async (destDir: string, paths: string[]) => {
+        const workspace = currentWorkspaceEnv();
+        let existing: { name: string }[] = [];
+        try {
+          existing = await invoke<{ name: string }[]>("fs_read_dir", { path: destDir, showHidden: true, workspace });
+        } catch (e) {
+          toast.error(`Can't open ${baseName(destDir)}: ${String(e)}`);
+          return;
+        }
+        const plan = planDragMove(paths, destDir, new Set(existing.map((e) => e.name)), IS_WINDOWS || IS_MAC);
+        if (plan.invalid.length) toast.error(`Can't move ${plan.invalid.map(baseName).join(", ")} into itself`);
+        let toMove = plan.moves;
+        let replace: string[] = [];
+        if (plan.conflicts.length) {
+          const names = plan.conflicts.map(baseName);
+          const choice = await quickPick(
+            [
+              { label: "Replace", detail: `Overwrite ${names.join(", ")} in ${baseName(destDir)}`, value: "replace" as const },
+              { label: "Keep both", detail: "Move them in under a new name", value: "both" as const },
+              { label: "Skip", detail: `Move only the ${plan.moves.length} item(s) without a clash`, value: "skip" as const },
+            ],
+            { title: `${names.length === 1 ? `“${names[0]}” already exists` : `${names.length} items already exist`} in ${baseName(destDir)}` },
+          );
+          if (!choice) return;
+          if (choice === "replace") {
+            replace = plan.conflicts;
+            toMove = [...plan.moves, ...plan.conflicts];
+          } else if (choice === "both") toMove = [...plan.moves, ...plan.conflicts];
+        }
+        if (!toMove.length) return;
+        const ops: MoveOps = {
+          move: async (source, dir) => (await invoke<string[]>("fs_move", { sources: [source], destDir: dir, workspace }))[0],
+          rename: (from, to) => invoke("fs_rename", { from, to, workspace }),
+          remove: (path) => invoke("fs_delete", { path, workspace }),
+        };
+        const { moved, failed, stranded } = await runDragMove(
+          toMove,
+          new Set(replace),
+          destDir,
+          existing.map((e) => e.name),
+          ops,
+          Date.now().toString(36),
+          IS_WINDOWS || IS_MAC,
+        );
+        const written = moved.map((m) => m.to);
+        for (const m of moved) onPathRenamed?.(m.from, m.to);
+        for (const dir of new Set([destDir, ...toMove.map(parentDir)])) tree.refresh(dir);
+        if (failed.length) {
+          const names = failed.map((f) => baseName(f.path)).join(", ");
+          toast.error(moved.length ? `Some items could not be moved: ${names}` : `Move failed: ${names}`, { description: failed[0].reason });
+        }
+        if (stranded.length) toast.warning(`The replaced item was kept as ${stranded.map(baseName).join(", ")}`);
+        if (!moved.length) return;
+        tree.expand(destDir);
+        setSelectedPaths(new Set(written));
+        setAnchorPath(written[0] ?? null);
+        toast.success(`Moved ${written.length === 1 ? baseName(written[0]) : `${written.length} items`} to ${baseName(destDir)}`, {
+          action: replace.length
+            ? undefined
+            : {
+                label: "Undo",
+                onClick: () => {
+                  void (async () => {
+                    for (const [dir, items] of undoGroups(moved)) {
+                      const back = await invoke<string[]>("fs_move", { sources: items, destDir: dir, workspace });
+                      items.forEach((to, i) => onPathRenamed?.(to, back[i]));
+                      tree.refresh(dir);
+                    }
+                    tree.refresh(destDir);
+                  })().catch((e) => toast.error(`Undo failed: ${String(e)}`));
+                },
+              },
+        });
+      },
+      [tree, onPathRenamed],
+    );
+
     if (!rootPath) {
       return (
         <div className="flex h-full flex-col items-center justify-center gap-2 p-6 text-center">
@@ -573,6 +658,7 @@ export const FileExplorer = forwardRef<FileExplorerHandle, Props>(
               onCopyEntries={handleCopyEntries}
               onCutEntries={handleCutEntries}
               onPasteEntries={handlePasteEntries}
+              onDropPaths={handleDropPaths}
               isCut={
                 clipboardEntry?.mode === "cut" &&
                 clipboardEntry.paths.includes(row.path)
@@ -681,6 +767,17 @@ export const FileExplorer = forwardRef<FileExplorerHandle, Props>(
               <div
                 ref={scrollRef}
                 data-explorer-drop=""
+                onDragOver={(e) => {
+                  if (!dragHasFsPaths(e.dataTransfer)) return;
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = "move";
+                }}
+                onDrop={(e) => {
+                  if (!dragHasFsPaths(e.dataTransfer) || !rootPath) return;
+                  e.preventDefault();
+                  const paths = readFsPaths(e.dataTransfer);
+                  if (paths.length) void handleDropPaths(rootPath, paths);
+                }}
                 className={cn(
                   "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden [scrollbar-gutter:stable]",
                   fileDrop.externalTargetDir != null &&

@@ -5,6 +5,7 @@ import {
   requestPermission,
   sendNotification,
 } from "@tauri-apps/plugin-notification";
+import { recordNotification } from "@/modules/notifications/history";
 
 export type OsNotificationResult = "requested" | "denied" | "failed";
 
@@ -38,13 +39,15 @@ async function ensurePermission(): Promise<boolean> {
 export async function osNotify(
   title: string,
   body: string,
+  withSound = true,
 ): Promise<OsNotificationResult> {
+  recordNotification("os", title, body);
   try {
     if (!(await ensurePermission())) {
       void warn(`[notify] permission denied, dropped: ${title}`);
       return "denied";
     }
-    sendNotification({ title, body, sound: SOUND });
+    sendNotification({ title, body, sound: withSound ? SOUND : undefined });
     void info(`[notify] sent: ${title}`);
     return "requested";
   } catch (e) {
@@ -57,9 +60,12 @@ export async function osNotify(
  *  settings. Routing normally suppresses alerts while Gear is focused and the
  *  agent is visible, which makes delivery impossible to verify by hand — the
  *  caller delays this so the user can switch apps first. */
-export async function testAgentOsNotification(): Promise<OsNotificationResult> {
+export async function testAgentOsNotification(
+  withSound = true,
+): Promise<OsNotificationResult> {
   return osNotify(
     "Gear notifications are working",
     "You will be notified when an agent needs your attention.",
+    withSound,
   );
 }

@@ -1,6 +1,20 @@
 import { cn } from "@/lib/utils";
 import type { EditorTab, Tab } from "@/modules/tabs";
 import { useEffect, useRef } from "react";
+import { NotebookPane } from "@/modules/notebook/NotebookPane";
+import { ProfilePane } from "@/modules/profiler/ProfilePane";
+import { HeapPane } from "@/modules/profiler/HeapPane";
+import { ConsolePane } from "@/modules/database/ConsolePane";
+import { ErPane } from "@/modules/database/ErPane";
+import { DockerPane } from "@/modules/containers/DockerPane";
+import { ExtLogPane } from "@/modules/extensions/ExtLogPane";
+import { HttpSplit } from "@/modules/http/HttpSplit";
+import { K8sPane } from "@/modules/k8s/K8sPane";
+import { LogPane } from "@/modules/logview/LogPane";
+import { DepsPane } from "@/modules/deps/DepsPane";
+import { SecretsPane } from "@/modules/security/SecretsPane";
+import { ProcsPane } from "@/modules/procs/ProcsPane";
+import { isLogFile } from "@/modules/logview/model";
 import { EditorPane, type EditorPaneHandle } from "./EditorPane";
 
 type Props = {
@@ -97,13 +111,49 @@ export function EditorStack({
             aria-hidden={!visible}
           >
             <div className="h-full overflow-hidden rounded-md border border-border/60 bg-background">
-              <EditorPane
-                ref={getRefCallback(t.id)}
-                path={t.path}
-                languageOverride={t.languageOverride}
-                onDirtyChange={getDirtyCallback(t.id)}
-                onClose={getCloseCallback(t.id)}
-              />
+              {t.path.startsWith("gear-er://") ? (
+                <ErPane ref={getRefCallback(t.id)} path={t.path} />
+              ) : t.path.startsWith("gear-db://") ? (
+                <ConsolePane ref={getRefCallback(t.id)} path={t.path} />
+              ) : t.path.startsWith("gear-docker://") ? (
+                <DockerPane ref={getRefCallback(t.id)} path={t.path} />
+              ) : t.path.startsWith("gear-procs://") ? (
+                <ProcsPane ref={getRefCallback(t.id)} path={t.path} />
+              ) : t.path.startsWith("gear-secrets://") ? (
+                <SecretsPane ref={getRefCallback(t.id)} path={t.path} />
+              ) : t.path.startsWith("gear-deps://") ? (
+                <DepsPane ref={getRefCallback(t.id)} path={t.path} />
+              ) : t.path.startsWith("gear-log://") || (isLogFile(t.path) && !t.languageOverride) ? (
+                <LogPane ref={getRefCallback(t.id)} path={t.path} />
+              ) : t.path.startsWith("gear-k8s://") ? (
+                <K8sPane ref={getRefCallback(t.id)} path={t.path} />
+              ) : t.path.startsWith("gear-ext://") ? (
+                <ExtLogPane ref={getRefCallback(t.id)} path={t.path} />
+              ) : /\.heapsnapshot$/i.test(t.path) && !t.languageOverride ? (
+                <HeapPane ref={getRefCallback(t.id)} path={t.path} />
+              ) : /\.(cpuprofile|speedscope\.json|folded|collapsed)$/i.test(t.path) && !t.languageOverride ? (
+                <ProfilePane ref={getRefCallback(t.id)} path={t.path} />
+              ) : /\.ipynb$/i.test(t.path) && !t.languageOverride ? (
+                <NotebookPane ref={getRefCallback(t.id)} path={t.path} onDirtyChange={getDirtyCallback(t.id)} onClose={getCloseCallback(t.id)} />
+              ) : /\.(http|rest)$/i.test(t.path) && !t.languageOverride ? (
+                <HttpSplit path={t.path}>
+                  <EditorPane
+                    ref={getRefCallback(t.id)}
+                    path={t.path}
+                    languageOverride={t.languageOverride}
+                    onDirtyChange={getDirtyCallback(t.id)}
+                    onClose={getCloseCallback(t.id)}
+                  />
+                </HttpSplit>
+              ) : (
+                <EditorPane
+                  ref={getRefCallback(t.id)}
+                  path={t.path}
+                  languageOverride={t.languageOverride}
+                  onDirtyChange={getDirtyCallback(t.id)}
+                  onClose={getCloseCallback(t.id)}
+                />
+              )}
             </div>
           </div>
         );

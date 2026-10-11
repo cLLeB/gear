@@ -133,6 +133,16 @@ fn apply_common(
             }
         }
     }
+    // Gear may itself run inside a Gear terminal (a nested or dev instance);
+    // never hand its shells the outer instance's control credentials.
+    for key in [
+        "GEAR_CONTROL_ADDR",
+        "GEAR_CONTROL_TOKEN",
+        "GEAR_PANE_ID",
+        "GEAR_CLI",
+    ] {
+        cmd.env_remove(key);
+    }
     if let Some(control) = control {
         cmd.env("GEAR_CONTROL_ADDR", &control.address);
         cmd.env("GEAR_CONTROL_TOKEN", &control.token);

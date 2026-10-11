@@ -73,3 +73,14 @@ describe("validateTheme terminal font overrides", () => {
     });
   });
 });
+
+describe("builtin themes", () => {
+  it("round-trip through the validator unchanged", async () => {
+    const { listBuiltinThemes } = await import("./themes");
+    const { EDITOR_THEME_EXT } = await import("@/modules/editor/lib/themes");
+    for (const theme of listBuiltinThemes().filter((t) => t.id === "graphite" || t.id === "xcode")) {
+      expect(validateTheme(JSON.parse(JSON.stringify(theme)))).toEqual(theme);
+      for (const id of Object.values(theme.editorTheme ?? {})) expect(EDITOR_THEME_EXT).toHaveProperty(id);
+    }
+  });
+});

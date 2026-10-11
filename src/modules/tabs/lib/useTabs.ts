@@ -23,6 +23,7 @@ import {
 import { planRunTarget } from "@/modules/run/lib/plan";
 import type { RunSpec } from "@/modules/run/lib/types";
 import { planCommitHistoryOpen } from "./planCommitHistoryOpen";
+import { recordClosedTabs, reidTree, takeClosedTab } from "./closedTabs";
 import {
 	type GitDiffOpenInput,
 	planGitDiffOpen,
@@ -200,6 +201,8 @@ export type TabPatch = Partial<{
 	cold: boolean;
 	/** Empty string resets a terminal tab to its cwd-derived name. */
 	customTitle: string;
+	/** Terminal tabs: replace the pane layout (must keep the same leaves). */
+	paneTree: PaneNode;
 }>;
 
 function basename(path: string): string {
@@ -761,6 +764,9 @@ export function useTabs() {
 	);
 
 	const closeTab = useCallback((id: number) => {
+		if (tabsRef.current.length > 1) {
+			recordClosedTabs(tabsRef.current.filter((t) => t.id === id));
+		}
 		let toDispose: number[] = [];
 		setTabs((curr) => {
 			if (curr.length <= 1) return curr;
@@ -784,6 +790,7 @@ export function useTabs() {
 	const closeTabs = useCallback((ids: number[]): void => {
 		if (ids.length === 0) return;
 		const idSet = new Set(ids);
+		recordClosedTabs(tabsRef.current.filter((t) => idSet.has(t.id)));
 		// Reserve ids up front so the setTabs updater stays side-effect free
 		// (unused if no fresh tab is needed — a skipped id is harmless).
 		const freshTabId = nextIdRef.current++;
@@ -828,6 +835,9 @@ export function useTabs() {
 	}, []);
 
 	const closeOtherTabs = useCallback((keepId: number): void => {
+		if (tabsRef.current.some((t) => t.id === keepId)) {
+			recordClosedTabs(tabsRef.current.filter((t) => t.id !== keepId));
+		}
 		const toDispose: number[] = [];
 		setTabs((curr) => {
 			const keep = curr.find((t) => t.id === keepId);
@@ -843,6 +853,75 @@ export function useTabs() {
 		for (const lid of toDispose) disposeSession(lid);
 	}, []);
 
+	/**
+	 * Open a terminal tab from a layout template (saved layouts). Returns the
+	 * new leaf ids in tree order so callers can start commands in them.
+	 */
+	const openTerminalLayout = useCallback(
+		(template: PaneNode, title: string): { tabId: number; leaves: number[] } => {
+			const tabId = nextIdRef.current++;
+			const { tree, leaves } = reidTree(template, () => nextIdRef.current++);
+			setTabs((curr) => [
+				...curr,
+				{
+					id: tabId,
+					kind: "terminal",
+					spaceId: activeSpaceIdRef.current,
+					title,
+					customTitle: title,
+					cwd: findLeafCwd(tree, leaves[0]),
+					paneTree: tree,
+					activeLeafId: leaves[0],
+				},
+			]);
+			setActiveId(tabId);
+			return { tabId, leaves };
+		},
+		[],
+	);
+
+	/** Reopen a recently closed tab (most recent by default). */
+	const reopenClosedTab = useCallback(
+		(index = 0): boolean => {
+			const entry = takeClosedTab(index);
+			if (!entry) return false;
+			if (entry.kind === "editor") {
+				openFileTab(entry.path, true);
+				return true;
+			}
+			if (entry.kind === "markdown") {
+				newMarkdownTab(entry.path);
+				return true;
+			}
+			if (entry.kind === "preview") {
+				newPreviewTab(entry.url);
+				return true;
+			}
+			const tabId = nextIdRef.current++;
+			const { tree, leaves } = reidTree(entry.tree, () => nextIdRef.current++);
+			const activeLeafId = leaves[Math.min(entry.activeIndex, leaves.length - 1)];
+			const firstCwd = findLeafCwd(tree, leaves[0]);
+			setTabs((curr) => [
+				...curr,
+				{
+					id: tabId,
+					kind: "terminal",
+					spaceId: activeSpaceIdRef.current,
+					title: entry.title,
+					customTitle: entry.customTitle,
+					cwd: firstCwd,
+					shellPath: entry.shellPath,
+					blocks: entry.blocks,
+					paneTree: tree,
+					activeLeafId,
+				},
+			]);
+			setActiveId(tabId);
+			return true;
+		},
+		[openFileTab, newMarkdownTab, newPreviewTab],
+	);
+
 	const updateTab = useCallback((id: number, patch: TabPatch) => {
 		setTabs((t) =>
 			t.map((x) => {
@@ -856,6 +935,7 @@ export function useTabs() {
 							customTitle:
 								patch.customTitle === "" ? undefined : patch.customTitle,
 						}),
+						...(patch.paneTree !== undefined && { paneTree: patch.paneTree }),
 					};
 				}
 				if (x.kind === "preview") {
@@ -1156,6 +1236,80 @@ export function useTabs() {
 		for (const lid of toDispose) disposeSession(lid);
 	}, []);
 
+	/** tmux break-pane: move one pane of a split into its own tab, keeping its
+	 *  live session. Returns the new tab id, or null when it is the only pane. */
+	const breakPaneToTab = useCallback((leafId: number): number | null => {
+		const src = tabsRef.current.find(
+			(t) => t.kind === "terminal" && hasLeaf(t.paneTree, leafId),
+		);
+		if (!src || src.kind !== "terminal") return null;
+		const remaining = removeLeaf(src.paneTree, leafId);
+		if (remaining === null) return null;
+		const tabId = nextIdRef.current++;
+		const cwd = findLeafCwd(src.paneTree, leafId) ?? src.cwd;
+		setTabs((curr) => {
+			const t = curr.find((x) => x.id === src.id);
+			if (!t || t.kind !== "terminal" || !hasLeaf(t.paneTree, leafId)) return curr;
+			const tree = removeLeaf(t.paneTree, leafId);
+			if (tree === null) return curr;
+			const left = leafIds(tree);
+			const idx = curr.findIndex((x) => x.id === t.id);
+			const moved: Tab = {
+				id: tabId,
+				kind: "terminal",
+				spaceId: t.spaceId,
+				title: t.title,
+				cwd,
+				shellPath: t.shellPath,
+				paneTree: { kind: "leaf", id: leafId, cwd },
+				activeLeafId: leafId,
+			};
+			const next = curr.map((x) =>
+				x.id === t.id
+					? {
+							...t,
+							paneTree: tree,
+							activeLeafId: left.includes(t.activeLeafId) ? t.activeLeafId : left[0],
+						}
+					: x,
+			);
+			next.splice(idx + 1, 0, moved);
+			return next;
+		});
+		setActiveId(tabId);
+		return tabId;
+	}, []);
+
+	/** tmux join-pane: move every pane of `srcId` into `dstId` as a split. */
+	const joinTabInto = useCallback(
+		(srcId: number, dstId: number, dir: SplitDir = "row"): boolean => {
+			const src = tabsRef.current.find((t) => t.id === srcId);
+			const dst = tabsRef.current.find((t) => t.id === dstId);
+			if (src?.kind !== "terminal" || dst?.kind !== "terminal" || srcId === dstId) return false;
+			if (leafIds(src.paneTree).length + leafIds(dst.paneTree).length > MAX_PANES_PER_TAB) return false;
+			const splitId = nextIdRef.current++;
+			setTabs((curr) => {
+				const s = curr.find((t) => t.id === srcId);
+				const d = curr.find((t) => t.id === dstId);
+				if (s?.kind !== "terminal" || d?.kind !== "terminal") return curr;
+				return curr
+					.filter((t) => t.id !== srcId)
+					.map((t) =>
+						t.id === dstId
+							? {
+									...d,
+									paneTree: { kind: "split", id: splitId, dir, children: [d.paneTree, s.paneTree] },
+									activeLeafId: s.activeLeafId,
+								}
+							: t,
+					);
+			});
+			setActiveId(dstId);
+			return true;
+		},
+		[],
+	);
+
 	return {
 		tabs,
 		activeId,
@@ -1186,6 +1340,10 @@ export function useTabs() {
 		closeTab,
 		closeOtherTabs,
 		closeTabs,
+		reopenClosedTab,
+		openTerminalLayout,
+		breakPaneToTab,
+		joinTabInto,
 		updateTab,
 		selectByIndex,
 		setLeafCwd,

@@ -27,6 +27,7 @@ import { consumeLaunchFiles } from "@/lib/launchDir";
 import { useControlBridge } from "@/modules/control";
 import { shouldPersistSidebarWidth } from "@/modules/sidebar";
 import { quoteShellArg } from "@/lib/shellQuote";
+import { fmtShortcut } from "@/lib/platform";
 import { useZoom } from "@/lib/useZoom";
 import { cn } from "@/lib/utils";
 import { AgentNotificationsBridge } from "@/modules/agents";
@@ -86,6 +87,8 @@ import { RewindPanel, useRewindStore } from "@/modules/rewind";
 import { usePreferencesStore } from "@/modules/settings/preferences";
 import {
 	onKeysChanged,
+	setConfirmCloseRunningTerminal,
+	setShowHidden,
 	setRunSelectedConfig,
 	setSidebarPosition,
 	setWordWrap,
@@ -100,6 +103,7 @@ import {
 	ShortcutsDialog,
 	shouldDisablePaneSwapShortcut,
 	useGlobalShortcuts,
+	useShortcutLabel,
 } from "@/modules/shortcuts";
 import { SidebarRail, type SidebarViewId } from "@/modules/sidebar";
 import {
@@ -140,7 +144,9 @@ import {
 	disposeSession,
 	findLeafCwd,
 	hasLeaf,
+	jumpToPrompt,
 	leafHasForegroundProcess,
+	togglePaneZoom,
 	leafIds,
 	type PaneBounds,
 	type PaneDirection,
@@ -148,6 +154,7 @@ import {
 	ptyIdForLeaf,
 	respawnSession,
 	setBroadcastPeerResolver,
+	submitToLeaf,
 	type TerminalPaneHandle,
 	TerminalStack,
 	useAgentActivityStore,
@@ -155,7 +162,7 @@ import {
 	whenSessionReady,
 	writeToSession,
 } from "@/modules/terminal";
-import { ThemeProvider } from "@/modules/theme";
+import { ThemeProvider, WindowVibrancyBridge } from "@/modules/theme";
 import { UpdaterDialog, WhatsNewDialog } from "@/modules/updater";
 import {
 	getWslHome,
@@ -170,6 +177,29 @@ import {
 	WorkspaceInputBar,
 } from "./components/WorkspaceInputBar";
 import { appCloseMessage, useAppCloseGuard } from "./hooks/useAppCloseGuard";
+import { noteTabActivated } from "@/modules/tabs/tabActions";
+import { registerAppBridge } from "./appBridge";
+import { QuickPickHost } from "@/modules/quick-pick";
+import { CompareDialog } from "@/modules/compare/CompareDialog";
+import { MergeEditorDialog } from "@/modules/merge/MergeEditorDialog";
+import { RebaseEditorDialog } from "@/modules/git-actions/RebaseEditorDialog";
+import { DebugPanel } from "@/modules/debug/DebugPanel";
+import { TestPanel } from "@/modules/testing/TestPanel";
+import { DatabasePanel } from "@/modules/database/DatabasePanel";
+import { ContainersPanel } from "@/modules/containers/ContainersPanel";
+import { ExtensionsPanel } from "@/modules/extensions/ExtensionsPanel";
+import { RemotePanel } from "@/modules/remote/RemotePanel";
+import { K8sPanel } from "@/modules/k8s/K8sPanel";
+import { installSaveHook as installK8sSaveHook } from "@/modules/k8s/store";
+import { installSaveHook as installRemoteSaveHook } from "@/modules/remote/store";
+import { extensionCommandActions } from "@/modules/extensions/actions";
+import { allCommands, bootExtensions, installEditorHooks, useExtStore } from "@/modules/extensions/store";
+import { isDebugging, isPaused, openLaunchJson, toggleBreakpointAtCursor } from "@/modules/debug/debugActions";
+import { debugCommand, startOrContinue, stopDebugging, useDebugStore } from "@/modules/debug/store";
+import { goToLinePrompt, goToSymbolCmd } from "@/modules/editor/lib/textTools/commands";
+import { getActiveEditor } from "@/modules/editor/lib/activeEditor";
+import { installTerminalFeatures } from "@/modules/terminal/features";
+import { useLastCommandStore } from "@/modules/terminal/features/lastCommandStore";
 
 type TuiWaitResult = "ready" | "gone" | "timeout";
 
@@ -232,7 +262,7 @@ function readSidebarWidth(): number {
 function readSidebarView(): SidebarViewId {
 	try {
 		const stored = window.localStorage.getItem(SIDEBAR_VIEW_STORAGE_KEY);
-		if (stored === "explorer" || stored === "source-control") return stored;
+		if (stored === "explorer" || stored === "source-control" || stored === "debug" || stored === "tests" || stored === "database" || stored === "containers" || stored === "extensions" || stored === "remote" || stored === "k8s") return stored;
 	} catch {
 		// ignore
 	}
@@ -283,6 +313,10 @@ export default function App() {
 		closeActivePane,
 		closeOtherTabs,
 		closeTabs,
+		reopenClosedTab,
+		openTerminalLayout,
+		breakPaneToTab,
+		joinTabInto,
 		closePaneByLeaf,
 		resetWorkspace,
 		openSettingsTab,
@@ -375,6 +409,65 @@ export default function App() {
 		},
 		[persistSidebarView, sidebarView],
 	);
+	// Debugger: show the Debug view when a session starts, badge paused sessions,
+	// and open (creating if needed) .vscode/launch.json on request.
+	const debugPaused = useDebugStore((st) => st.sessions.filter((e) => e.state.status === "stopped").length);
+	useEffect(() => {
+		const show = () => {
+			const panel = sidebarRef.current;
+			if (panel && panel.getSize().asPercentage <= 0) panel.resize(`${sidebarWidthRef.current}px`);
+			persistSidebarView("debug");
+		};
+		const openLaunch = () => void openLaunchJson();
+		const showTests = () => {
+			const panel = sidebarRef.current;
+			if (panel && panel.getSize().asPercentage <= 0) panel.resize(`${sidebarWidthRef.current}px`);
+			persistSidebarView("tests");
+		};
+		window.addEventListener("gear:show-testing-panel", showTests);
+		const showDb = () => {
+			const panel = sidebarRef.current;
+			if (panel && panel.getSize().asPercentage <= 0) panel.resize(`${sidebarWidthRef.current}px`);
+			persistSidebarView("database");
+		};
+		window.addEventListener("gear:show-database-panel", showDb);
+		const showContainers = () => {
+			const panel = sidebarRef.current;
+			if (panel && panel.getSize().asPercentage <= 0) panel.resize(`${sidebarWidthRef.current}px`);
+			persistSidebarView("containers");
+		};
+		window.addEventListener("gear:show-containers-panel", showContainers);
+		const showExtensions = () => {
+			const panel = sidebarRef.current;
+			if (panel && panel.getSize().asPercentage <= 0) panel.resize(`${sidebarWidthRef.current}px`);
+			persistSidebarView("extensions");
+		};
+		window.addEventListener("gear:show-extensions-panel", showExtensions);
+		const showRemote = () => {
+			const panel = sidebarRef.current;
+			if (panel && panel.getSize().asPercentage <= 0) panel.resize(`${sidebarWidthRef.current}px`);
+			persistSidebarView("remote");
+		};
+		window.addEventListener("gear:show-remote-panel", showRemote);
+		const showK8s = () => {
+			const panel = sidebarRef.current;
+			if (panel && panel.getSize().asPercentage <= 0) panel.resize(`${sidebarWidthRef.current}px`);
+			persistSidebarView("k8s");
+		};
+		window.addEventListener("gear:show-k8s-panel", showK8s);
+		window.addEventListener("gear:show-debug-panel", show);
+		window.addEventListener("gear:open-launch-json", openLaunch);
+		return () => {
+			window.removeEventListener("gear:show-debug-panel", show);
+			window.removeEventListener("gear:show-testing-panel", showTests);
+			window.removeEventListener("gear:show-database-panel", showDb);
+			window.removeEventListener("gear:show-containers-panel", showContainers);
+			window.removeEventListener("gear:show-extensions-panel", showExtensions);
+			window.removeEventListener("gear:show-remote-panel", showRemote);
+			window.removeEventListener("gear:show-k8s-panel", showK8s);
+			window.removeEventListener("gear:open-launch-json", openLaunch);
+		};
+	}, [persistSidebarView]);
 	const persistSidebarWidth = useCallback(
 		(next: number, isUserInteraction: boolean) => {
 			if (!shouldPersistSidebarWidth(next, isUserInteraction)) return;
@@ -435,6 +528,7 @@ export default function App() {
 
 	const [home, setHome] = useState<string | null>(null);
 	const [pendingCloseTab, setPendingCloseTab] = useState<number | null>(null);
+	const [dontAskRunningClose, setDontAskRunningClose] = useState(false);
 	const [pendingTerminalCloseTab, setPendingTerminalCloseTab] = useState<
 		number | null
 	>(null);
@@ -664,6 +758,9 @@ export default function App() {
 
 	const [shortcutsOpen, setShortcutsOpen] = useState(false);
 	const [zenMode, setZenMode] = useState(false);
+	const zenModeLabel = fmtShortcut(
+		...useShortcutLabel("view.zenMode").split(" ").filter(Boolean),
+	);
 	const [newEditorOpen, setNewEditorOpen] = useState(false);
 	const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
 	const miniOpen = useChatStore((s) => s.mini.open);
@@ -925,7 +1022,7 @@ export default function App() {
 				setPendingCloseTab(id);
 				return;
 			}
-			if (t?.kind === "terminal") {
+			if (t?.kind === "terminal" && usePreferencesStore.getState().confirmCloseRunningTerminal) {
 				const leaves = leafIds(t.paneTree);
 				const checks = await Promise.all(leaves.map(leafHasForegroundProcess));
 				if (checks.some(Boolean)) {
@@ -1181,12 +1278,15 @@ export default function App() {
 				const id = handleOpenFile(event.payload, true);
 				if (id != null) setActiveId(id);
 			}).then((un) => {
-				unlistenFile = un;
+				// Unmounted while subscribing: drop it, or it lingers forever.
+				if (cancelled) un();
+				else unlistenFile = un;
 			});
 			listen<string>("gear:launch-dir", (event) => {
 				cdInNewTab(event.payload);
 			}).then((un) => {
-				unlistenDir = un;
+				if (cancelled) un();
+				else unlistenDir = un;
 			});
 		});
 
@@ -1519,6 +1619,9 @@ export default function App() {
 			"tab.newPreview": () => openPreviewTab(""),
 			"tab.newEditor": () => setNewEditorOpen(true),
 			"tab.close": handleCloseTabOrPane,
+			"tab.reopenClosed": () => {
+				if (!reopenClosedTab()) toast.info("No recently closed tabs");
+			},
 			"tab.next": () => cycleTab(1),
 			"tab.prev": () => cycleTab(-1),
 			"tab.selectByIndex": (e) =>
@@ -1538,6 +1641,7 @@ export default function App() {
 			"pane.swapUp": () => swapActivePane("up"),
 			"pane.swapDown": () => swapActivePane("down"),
 			"pane.source": toggleSourceControl,
+			"pane.toggleZoom": togglePaneZoom,
 			"search.focus": () => searchInlineRef.current?.focus(),
 			"ai.toggle": togglePanelAndFocus,
 			"ai.toggleMini": () => {
@@ -1553,13 +1657,27 @@ export default function App() {
 			"shortcuts.open": () => setShortcutsOpen((v) => !v),
 			"settings.open": () => openSettingsTab(),
 			"sidebar.toggle": toggleSidebar,
-			"run.file": () => void runActiveFile(),
+			// While debugging, F5 continues instead of running the file.
+			"run.file": () => (isDebugging() ? void startOrContinue() : void runActiveFile()),
+			"debug.startOrPause": () => (isDebugging() && !isPaused() ? void debugCommand.pause() : void startOrContinue()),
+			"debug.toggleBreakpoint": toggleBreakpointAtCursor,
+			"debug.stepOver": () => void debugCommand.next(),
+			"debug.stepInto": () => void debugCommand.stepIn(),
+			"debug.stepOut": () => void debugCommand.stepOut(),
+			"debug.stop": () => void stopDebugging(),
 			"explorer.focus": toggleExplorerFocus,
+			"explorer.toggleHidden": () => {
+				persistSidebarView("explorer");
+				void setShowHidden(!usePreferencesStore.getState().showHidden);
+			},
 			"view.zoomIn": zoomIn,
 			"view.zoomOut": zoomOut,
 			"view.zoomReset": zoomReset,
 			"editor.undo": () => editorRefs.current.get(activeId)?.undo(),
 			"editor.redo": () => editorRefs.current.get(activeId)?.redo(),
+			"editor.save": () => {
+				void editorRefs.current.get(activeId)?.save();
+			},
 			"editor.findReplace": () =>
 				editorRefs.current.get(activeId)?.openFindReplace(),
 			"editor.toggleBlame": () =>
@@ -1571,6 +1689,8 @@ export default function App() {
 			"terminal.toggleInput": () => {
 				window.dispatchEvent(new Event(WORKSPACE_INPUT_TOGGLE_EVENT));
 			},
+			"blocks.prev": () => jumpToPrompt(-1),
+			"blocks.next": () => jumpToPrompt(1),
 			"view.zenMode": () => setZenMode((v) => !v),
 			"view.rewind": () => useRewindStore.getState().toggle(),
 		}),
@@ -1605,6 +1725,12 @@ export default function App() {
 
 	const shortcutsDisabled = useCallback(
 		(id: ShortcutId, e: KeyboardEvent) => {
+			// Stepping keys belong to terminal apps (mc, htop…) unless a debug session is paused.
+			if (id === "debug.stepOver" || id === "debug.stepInto" || id === "debug.stepOut") return !isPaused();
+			if (id === "debug.stop") return !isDebugging();
+			if (id === "debug.toggleBreakpoint") return activeTab?.kind !== "editor";
+			// Virtual editor tabs (database, HTTP, notebooks…) keep their own Mod+S.
+			if (id === "editor.save") return !editorRefs.current.has(activeId);
 			if (
 				id === "editor.undo" ||
 				id === "editor.redo" ||
@@ -1806,6 +1932,22 @@ export default function App() {
 		gitHistoryHandle,
 	]);
 
+	// Extensions: boot the enabled ones once, and feed editor events to them.
+	useEffect(() => {
+		const off = installEditorHooks();
+		const offRemote = installRemoteSaveHook();
+		const offK8s = installK8sSaveHook();
+		void bootExtensions();
+		return () => {
+			off();
+			offRemote();
+			offK8s();
+		};
+	}, []);
+	const extInstalled = useExtStore((s) => s.installed);
+	const extEnabled = useExtStore((s) => s.enabled);
+	const extActions = useMemo(() => extensionCommandActions(allCommands(extInstalled, extEnabled)), [extInstalled, extEnabled]);
+
 	const commandPaletteActions = useMemo(
 		() =>
 			createCommandPaletteActions({
@@ -1860,6 +2002,134 @@ export default function App() {
 	);
 
 	const activeCwd = activeTerminalLeafCwd;
+
+	// Late-bound App capabilities for feature modules (see appBridge.ts). Reads
+	// go through refs so the registration never goes stale between renders.
+	const bridgeDeps = useRef({
+		handleOpenFile,
+		openControlFile,
+		newTab,
+		openPreviewTab,
+		setActiveId,
+		updateTab,
+		reopenClosedTab,
+		openCommitFileDiffTab,
+		openTerminalLayout,
+		breakPaneToTab,
+		joinTabInto,
+		splitActivePane,
+		explorerRoot,
+		launchCwd,
+		home,
+		activeSpaceId,
+	});
+	bridgeDeps.current = {
+		handleOpenFile,
+		openControlFile,
+		newTab,
+		openPreviewTab,
+		setActiveId,
+		updateTab,
+		reopenClosedTab,
+		openCommitFileDiffTab,
+		openTerminalLayout,
+		breakPaneToTab,
+		joinTabInto,
+		splitActivePane,
+		explorerRoot,
+		launchCwd,
+		home,
+		activeSpaceId,
+	};
+	useEffect(() => installTerminalFeatures(), []);
+	useEffect(() => {
+		useLastCommandStore.getState().setActiveLeaf(isTerminalTab ? activeLeafId : null);
+	}, [isTerminalTab, activeLeafId]);
+	useEffect(() => noteTabActivated(activeId), [activeId]);
+
+	useEffect(() => {
+		const d = () => bridgeDeps.current;
+		const workspaceRoot = () =>
+			d().explorerRoot ?? d().launchCwd ?? d().home ?? null;
+		const activeTerminalLeaf = () => {
+			const t = tabsRef.current.find((x) => x.id === activeIdRef.current);
+			return t?.kind === "terminal" ? t.activeLeafId : null;
+		};
+		return registerAppBridge({
+			openFile: (path, line) => {
+				if (line === undefined) {
+					d().handleOpenFile(path, true);
+					return;
+				}
+				d().openControlFile({
+					path,
+					line,
+					focus: true,
+					spaceId: d().activeSpaceId,
+				});
+			},
+			openTerminal: (options = {}) => {
+				const tabId = d().newTab(options.cwd ?? workspaceRoot() ?? undefined);
+				const command = options.command;
+				if (!command) return;
+				// The tab lands in state on the next render; poll briefly for it.
+				let tries = 0;
+				const tick = () => {
+					const tab = tabsRef.current.find((x) => x.id === tabId);
+					if (tab?.kind !== "terminal") {
+						if (tries++ < 40) setTimeout(tick, 25);
+						return;
+					}
+					const leaf = tab.activeLeafId;
+					void whenSessionReady(leaf).then(() => submitToLeaf(leaf, command));
+				};
+				tick();
+			},
+			openPreview: (url) => {
+				d().openPreviewTab(url);
+			},
+			activeTerminalLeaf,
+			workspaceRoot,
+			activeCwd: () => {
+				const t = tabsRef.current.find((x) => x.id === activeIdRef.current);
+				if (t?.kind === "terminal") {
+					return (
+						findLeafCwd(t.paneTree, t.activeLeafId) ?? t.cwd ?? workspaceRoot()
+					);
+				}
+				return workspaceRoot();
+			},
+			tabs: () => tabsRef.current,
+			activeTabId: () => activeIdRef.current,
+			activateTab: (id) => d().setActiveId(id),
+			renameTab: (id, title) => d().updateTab(id, { customTitle: title.trim() }),
+			reopenClosedTab: (index) => d().reopenClosedTab(index),
+			openCommitFileDiff: (input) => d().openCommitFileDiffTab(input),
+			openTerminalLayout: (template, title) => d().openTerminalLayout(template, title).leaves,
+			setPaneTree: (id, tree) => d().updateTab(id, { paneTree: tree }),
+			breakPaneToTab: (leafId) => d().breakPaneToTab(leafId),
+			joinTabInto: (srcId, dstId, dir) => d().joinTabInto(srcId, dstId, dir),
+			splitAndRun: (dir, command) => {
+				const tab = tabsRef.current.find((x) => x.id === activeIdRef.current);
+				if (tab?.kind !== "terminal") return false;
+				const before = new Set(leafIds(tab.paneTree));
+				d().splitActivePane(tab.id, dir);
+				if (!command) return true;
+				let tries = 0;
+				const tick = () => {
+					const t = tabsRef.current.find((x) => x.id === tab.id);
+					const fresh = t?.kind === "terminal" ? leafIds(t.paneTree).find((l) => !before.has(l)) : undefined;
+					if (fresh === undefined) {
+						if (tries++ < 40) setTimeout(tick, 25);
+						return;
+					}
+					void whenSessionReady(fresh).then(() => submitToLeaf(fresh, command));
+				};
+				tick();
+				return true;
+			},
+		});
+	}, []);
 
 	useEffect(() => {
 		const findCwd = () => {
@@ -2098,7 +2368,7 @@ export default function App() {
 	const shell = (
 		<ThemeProvider>
 			<TooltipProvider>
-				<div className="relative flex h-screen flex-col overflow-hidden bg-background text-foreground">
+				<div className="gear-frame relative flex h-screen flex-col overflow-hidden bg-background text-foreground">
 					{!zenMode && (
 						<div
 							data-tauri-drag-region
@@ -2144,7 +2414,7 @@ export default function App() {
 						/>
 					)}
 
-					<main className="zoom-content flex flex-col min-h-0 flex-1 relative bg-background">
+					<main className="gear-frame-clear zoom-content flex flex-col min-h-0 flex-1 relative bg-background">
 						<ResizablePanelGroup
 							orientation="horizontal"
 							className="min-h-0 flex-1"
@@ -2190,6 +2460,20 @@ export default function App() {
 																		onRunFile={(p) => void runFile(p)}
 																		canRunPath={canRunPath}
 														/>
+													) : sidebarView === "debug" ? (
+														<DebugPanel />
+													) : sidebarView === "tests" ? (
+														<TestPanel />
+													) : sidebarView === "k8s" ? (
+														<K8sPanel />
+													) : sidebarView === "remote" ? (
+														<RemotePanel />
+													) : sidebarView === "extensions" ? (
+														<ExtensionsPanel />
+													) : sidebarView === "containers" ? (
+														<ContainersPanel />
+													) : sidebarView === "database" ? (
+														<DatabasePanel />
 													) : (
 														<SourceControlPanel
 															open
@@ -2211,7 +2495,7 @@ export default function App() {
 							)}
 							<ResizablePanel id="workspace" defaultSize="78%" minSize="30%">
 								<div className="flex h-full min-h-0 flex-col p-2 pl-1 pr-1">
-									<div className="relative min-h-0 flex-1 rounded-xl border border-border/40 bg-background/90 backdrop-blur shadow-sm overflow-hidden">
+									<div className="gear-pane-solid relative min-h-0 flex-1 rounded-xl border border-border/40 bg-background/90 backdrop-blur shadow-sm overflow-hidden">
 										{workspaceSurface}
 									</div>
 									{isBlockTab && blockLeafId != null ? (
@@ -2253,6 +2537,7 @@ export default function App() {
 												sidebarOpen={sidebarOpen}
 												onSelectView={cycleSidebarView}
 												changedCount={sourceControl.changedCount}
+												debugBadge={debugPaused}
 												aiActive={panelOpen}
 												onToggleAi={togglePanelAndFocus}
 												onToggleRewind={() =>
@@ -2304,6 +2589,20 @@ export default function App() {
 																		onRunFile={(p) => void runFile(p)}
 																		canRunPath={canRunPath}
 														/>
+													) : sidebarView === "debug" ? (
+														<DebugPanel />
+													) : sidebarView === "tests" ? (
+														<TestPanel />
+													) : sidebarView === "k8s" ? (
+														<K8sPanel />
+													) : sidebarView === "remote" ? (
+														<RemotePanel />
+													) : sidebarView === "extensions" ? (
+														<ExtensionsPanel />
+													) : sidebarView === "containers" ? (
+														<ContainersPanel />
+													) : sidebarView === "database" ? (
+														<DatabasePanel />
 													) : (
 														<SourceControlPanel
 															open
@@ -2402,10 +2701,28 @@ export default function App() {
 					<CommandPalette
 						open={commandPaletteOpen}
 						onOpenChange={setCommandPaletteOpen}
-						actions={commandPaletteActions}
+						actions={extActions.length ? [...commandPaletteActions, ...extActions] : commandPaletteActions}
 						workspaceRoot={explorerRoot}
 						onOpenFile={handleOpenFile}
+						onPrefixMode={(mode) => {
+							if (mode === "line") {
+								void goToLinePrompt();
+								return;
+							}
+							const active = getActiveEditor();
+							if (!active) {
+								toast.error("Open a file in the editor first");
+								return;
+							}
+							void goToSymbolCmd(active.view, active.languageId);
+						}}
 					/>
+					<QuickPickHost />
+					<CompareDialog />
+					<MergeEditorDialog />
+					<RebaseEditorDialog />
+
+					<WindowVibrancyBridge />
 
 					<AgentNotificationsBridge
 						tabs={tabs}
@@ -2444,7 +2761,7 @@ export default function App() {
 								transition={{ delay: 1.5, duration: 0.4 }}
 								className="pointer-events-none fixed bottom-3 right-3 z-50 rounded-md border border-border/40 bg-background/60 px-2 py-1 text-[10px] text-muted-foreground/60 backdrop-blur"
 							>
-								Zen Mode — press Ctrl+Shift+Z to exit
+								Zen Mode — press {zenModeLabel} to exit
 							</motion.div>
 						) : null}
 					</AnimatePresence>
@@ -2501,6 +2818,10 @@ export default function App() {
 									A process is running. Closing this tab will terminate it.
 								</AlertDialogDescription>
 							</AlertDialogHeader>
+							<label className="flex items-center gap-2 text-[12px] text-muted-foreground">
+								<input type="checkbox" checked={dontAskRunningClose} onChange={(e) => setDontAskRunningClose(e.target.checked)} />
+								Don't ask again (Settings → General)
+							</label>
 							<AlertDialogFooter>
 								<AlertDialogCancel
 									onClick={() => setPendingTerminalCloseTab(null)}
@@ -2512,6 +2833,7 @@ export default function App() {
 										if (pendingTerminalCloseTab !== null)
 											disposeTab(pendingTerminalCloseTab);
 										setPendingTerminalCloseTab(null);
+										if (dontAskRunningClose) void setConfirmCloseRunningTerminal(false);
 									}}
 								>
 									Close Anyway

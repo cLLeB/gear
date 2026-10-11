@@ -1,0 +1,12 @@
+    1     0  0.1  0.0  5668       28:37 root     init     /sbin/init
+    2     0  0.0  0.0     0       28:37 root     kthreadd        [kthreadd]
+    3     2  0.0  0.0     0       28:37 root     pool_workqueue_ [pool_workqueue_release]
+ 3531     1  0.0  0.1 29760       09:13 postgres postgres        /usr/lib/postgresql/16/bin/postgres -D /var/lib/pg-gtest -p 55432 -k /tmp
+ 3532  3531  0.0  0.0 10224       09:13 postgres postgres        postgres: checkpointer 
+ 3533  3531  0.0  0.0  7580       09:13 postgres postgres        postgres: background writer 
+ 3535  3531  0.0  0.0 10328       09:13 postgres postgres        postgres: walwriter 
+ 3536  3531  0.0  0.0  9028       09:13 postgres postgres        postgres: autovacuum launcher 
+ 3537  3531  0.0  0.0  8272       09:13 postgres postgres        postgres: logical replication launcher 
+ 3539     1  0.0  0.6 103828      09:13 root     mariadbd        mariadbd --no-defaults --datadir=/var/lib/mysql-gtest --socket=/var/lib/mysql-gtest/sock --port=53306 --bind-address=127.0.0.1 --pid-file=/var/lib/mysql-gtest/pid --user=root
+ 6012   120 25.0  0.0  6140       00:00 root     bash            /bin/bash -c source /root/.python3/shell-snapshots/snapshot-bash-1791698816868-ekt6kp.sh 2>/dev/null || true && export BUN_OPTIONS="--smol${BUN_OPTIONS:+ $BUN_OPTIONS}" && shopt -u extglob 2>/dev/null || true && { \builtin unalias -- 'unsetenv'; \builtin unset -f -- 'unsetenv'; } >/dev/null 2>&1 || true && { { \builtin echo 0 >| /sys/fs/cgroup/cpuacct/init/01a12991-b4c9-7252-8fba-b20e318dcbb6/cc-shell/tasks; } 2>/dev/null || :; } && eval 'F=/home/user/gear/src/modules/procs/__fixtures__; mkdir -p $F; ss -ltnpH > $F/ss.txt; ss -ltnpH -6 >> $F/ss.txt 2>/dev/null; lsof -nP -iTCP -sTCP:LISTEN -F pcn > $F/lsof.txt 2>/dev/null; head -12 $F/lsof.txt; ps -axo pid=,ppid=,pcpu=,pmem=,rss=,etime=,user=,comm=,args= > $F/ps-linux.txt; wc -l $F/*; grep -c "" $F/ps-linux.txt; sed -n '"'"'1,3p;$p'"'"' $F/ps-linux.txt | cut -c1-150' < /dev/null && pwd -P >| /tmp/python3-3f32-cwd
+ 6018  6012  0.0  0.0  4188       00:00 root     ps              ps -axo pid=,ppid=,pcpu=,pmem=,rss=,etime=,user=,comm=,args=

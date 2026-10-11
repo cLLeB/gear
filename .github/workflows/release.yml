@@ -33,6 +33,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
+      prerelease: ${{ steps.tag.outputs.prerelease }}
     steps:
       - name: Resolve the tag to build
         id: tag
@@ -47,7 +48,11 @@ jobs:
             *) echo "::error::'$TAG' is not a release tag. Dispatch this workflow on a tag, or pass one via the 'tag' input."; exit 1 ;;
           esac
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-          echo "Building $TAG"
+          # v1.2.3-rc.1 (a "-" after the version starts) is a test build.
+          VERSION="${TAG#Gear-}"
+          case "$VERSION" in *-*) PRE=true ;; *) PRE=false ;; esac
+          echo "prerelease=$PRE" >> "$GITHUB_OUTPUT"
+          echo "Building $TAG (prerelease: $PRE)"
 
   build:
     needs: resolve
@@ -77,7 +82,9 @@ jobs:
         with:
           # Explicit: when called by release-please the run's ref is `main`, and
           # main may already have moved past the release commit.
-          ref: ${{ needs.resolve.outputs.tag }}
+          # A manually dispatched test build (pre-release tag that doesn't
+          # exist yet) builds the dispatched commit; the release creates the tag.
+          ref: ${{ (github.event_name == 'workflow_dispatch' && needs.resolve.outputs.prerelease == 'true') && github.sha || needs.resolve.outputs.tag }}
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -142,17 +149,36 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ needs.resolve.outputs.tag }}
+          releaseCommitish: ${{ github.sha }}
           releaseName: "Gear ${{ needs.resolve.outputs.tag }}"
-          releaseDraft: false
-          prerelease: false
+          # Pre-release tags (v1.2.3-rc.1) publish as draft prereleases: testable
+          # installers that the auto-updater (releases/latest) never serves.
+          releaseDraft: ${{ needs.resolve.outputs.prerelease == 'true' }}
+          prerelease: ${{ needs.resolve.outputs.prerelease == 'true' }}
           args: --bundles ${{ matrix.bundles }} ${{ matrix.extra_args }}
+
+      # Size budget: the Windows app and its installers must stay under 85 MB.
+      # Other platforms' artifacts are listed for reference.
+      - name: Check app size budget
+        shell: bash
+        run: |
+          limit=$((85 * 1024 * 1024))
+          fail=0
+          while IFS= read -r f; do
+            size=$(wc -c < "$f" | tr -d ' ')
+            awk -v s="$size" -v f="$f" 'BEGIN { printf "%8.1f MB  %s\n", s / 1048576, f }'
+            case "$f" in
+              *.exe|*.msi) if [ "$size" -gt "$limit" ]; then echo "::error file=$f::$(basename "$f") is $((size / 1048576)) MB, over the 85 MB budget"; fail=1; fi ;;
+            esac
+          done < <(find src-tauri/target -maxdepth 6 -path '*/release/*' -type f \( -name 'gear' -o -name 'gear.exe' -o -name '*.msi' -o -name '*-setup.exe' -o -name '*.AppImage' -o -name '*.deb' -o -name '*.rpm' -o -name '*.dmg' \) 2>/dev/null)
+          exit $fail
 
       # Strip outdated bundled libwayland-* from the AppImage so it loads the
       # host's libs. The build host's libwayland (1.20) shadows newer Mesa
       # (1.22+ symbols), breaking EGL with EGL_BAD_PARAMETER; host copies are
       # ABI-stable and on the AppImage excludelist for exactly this reason.
       - name: Fix AppImage wayland libs and re-sign
-        if: matrix.platform == 'ubuntu-latest'
+        if: matrix.platform == 'ubuntu-latest' && needs.resolve.outputs.prerelease != 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ needs.resolve.outputs.tag }}
@@ -188,6 +214,8 @@ jobs:
 
   patch-updater-manifest:
     needs: [resolve, build]
+    # Draft prereleases never reach the updater, so there is no manifest to patch.
+    if: ${{ needs.resolve.outputs.prerelease != 'true' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write

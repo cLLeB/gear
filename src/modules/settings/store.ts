@@ -17,6 +17,12 @@ import {
 import type { KeyBinding, ShortcutId } from "@/modules/shortcuts/shortcuts";
 import { emit, listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { LazyStore } from "@tauri-apps/plugin-store";
+import {
+  FEATURE_DEFAULTS,
+  normalizeFeatureSettings,
+  type FeatureKey,
+  type FeatureValues,
+} from "./featureSettings";
 
 export type ThemePref = "system" | "light" | "dark";
 
@@ -85,6 +91,7 @@ export type Preferences = {
   backgroundImageId: string | null;
   backgroundOpacity: number;
   backgroundBlur: number;
+  windowVibrancy: boolean;
   backgroundTintColor: string | null;
   backgroundTintOpacity: number;
   backgroundNoiseOpacity: number;
@@ -135,6 +142,9 @@ export type Preferences = {
   lastWslDistro: string | null;
   zoomLevel: number;
   agentNotifications: boolean;
+  agentNotificationSound: boolean;
+  /** Ask before closing a terminal (or quitting) while a command is running. */
+  confirmCloseRunningTerminal: boolean;
   wordWrap: boolean;
   wordWrapColumn: number;
   sidebarPosition: "left" | "right";
@@ -146,6 +156,8 @@ export type Preferences = {
   editorFormatter: EditorFormatter;
   editorFormatterByLang: Record<string, EditorFormatter>;
   editorCustomFormatCommand: string;
+  /** Schema-driven feature settings (see featureSettings.ts). */
+  featureSettings: FeatureValues;
 };
 
 export type EditorFormatter =
@@ -169,6 +181,7 @@ const KEY_BG_KIND = "backgroundKind";
 const KEY_BG_IMAGE_ID = "backgroundImageId";
 const KEY_BG_OPACITY = "backgroundOpacity";
 const KEY_BG_BLUR = "backgroundBlur";
+const KEY_WINDOW_VIBRANCY = "windowVibrancy";
 const KEY_BG_TINT_COLOR = "backgroundTintColor";
 const KEY_BG_TINT_OPACITY = "backgroundTintOpacity";
 const KEY_BG_NOISE_OPACITY = "backgroundNoiseOpacity";
@@ -216,6 +229,8 @@ const KEY_TERMINAL_SCROLLBACK = "terminalScrollback";
 const KEY_LAST_WSL_DISTRO = "lastWslDistro";
 const KEY_ZOOM_LEVEL = "zoomLevel";
 const KEY_AGENT_NOTIFICATIONS = "agentNotifications";
+const KEY_AGENT_NOTIFICATION_SOUND = "agentNotificationSound";
+const KEY_CONFIRM_CLOSE_RUNNING_TERMINAL = "confirmCloseRunningTerminal";
 const KEY_WORD_WRAP = "wordWrap";
 const KEY_WORD_WRAP_COLUMN = "wordWrapColumn";
 const KEY_SIDEBAR_POSITION = "sidebarPosition";
@@ -227,6 +242,7 @@ const KEY_EDITOR_FORMAT_ON_SAVE = "editorFormatOnSave";
 const KEY_EDITOR_FORMATTER = "editorFormatter";
 const KEY_EDITOR_FORMATTER_BY_LANG = "editorFormatterByLang";
 const KEY_EDITOR_CUSTOM_FORMAT_COMMAND = "editorCustomFormatCommand";
+const KEY_FEATURE_SETTINGS = "featureSettings";
 
 export const EDITOR_FONT_SIZE_DEFAULT = 13;
 export const EDITOR_FONT_SIZE_MIN = 8;
@@ -261,6 +277,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   backgroundImageId: null,
   backgroundOpacity: 0.7,
   backgroundBlur: 16,
+  windowVibrancy: false,
   backgroundTintColor: null,
   backgroundTintOpacity: 0,
   backgroundNoiseOpacity: 0,
@@ -307,6 +324,8 @@ export const DEFAULT_PREFERENCES: Preferences = {
   lastWslDistro: null,
   zoomLevel: 1.0,
   agentNotifications: true,
+  agentNotificationSound: true,
+  confirmCloseRunningTerminal: true,
   wordWrap: false,
   wordWrapColumn: WORD_WRAP_COLUMN_DEFAULT,
   sidebarPosition: "left",
@@ -318,6 +337,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   editorFormatter: "lsp",
   editorFormatterByLang: {},
   editorCustomFormatCommand: "",
+  featureSettings: { ...FEATURE_DEFAULTS },
 };
 
 const store = new LazyStore(STORE_PATH, { defaults: {}, autoSave: 200 });
@@ -347,6 +367,8 @@ export async function loadPreferences(): Promise<Preferences> {
     backgroundImageId: get<string | null>(KEY_BG_IMAGE_ID) ?? DEFAULT_PREFERENCES.backgroundImageId,
     backgroundOpacity: clampBgOpacity(get<number>(KEY_BG_OPACITY) ?? DEFAULT_PREFERENCES.backgroundOpacity),
     backgroundBlur: clampBlur(get<number>(KEY_BG_BLUR) ?? DEFAULT_PREFERENCES.backgroundBlur),
+    windowVibrancy:
+      get<boolean>(KEY_WINDOW_VIBRANCY) ?? DEFAULT_PREFERENCES.windowVibrancy,
     backgroundTintColor: get<string | null>(KEY_BG_TINT_COLOR) ?? DEFAULT_PREFERENCES.backgroundTintColor,
     backgroundTintOpacity: clampBgOpacity(get<number>(KEY_BG_TINT_OPACITY) ?? DEFAULT_PREFERENCES.backgroundTintOpacity),
     backgroundNoiseOpacity: clampBgOpacity(get<number>(KEY_BG_NOISE_OPACITY) ?? DEFAULT_PREFERENCES.backgroundNoiseOpacity),
@@ -463,6 +485,12 @@ export async function loadPreferences(): Promise<Preferences> {
     agentNotifications:
       get<boolean>(KEY_AGENT_NOTIFICATIONS) ??
       DEFAULT_PREFERENCES.agentNotifications,
+    agentNotificationSound:
+      get<boolean>(KEY_AGENT_NOTIFICATION_SOUND) ??
+      DEFAULT_PREFERENCES.agentNotificationSound,
+    confirmCloseRunningTerminal:
+      get<boolean>(KEY_CONFIRM_CLOSE_RUNNING_TERMINAL) ??
+      DEFAULT_PREFERENCES.confirmCloseRunningTerminal,
     wordWrap: get<boolean>(KEY_WORD_WRAP) ?? DEFAULT_PREFERENCES.wordWrap,
     wordWrapColumn: clampWordWrapColumn(
       get<number>(KEY_WORD_WRAP_COLUMN) ?? DEFAULT_PREFERENCES.wordWrapColumn,
@@ -495,6 +523,7 @@ export async function loadPreferences(): Promise<Preferences> {
     editorCustomFormatCommand:
       get<string>(KEY_EDITOR_CUSTOM_FORMAT_COMMAND) ??
       DEFAULT_PREFERENCES.editorCustomFormatCommand,
+    featureSettings: normalizeFeatureSettings(get<unknown>(KEY_FEATURE_SETTINGS)),
   };
 }
 
@@ -548,6 +577,10 @@ export async function setBackgroundOpacity(value: number): Promise<void> {
 
 export async function setBackgroundBlur(value: number): Promise<void> {
   await writePref(KEY_BG_BLUR, clampBlur(value));
+}
+
+export async function setWindowVibrancy(value: boolean): Promise<void> {
+  await writePref(KEY_WINDOW_VIBRANCY, value);
 }
 
 export async function setBackgroundTintColor(value: string | null): Promise<void> {
@@ -811,6 +844,14 @@ export async function setAgentNotifications(value: boolean): Promise<void> {
   await writePref(KEY_AGENT_NOTIFICATIONS, value);
 }
 
+export async function setAgentNotificationSound(value: boolean): Promise<void> {
+  await writePref(KEY_AGENT_NOTIFICATION_SOUND, value);
+}
+
+export async function setConfirmCloseRunningTerminal(value: boolean): Promise<void> {
+  await writePref(KEY_CONFIRM_CLOSE_RUNNING_TERMINAL, value);
+}
+
 function clampAutoSaveDelay(v: number): number {
   if (!Number.isFinite(v)) return 1000;
   return Math.min(60000, Math.max(100, Math.round(v)));
@@ -822,6 +863,22 @@ export async function setEditorAutoSave(value: boolean): Promise<void> {
 
 export async function setEditorAutoSaveDelay(value: number): Promise<void> {
   await writePref(KEY_EDITOR_AUTO_SAVE_DELAY, clampAutoSaveDelay(value));
+}
+
+/**
+ * Update one feature setting. Reads the stored object first so concurrent
+ * windows writing different keys do not clobber each other.
+ */
+export async function setFeatureSetting<K extends FeatureKey>(
+  key: K,
+  value: FeatureValues[K],
+): Promise<void> {
+  const current = normalizeFeatureSettings(await store.get(KEY_FEATURE_SETTINGS));
+  await writePref(KEY_FEATURE_SETTINGS, { ...current, [key]: value });
+}
+
+export async function resetFeatureSettings(): Promise<void> {
+  await writePref(KEY_FEATURE_SETTINGS, { ...FEATURE_DEFAULTS });
 }
 
 export async function exportSettings(): Promise<Record<string, unknown>> {
@@ -872,6 +929,7 @@ export async function onPreferencesChange(
     [KEY_BG_IMAGE_ID]: "backgroundImageId",
     [KEY_BG_OPACITY]: "backgroundOpacity",
     [KEY_BG_BLUR]: "backgroundBlur",
+    [KEY_WINDOW_VIBRANCY]: "windowVibrancy",
     [KEY_BG_TINT_COLOR]: "backgroundTintColor",
     [KEY_BG_TINT_OPACITY]: "backgroundTintOpacity",
     [KEY_BG_NOISE_OPACITY]: "backgroundNoiseOpacity",
@@ -918,6 +976,8 @@ export async function onPreferencesChange(
     [KEY_LAST_WSL_DISTRO]: "lastWslDistro",
     [KEY_ZOOM_LEVEL]: "zoomLevel",
     [KEY_AGENT_NOTIFICATIONS]: "agentNotifications",
+    [KEY_AGENT_NOTIFICATION_SOUND]: "agentNotificationSound",
+    [KEY_CONFIRM_CLOSE_RUNNING_TERMINAL]: "confirmCloseRunningTerminal",
     [KEY_WORD_WRAP]: "wordWrap",
     [KEY_WORD_WRAP_COLUMN]: "wordWrapColumn",
     [KEY_SIDEBAR_POSITION]: "sidebarPosition",
@@ -929,19 +989,19 @@ export async function onPreferencesChange(
     [KEY_EDITOR_FORMATTER]: "editorFormatter",
     [KEY_EDITOR_FORMATTER_BY_LANG]: "editorFormatterByLang",
     [KEY_EDITOR_CUSTOM_FORMAT_COMMAND]: "editorCustomFormatCommand",
+    [KEY_FEATURE_SETTINGS]: "featureSettings",
   };
   // Same-process writes still fire onChange immediately; cross-window writes
   // arrive via the Tauri event emitted by writePref().
-  const unsubLocal = await store.onChange<unknown>((key, value) => {
+  const deliver = (key: string, value: unknown) => {
     const mapped = map[key];
-    if (mapped) cb(mapped, value);
-  });
+    if (!mapped) return;
+    cb(mapped, mapped === "featureSettings" ? normalizeFeatureSettings(value) : value);
+  };
+  const unsubLocal = await store.onChange<unknown>(deliver);
   const unsubEvent = await listen<{ key: string; value: unknown }>(
     PREFS_CHANGED_EVENT,
-    (e) => {
-      const mapped = map[e.payload.key];
-      if (mapped) cb(mapped, e.payload.value);
-    },
+    (e) => deliver(e.payload.key, e.payload.value),
   );
   return () => {
     unsubLocal();
@@ -960,3 +1020,4 @@ export async function emitKeysChanged(): Promise<void> {
 export function onKeysChanged(cb: () => void): Promise<UnlistenFn> {
   return listen(KEYS_CHANGED_EVENT, () => cb());
 }
+

@@ -140,7 +140,7 @@ export function Header({
   return (
     <div
       ref={rootRef}
-      className={`flex h-10 shrink-0 items-center gap-2 border-b border-border/60 bg-card select-none ${
+      className={`gear-frame-clear flex h-10 shrink-0 items-center gap-2 border-b border-border/60 bg-card select-none ${
         IS_MAC ? "pr-2 pl-20" : "pr-0 pl-2"
       }`}
     >
@@ -229,6 +229,12 @@ export function Header({
 
       <div
         className="flex min-w-0 flex-1 items-center gap-2"
+        onContextMenu={(e) => {
+          // Empty chrome falls through to the webview's own menu, whose Reload
+          // restarts the webview and closes every shell. Per-tab menus still
+          // open: Radix handles the trigger before this bubbles.
+          e.preventDefault();
+        }}
       >
         <TabBar
           tabs={tabs}

@@ -1,5 +1,11 @@
 import { cn } from "@/lib/utils";
 import {
+  Bug01Icon,
+  ContainerIcon,
+  PuzzleIcon,
+  CloudServerIcon,
+  CubeIcon,
+  Database01Icon,
   ClockIcon,
   FolderGitTwoIcon,
   FolderTreeIcon,
@@ -7,6 +13,7 @@ import {
   SidebarLeft01Icon,
   SidebarRight01Icon,
   SparklesIcon,
+  TestTube01Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import type { SidebarViewId } from "./types";
@@ -22,6 +29,8 @@ type Props = {
   sidebarOpen: boolean;
   onSelectView: (view: SidebarViewId) => void;
   changedCount: number;
+  /** Paused debug sessions (shown as a badge). */
+  debugBadge?: number;
   aiActive: boolean;
   onToggleAi: () => void;
   onToggleRewind: () => void;
@@ -91,6 +100,7 @@ export function SidebarRail({
   sidebarOpen,
   onSelectView,
   changedCount,
+  debugBadge,
   aiActive,
   onToggleAi,
   onToggleRewind,
@@ -112,6 +122,49 @@ export function SidebarRail({
         active={sidebarOpen && activeView === "source-control"}
         badge={changedCount}
         onClick={() => onSelectView("source-control")}
+      />
+      <RailButton
+        label="Run and Debug"
+        icon={Bug01Icon}
+        active={sidebarOpen && activeView === "debug"}
+        badge={debugBadge}
+        onClick={() => onSelectView("debug")}
+      />
+      <RailButton
+        label="Testing"
+        icon={TestTube01Icon}
+        active={sidebarOpen && activeView === "tests"}
+        onClick={() => onSelectView("tests")}
+      />
+      <RailButton
+        label="Database"
+        icon={Database01Icon}
+        active={sidebarOpen && activeView === "database"}
+        onClick={() => onSelectView("database")}
+      />
+      <RailButton
+        label="Containers"
+        icon={ContainerIcon}
+        active={sidebarOpen && activeView === "containers"}
+        onClick={() => onSelectView("containers")}
+      />
+      <RailButton
+        label="Remote (SSH)"
+        icon={CloudServerIcon}
+        active={sidebarOpen && activeView === "remote"}
+        onClick={() => onSelectView("remote")}
+      />
+      <RailButton
+        label="Kubernetes"
+        icon={CubeIcon}
+        active={sidebarOpen && activeView === "k8s"}
+        onClick={() => onSelectView("k8s")}
+      />
+      <RailButton
+        label="Extensions"
+        icon={PuzzleIcon}
+        active={sidebarOpen && activeView === "extensions"}
+        onClick={() => onSelectView("extensions")}
       />
 
       <div className="flex-1" />

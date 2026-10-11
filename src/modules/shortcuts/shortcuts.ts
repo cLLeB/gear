@@ -13,6 +13,7 @@ export type ShortcutId =
   | "tab.newPreview"
   | "tab.newEditor"
   | "tab.close"
+  | "tab.reopenClosed"
   | "tab.closeOthers"
   | "tab.next"
   | "tab.prev"
@@ -27,9 +28,11 @@ export type ShortcutId =
   | "pane.swapUp"
   | "pane.swapDown"
   | "pane.source"
+  | "pane.toggleZoom"
   | "search.focus"
   | "explorer.search"
   | "explorer.focus"
+  | "explorer.toggleHidden"
   | "view.zoomIn"
   | "view.zoomOut"
   | "view.zoomReset"
@@ -42,12 +45,19 @@ export type ShortcutId =
   | "settings.open"
   | "sidebar.toggle"
   | "run.file"
+  | "debug.startOrPause"
+  | "debug.toggleBreakpoint"
+  | "debug.stepOver"
+  | "debug.stepInto"
+  | "debug.stepOut"
+  | "debug.stop"
   | "terminal.clear"
   | "terminal.toggleInput"
   | "blocks.prev"
   | "blocks.next"
   | "editor.undo"
   | "editor.redo"
+  | "editor.save"
   | "editor.findReplace"
   | "editor.fold"
   | "editor.unfold"
@@ -115,6 +125,12 @@ export const SHORTCUTS: Shortcut[] = [
     label: "New private terminal",
     group: "Tabs",
     defaultBindings: [{ [MOD_PROP]: true, key: "r" }],
+  },
+  {
+    id: "tab.reopenClosed",
+    label: "Reopen closed tab",
+    group: "Tabs",
+    defaultBindings: [{ [MOD_PROP]: true, alt: true, key: "t" }],
   },
   {
     id: "tab.newBlocks",
@@ -195,6 +211,12 @@ export const SHORTCUTS: Shortcut[] = [
     defaultBindings: [{ [MOD_PROP]: true, alt: true, key: "ArrowDown" }],
   },
   {
+    id: "pane.toggleZoom",
+    label: "Toggle pane zoom",
+    group: "Panes",
+    defaultBindings: [{ [MOD_PROP]: true, shift: true, key: "Enter" }],
+  },
+  {
     id: "pane.source",
     label: "Toggle source panel",
     group: "Panes",
@@ -263,6 +285,14 @@ export const SHORTCUTS: Shortcut[] = [
     defaultBindings: [{ [MOD_PROP]: true, shift: true, key: "e" }],
   },
   {
+    id: "explorer.toggleHidden",
+    label: "Toggle hidden files",
+    group: "View",
+    // Finder's toggle. Matched on the physical Period key, so it holds on
+    // layouts where Shift+. types something else.
+    defaultBindings: [{ [MOD_PROP]: true, shift: true, key: "." }],
+  },
+  {
     id: "view.zoomIn",
     label: "Zoom in",
     group: "View",
@@ -288,11 +318,8 @@ export const SHORTCUTS: Shortcut[] = [
     group: "View",
     defaultBindings: [{ [MOD_PROP]: true, key: "0" }],
   },
-  // Editor entries are display-only: CodeMirror's historyKeymap binds these
-  // keys natively. We register them here so the shortcuts dialog can surface
-  // them — they don't have App-level handlers, so `useGlobalShortcuts` falls
-  // through without `preventDefault`, leaving CodeMirror to handle the event.
-  // Also excluded from the customization UI in ShortcutsSection.
+  // Editor undo/redo: App.tsx registers handlers and useGlobalShortcuts
+  // preventDefaults on match. Keep Mod+Y and add the macOS Mod+Shift+Z.
   {
     id: "editor.undo",
     label: "Undo",
@@ -303,7 +330,18 @@ export const SHORTCUTS: Shortcut[] = [
     id: "editor.redo",
     label: "Redo",
     group: "Editor",
-    defaultBindings: [{ [MOD_PROP]: true, key: "y" }],
+    defaultBindings: [
+      { [MOD_PROP]: true, key: "y" },
+      { [MOD_PROP]: true, shift: true, key: "z" },
+    ],
+  },
+  // Mod+S at the app layer so WKWebView cannot steal "Save Page".
+  // CodeMirror also binds Mod-s; the global handler preventDefaults first.
+  {
+    id: "editor.save",
+    label: "Save file",
+    group: "Editor",
+    defaultBindings: [{ [MOD_PROP]: true, key: "s" }],
   },
   {
     id: "editor.findReplace",
@@ -351,9 +389,8 @@ export const SHORTCUTS: Shortcut[] = [
     id: "view.rewind",
     label: "Toggle session timeline (Rewind)",
     group: "View",
-    defaultBindings: IS_MAC
-      ? [{ meta: true, shift: true, key: "t" }]
-      : [{ ctrl: true, shift: true, key: "t" }],
+    // Mod+Shift+T belongs to "New block terminal"; H for history.
+    defaultBindings: [{ [MOD_PROP]: true, shift: true, key: "h" }],
   },
   // --- Run ---
   {
@@ -362,12 +399,54 @@ export const SHORTCUTS: Shortcut[] = [
     group: "General",
     defaultBindings: [{ key: "F5" }],
   },
+  // --- Debug ---
+  {
+    id: "debug.startOrPause",
+    label: "Start debugging / pause",
+    group: "General",
+    defaultBindings: [{ key: "F6" }],
+  },
+  {
+    id: "debug.toggleBreakpoint",
+    label: "Toggle breakpoint",
+    group: "General",
+    defaultBindings: [{ key: "F9" }],
+  },
+  {
+    id: "debug.stepOver",
+    label: "Step over (while paused)",
+    group: "General",
+    defaultBindings: [{ key: "F10" }],
+    allowRepeat: true,
+  },
+  {
+    id: "debug.stepInto",
+    label: "Step into (while paused)",
+    group: "General",
+    defaultBindings: [{ key: "F11" }],
+    allowRepeat: true,
+  },
+  {
+    id: "debug.stepOut",
+    label: "Step out (while paused)",
+    group: "General",
+    defaultBindings: [{ shift: true, key: "F11" }],
+  },
+  {
+    id: "debug.stop",
+    label: "Stop debugging",
+    group: "General",
+    defaultBindings: [{ shift: true, key: "F5" }],
+  },
   // --- Terminal ---
   {
     id: "terminal.clear",
     label: "Clear terminal",
     group: "General",
-    defaultBindings: [{ ctrl: true, key: "k" }],
+    // macOS: Ctrl+K (Cmd+K opens the shortcuts sheet). Elsewhere Ctrl+K is
+    // taken by that sheet, so clearing uses Ctrl+Shift+L (screen-clear key in
+    // readline is Ctrl+L, plus Shift so the shell still gets plain Ctrl+L).
+    defaultBindings: IS_MAC ? [{ ctrl: true, key: "k" }] : [{ ctrl: true, shift: true, key: "l" }],
   },
   {
     id: "terminal.toggleInput",
@@ -500,9 +579,10 @@ export function matchBinding(
   if (id === "tab.selectByIndex") {
     if (!/^[1-9]$/.test(e.key)) return false;
   } else if (eventKey !== bindingKey) {
-    // Only alt bindings fall back to the physical key — without this an alt
-    // shortcut is unreachable on any layout where Option rewrites the char.
-    if (!binding.alt || keyFromCode(e.code) !== bindingKey) return false;
+    // Alt and Shift bindings fall back to the physical key: Option rewrites the
+    // char on macOS ("«", dead keys) and Shift turns "." into ">".
+    if (!binding.alt && !binding.shift) return false;
+    if (keyFromCode(e.code) !== bindingKey) return false;
   }
 
   return (

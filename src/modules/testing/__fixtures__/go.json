@@ -1,0 +1,18 @@
+{"Time":"2026-10-05T18:19:04.367166203Z","Action":"start","Package":"ex.com/g"}
+{"Time":"2026-10-05T18:19:04.369980075Z","Action":"run","Package":"ex.com/g","Test":"TestAdd"}
+{"Time":"2026-10-05T18:19:04.37000819Z","Action":"output","Package":"ex.com/g","Test":"TestAdd","Output":"=== RUN   TestAdd\n"}
+{"Time":"2026-10-05T18:19:04.370044534Z","Action":"output","Package":"ex.com/g","Test":"TestAdd","Output":"--- PASS: TestAdd (0.00s)\n"}
+{"Time":"2026-10-05T18:19:04.370048766Z","Action":"pass","Package":"ex.com/g","Test":"TestAdd","Elapsed":0}
+{"Time":"2026-10-05T18:19:04.370055677Z","Action":"run","Package":"ex.com/g","Test":"TestBad"}
+{"Time":"2026-10-05T18:19:04.370057742Z","Action":"output","Package":"ex.com/g","Test":"TestBad","Output":"=== RUN   TestBad\n"}
+{"Time":"2026-10-05T18:19:04.370062471Z","Action":"run","Package":"ex.com/g","Test":"TestBad/sub"}
+{"Time":"2026-10-05T18:19:04.370064425Z","Action":"output","Package":"ex.com/g","Test":"TestBad/sub","Output":"=== RUN   TestBad/sub\n"}
+{"Time":"2026-10-05T18:19:04.370066784Z","Action":"output","Package":"ex.com/g","Test":"TestBad/sub","Output":"    g_test.go:14: want 5 got 4\n"}
+{"Time":"2026-10-05T18:19:04.370070825Z","Action":"output","Package":"ex.com/g","Test":"TestBad/sub","Output":"--- FAIL: TestBad/sub (0.00s)\n"}
+{"Time":"2026-10-05T18:19:04.370074579Z","Action":"fail","Package":"ex.com/g","Test":"TestBad/sub","Elapsed":0}
+{"Time":"2026-10-05T18:19:04.370077274Z","Action":"output","Package":"ex.com/g","Test":"TestBad","Output":"--- FAIL: TestBad (0.00s)\n"}
+{"Time":"2026-10-05T18:19:04.370079567Z","Action":"fail","Package":"ex.com/g","Test":"TestBad","Elapsed":0}
+{"Time":"2026-10-05T18:19:04.370081614Z","Action":"output","Package":"ex.com/g","Output":"FAIL\n"}
+{"Time":"2026-10-05T18:19:04.370812087Z","Action":"output","Package":"ex.com/g","Output":"coverage: 50.0% of statements\n"}
+{"Time":"2026-10-05T18:19:04.371326135Z","Action":"output","Package":"ex.com/g","Output":"FAIL\tex.com/g\t0.003s\n"}
+{"Time":"2026-10-05T18:19:04.371344479Z","Action":"fail","Package":"ex.com/g","Elapsed":0.004}

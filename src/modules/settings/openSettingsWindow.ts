@@ -1,5 +1,6 @@
 export type SettingsTab =
   | "general"
+  | "features"
   | "shortcuts"
   | "models"
   | "agents"

@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { getBindingTokens, type KeyBinding, matchBinding } from "./shortcuts";
+import { MOD_PROP } from "@/lib/platform";
+import { getBindingTokens, type KeyBinding, matchBinding,
+  SHORTCUTS, } from "./shortcuts";
 
 // These tests run in the vitest node environment, where the Tauri OS plugin is
 // unavailable so `IS_MAC` resolves to false. That makes the non-mac token
@@ -62,6 +64,14 @@ describe("matchBinding", () => {
     ).toBe(true);
   });
 
+  it("falls back to the physical key for Shift bindings", () => {
+    const binding = { key: ".", ctrl: true, shift: true };
+    expect(matchBinding(event({ key: ">", code: "Period", ctrlKey: true, shiftKey: true }), binding)).toBe(true);
+    expect(matchBinding(event({ key: ">", code: "Comma", ctrlKey: true, shiftKey: true }), binding)).toBe(false);
+    // Without Shift in the binding there's no fallback.
+    expect(matchBinding(event({ key: ">", code: "Period", ctrlKey: true }), { key: ".", ctrl: true })).toBe(false);
+  });
+
   it("fails when a required modifier is missing", () => {
     expect(matchBinding(event({ key: "c" }), { key: "c", ctrl: true })).toBe(
       false,
@@ -100,5 +110,25 @@ describe("matchBinding", () => {
     expect(
       matchBinding(event({ key: "x" }), { key: "1" }, "tab.selectByIndex"),
     ).toBe(false);
+  });
+});
+
+describe("SHORTCUTS registry", () => {
+  it("binds Mod+S to editor.save", () => {
+    const save = SHORTCUTS.find((s) => s.id === "editor.save");
+    expect(save).toBeDefined();
+    expect(save!.defaultBindings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ key: "s", [MOD_PROP]: true }),
+      ]),
+    );
+  });
+
+  it("binds both Mod+Y and Mod+Shift+Z to editor.redo", () => {
+    const redo = SHORTCUTS.find((s) => s.id === "editor.redo");
+    expect(redo!.defaultBindings).toEqual([
+      { [MOD_PROP]: true, key: "y" },
+      { [MOD_PROP]: true, shift: true, key: "z" },
+    ]);
   });
 });

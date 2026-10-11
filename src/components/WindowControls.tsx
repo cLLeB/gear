@@ -22,15 +22,20 @@ export function WindowControls({ closeOnly = false }: Props) {
     if (!USE_CUSTOM_WINDOW_CONTROLS || closeOnly) return;
     const w = getCurrentWindow();
     let unlisten: (() => void) | undefined;
+    let disposed = false;
     void w.isMaximized().then(setMaximized);
     void w
       .onResized(() => {
         void w.isMaximized().then(setMaximized);
       })
       .then((un) => {
-        unlisten = un;
+        if (disposed) un();
+        else unlisten = un;
       });
-    return () => unlisten?.();
+    return () => {
+      disposed = true;
+      unlisten?.();
+    };
   }, [closeOnly]);
 
   if (!USE_CUSTOM_WINDOW_CONTROLS) return null;

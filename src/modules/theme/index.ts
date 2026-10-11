@@ -1,4 +1,5 @@
 export { ThemeProvider, useTheme } from "./ThemeProvider";
+export { WindowVibrancyBridge } from "./WindowVibrancyBridge";
 export type { Theme, ThemeMode, ThemeColors, ThemeVariant, TerminalPalette } from "./types";
 export { DEFAULT_THEME_ID } from "./types";
 export { applyTheme } from "./applyTheme";
