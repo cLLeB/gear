@@ -154,6 +154,14 @@ pub fn run() {
         builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
     }
 
+    // Cmd+Q quits past the window, so route it through the close guard.
+    #[cfg(target_os = "macos")]
+    {
+        builder = builder
+            .menu(modules::app_menu::build)
+            .on_menu_event(modules::app_menu::handle_event);
+    }
+
     builder
         // Skip restoring VISIBLE — frontend calls window.show() after first
         // paint so the user never sees a transparent window-shadow flash on
