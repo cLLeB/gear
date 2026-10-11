@@ -319,3 +319,20 @@ noted; tunable behaviour lives in **Settings → Features**.
 - Ports & processes and the test explorer read output with Windows line endings.
 - Windows: dragging works inside the app — explorer rows onto folders or into a terminal, tab reordering, rebase rows.
 - Explorer: Replace on a drag-move keeps the old item until the new one has landed, and a partly failed move or a failed delete says which items were affected.
+
+# Checkpoint 7
+
+## GitHub (uses your `gh` CLI and its login)
+- **GitHub: Pull requests…** — open pull requests with their check status, review state and author; check one out, read its diff, list its checks, mark a draft ready, comment, merge in a terminal, open or copy the link. **GitHub: Pull request for this branch…** jumps straight to the current branch's pull request, or offers to create one.
+- **GitHub: Workflow runs (CI)…** — recent runs with this branch first; read the failed steps' log (grouped by job and step, without timestamps and colour codes) or the full log, re-run failed or all jobs, watch a running one in a terminal, cancel it.
+- **GitHub: Issues…** — read an issue with its comments, start a branch for it, comment.
+
+## Editor
+- **Minimap** (Settings → Features → Minimap, or "Toggle minimap"; off by default): a zoomed-out strip of the file on the right edge with a slider over the visible part, the selection and the cursor line marked; click or drag to scroll. Hidden when the editor is narrow.
+
+## Terminal
+- **Inline images** (Settings → Features → Inline images): images printed with the Sixel or iTerm2 image protocols are drawn in the terminal (img2sixel, chafa, imgcat, plotting libraries). macOS and Linux; the Windows console layer removes image data before it reaches Gear.
+
+## Window
+- **Global show / hide hotkey** (Settings → Features, or "Window: Set the global show / hide hotkey…"): a key combination that works in any app — it brings Gear to the front, or hides it when it is already in front, like a drop-down terminal. Needs a modifier; reports when another app already owns the combination.
+- **Window: Toggle always on top.**
