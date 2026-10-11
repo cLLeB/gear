@@ -50,6 +50,7 @@ export const FEATURE_DEFAULTS = {
   "terminal.commandGuardCaution": false,
   "terminal.pasteImages": true,
   "terminal.inlineImages": true,
+  "window.globalHotkey": "",
   "terminal.restoreScrollback": true,
   "terminal.copyOnSelect": false,
   "terminal.rightClick": "menu",
@@ -104,6 +105,11 @@ export const FEATURE_META: Record<FeatureKey, Meta> = {
   "terminal.inlineImages": {
     label: "Inline images",
     description: "Draw images that programs print with the Sixel or iTerm2 image protocols (img2sixel, chafa, imgcat, plotting libraries). Works on macOS and Linux; the Windows console layer currently removes image data before it reaches Gear. Applies to terminals opened afterwards.",
+    section: "Terminal",
+  },
+  "window.globalHotkey": {
+    label: "Global show / hide hotkey",
+    description: "A key combination that works in any app: it brings Gear to the front, or hides it when it is already in front (a drop-down terminal). For example Ctrl+` or Alt+Space. Leave empty for none.",
     section: "Terminal",
   },
   "terminal.pasteImages": {

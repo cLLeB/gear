@@ -1,3 +1,4 @@
+export { GlobalHotkeyBridge } from "./GlobalHotkeyBridge";
 export { ShortcutsDialog } from "./ShortcutsDialog";
 export {
   SHORTCUTS,
