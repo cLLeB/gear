@@ -5,7 +5,8 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
-import { writeFsPaths } from "@/lib/pathDrag";
+import { dragHasFsPaths, readFsPaths, writeFsPaths } from "@/lib/pathDrag";
+import { parentDir } from "./lib/dragMove";
 import { cn, isMarkdownPath } from "@/lib/utils";
 import { ArrowRight01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -51,6 +52,8 @@ export type EntryRowProps = {
   onPasteEntries?: (destDir: string) => void;
   /** Cut and awaiting a paste — shown dimmed, the way file managers do. */
   isCut?: boolean;
+  /** In-app drag of tree paths dropped on this row (a file means its folder). */
+  onDropPaths?: (destDir: string, paths: string[]) => void;
 };
 
 function formatBytes(n: number): string {
@@ -76,6 +79,7 @@ function EntryRowImpl(props: EntryRowProps) {
     onOpenFile,
     onSelectPath,
     onGetSelectedPaths,
+    onDropPaths,
     onRevealInTerminal,
     onOpenInSourceControl,
     onOpenGitHistory,
@@ -90,6 +94,7 @@ function EntryRowImpl(props: EntryRowProps) {
   } = props;
 
   const [isConfirming, setIsConfirming] = useState(false);
+  const [dropHover, setDropHover] = useState(false);
 
   const metaTitle = !isDir && size !== undefined && mtime !== undefined && mtime > 0
     ? `${formatBytes(size)} · Modified ${new Date(mtime).toLocaleString()}`
@@ -142,6 +147,22 @@ function EntryRowImpl(props: EntryRowProps) {
               const paths = bulkActive ? onGetSelectedPaths() : [path];
               writeFsPaths(e.dataTransfer, paths.length ? paths : [path]);
             }}
+            onDragOver={(e) => {
+              if (!onDropPaths || !dragHasFsPaths(e.dataTransfer)) return;
+              e.preventDefault();
+              e.stopPropagation();
+              e.dataTransfer.dropEffect = "move";
+              if (!dropHover) setDropHover(true);
+            }}
+            onDragLeave={() => setDropHover(false)}
+            onDrop={(e) => {
+              setDropHover(false);
+              if (!onDropPaths || !dragHasFsPaths(e.dataTransfer)) return;
+              e.preventDefault();
+              e.stopPropagation();
+              const paths = readFsPaths(e.dataTransfer);
+              if (paths.length) onDropPaths(isDir ? path : parentDir(path), paths);
+            }}
             onClick={(e) => handleClick(e)}
             onDoubleClick={() => !isDir && tree.beginRename(path)}
             title={metaTitle}
@@ -149,6 +170,7 @@ function EntryRowImpl(props: EntryRowProps) {
               "group flex h-6 w-full min-w-0 cursor-pointer items-center gap-2 rounded-sm px-1.5 text-left text-[13px] text-foreground/85 transition-colors hover:bg-accent/70",
               isSelected && "bg-accent text-foreground",
               isCut && "opacity-50",
+              dropHover && isDir && "bg-primary/15 ring-1 ring-inset ring-primary/50",
             )}
             style={{ paddingLeft }}
           >
