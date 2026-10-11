@@ -24,6 +24,8 @@ import {
 } from "@/components/ui/popover";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
+import { lintCommitMessage } from "./commitLint";
+import { useFeature } from "@/modules/settings/useFeature";
 import {
   Tooltip,
   TooltipContent,
@@ -764,6 +766,7 @@ export const SourceControlPanel = memo(function SourceControlPanel({
                 </div>
               </div>
 
+              <CommitLintHints message={scm.commitMessage} />
               <div className="flex min-w-0 items-center gap-1.5 text-[10.5px] text-muted-foreground">
                 <span
                   className={cn(
@@ -1695,5 +1698,24 @@ function BranchSwitcher({
         </div>
       </PopoverContent>
     </Popover>
+  );
+}
+
+function CommitLintHints({ message }: { message: string }) {
+  const mode = useFeature("git.commitLint");
+  if (mode === "off" || message.trim() === "") return null;
+  const issues = lintCommitMessage(message, { conventional: mode === "conventional" });
+  if (issues.length === 0) return null;
+  return (
+    <ul className="space-y-0.5 px-1 text-[10.5px] leading-snug">
+      {issues.slice(0, 4).map((issue) => (
+        <li
+          key={issue.message}
+          className={issue.level === "error" ? "text-destructive" : "text-amber-600 dark:text-amber-400"}
+        >
+          {issue.level === "error" ? "✕" : "!"} {issue.message}
+        </li>
+      ))}
+    </ul>
   );
 }

@@ -8,6 +8,7 @@ import { useEffect, useRef } from "react";
 import { activeSpaceEnv, freshTabCwd } from "./activeSpace";
 import { clearLegacySession, readLegacySession } from "./legacyMigration";
 import { freshTerminalTab, hydrateTabs } from "./serialize";
+import { restoreScrollback } from "@/modules/terminal/features/scrollbackPersist";
 import { loadAll, type SpaceMeta, saveActiveId, saveSpacesList } from "./store";
 import { useSpaces } from "./useSpaces";
 
@@ -146,6 +147,8 @@ export function useSpacesBoot({
         const inActive = restored.filter((t) => t.spaceId === active);
         const idx = states.get(active)?.activeTabIndex ?? 0;
         const activeTab = inActive[idx] ?? inActive[0] ?? restored[0];
+        // Seed saved scrollback before the panes mount and spawn their shells.
+        await restoreScrollback(restored).catch(() => {});
         replaceTabs(restored, activeTab.id);
       } catch (e) {
         console.error("[gear] spaces boot failed:", e);

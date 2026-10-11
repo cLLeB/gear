@@ -1,8 +1,13 @@
+pub mod bytes;
 pub mod clipboard;
+pub mod clipboard_image;
 pub mod file;
 pub mod grep;
 pub mod mutate;
+pub mod scrollback;
 pub mod search;
+pub mod sqlite;
+pub mod stats;
 pub mod tree;
 pub mod watch;
 

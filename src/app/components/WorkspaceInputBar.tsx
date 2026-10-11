@@ -8,6 +8,7 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react";
 import { homeDir } from "@tauri-apps/api/path";
 import { useEffect, useRef, useState } from "react";
+import { homeRelativePath } from "@/lib/homeRelativePath";
 import { cn } from "@/lib/utils";
 import { AiInputBar, AiInputBarConnect } from "@/modules/ai";
 import { Chip } from "@/modules/ai/components/Chip";
@@ -110,7 +111,7 @@ export function WorkspaceInputBar({
 					)}
 					{cwd && (
 						<Chip tone="blue" icon={Folder01Icon} title={cwd}>
-							{relPath(cwd)}
+							{homeRelativePath(cwd, cachedHome)}
 						</Chip>
 					)}
 					{branch && (
@@ -220,12 +221,4 @@ function SegButton({
 			{label}
 		</button>
 	);
-}
-
-function relPath(p: string): string {
-	if (!cachedHome) return p;
-	if (p === cachedHome || p.startsWith(`${cachedHome}/`)) {
-		return `~${p.slice(cachedHome.length)}`;
-	}
-	return p;
 }

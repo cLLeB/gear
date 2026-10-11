@@ -10,6 +10,8 @@ import { tokyoNight } from "./tokyo-night";
 import { claude } from "./claude";
 import { sage } from "./sage";
 import { tide } from "./tide";
+import { graphite } from "./graphite";
+import { xcode } from "./xcode";
 
 const BUILTIN_THEMES: Theme[] = [
   gearDefault,
@@ -22,6 +24,8 @@ const BUILTIN_THEMES: Theme[] = [
   claude,
   sage,
   tide,
+  graphite,
+  xcode,
 ];
 
 const BUILTIN_MAP = new Map<string, Theme>(

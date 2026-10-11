@@ -11,9 +11,17 @@ import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import ReactDOM from "react-dom/client";
 import App from "./app/App";
+import { installToastHistory } from "./modules/notifications/history";
+import { installClipboardCapture } from "./modules/clipboard/history";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { initLaunchDir } from "./lib/launchDir";
-import { USE_CUSTOM_WINDOW_CONTROLS } from "./lib/platform";
+import { IS_WINDOWS, USE_CUSTOM_WINDOW_CONTROLS } from "./lib/platform";
+import { installPointerDrag } from "./lib/pointerDrag";
+
+installToastHistory();
+installClipboardCapture();
+// WebView2 never delivers in-app drops while native file drops are handled.
+if (IS_WINDOWS) installPointerDrag();
 
 if (USE_CUSTOM_WINDOW_CONTROLS) {
   document.documentElement.dataset.chrome = "borderless";

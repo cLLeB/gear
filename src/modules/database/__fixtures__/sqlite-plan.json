@@ -1,0 +1,46 @@
+{
+ "columns": [
+  "id",
+  "parent",
+  "notused",
+  "detail"
+ ],
+ "rows": [
+  [
+   "9",
+   "0",
+   "0",
+   "SEARCH c USING INTEGER PRIMARY KEY (rowid=?)"
+  ],
+  [
+   "13",
+   "0",
+   "0",
+   "LIST SUBQUERY 1"
+  ],
+  [
+   "15",
+   "13",
+   "0",
+   "SCAN orders"
+  ],
+  [
+   "30",
+   "0",
+   "0",
+   "SEARCH o USING INDEX orders_customer (customer_id=?)"
+  ],
+  [
+   "37",
+   "0",
+   "0",
+   "USE TEMP B-TREE FOR GROUP BY"
+  ],
+  [
+   "80",
+   "0",
+   "0",
+   "USE TEMP B-TREE FOR ORDER BY"
+  ]
+ ]
+}

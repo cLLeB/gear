@@ -1,3 +1,4 @@
+import { adoptLeafKey, keyForLeaf } from "@/modules/terminal/lib/paneKeys";
 import {
   isLeaf,
   type PaneNode,
@@ -14,7 +15,7 @@ import type {
 } from "@/modules/tabs/lib/useTabs";
 
 export type SerializedNode =
-  | { kind: "leaf"; cwd?: string; active?: boolean }
+  | { kind: "leaf"; cwd?: string; active?: boolean; key?: string }
   | { kind: "split"; dir: SplitDir; children: SerializedNode[] };
 
 export type SerializedTab =
@@ -50,6 +51,7 @@ function serializeNode(node: PaneNode, activeLeafId: number): SerializedNode {
       kind: "leaf",
       ...(node.cwd !== undefined && { cwd: node.cwd }),
       ...(node.id === activeLeafId && { active: true }),
+      key: keyForLeaf(node.id),
     };
   }
   return {
@@ -135,6 +137,7 @@ function hydrateNode(
 ): PaneNode {
   if (node.kind === "leaf") {
     const id = allocId();
+    if (node.key) adoptLeafKey(id, node.key);
     if (node.active && acc.activeLeafId === null) acc.activeLeafId = id;
     return {
       kind: "leaf",

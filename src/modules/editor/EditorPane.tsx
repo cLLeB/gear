@@ -1,3 +1,4 @@
+import { httpGutter } from "@/modules/http/httpGutter";
 import { redo, undo } from "@codemirror/commands";
 import {
   findNext,
@@ -55,6 +56,20 @@ initVimGlobals();
 import { resolveLanguage } from "./lib/languageResolver";
 import { clearActiveEditor, setActiveEditor } from "./lib/activeEditor";
 import { codeActionsKeymap } from "./lib/codeActions";
+import { renameSymbolLocal, textToolsKeymap, toggleMarkdownWrap } from "./lib/textTools/commands";
+import { colorSwatches } from "./lib/colorSwatches";
+import { todoHighlight } from "./lib/todoHighlight";
+import { suspiciousChars } from "./lib/suspiciousChars";
+import { recordClip } from "@/modules/clipboard/history";
+import { indentRainbow, rainbowBrackets, stickyScroll } from "./lib/visualAids";
+import { navigationTracker } from "./lib/navHistory";
+import { fileLockFilter } from "./lib/fileLock";
+import { debugGutter } from "@/modules/debug/debugGutter";
+import { testGutter } from "@/modules/testing/testGutter";
+import { editorGuides } from "./lib/editorGuides";
+import { conflictLens } from "./lib/conflictLens";
+import { gitGutter } from "./lib/gitGutter";
+import { bookmarks, bookmarksKeymap, restoredBookmarks, setBookmarksEffect } from "./lib/bookmarks";
 import { FORCE_READ_LIMIT, useDocument } from "./lib/useDocument";
 import {
   inlineCompletion,
@@ -164,7 +179,8 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
       void refresh();
       let unlistenKeys: (() => void) | undefined;
       void onKeysChanged(() => void refresh()).then((un) => {
-        unlistenKeys = un;
+        if (cancelled) un();
+        else unlistenKeys = un;
       });
       const unsubPrefs = usePreferencesStore.subscribe((state, prev) => {
         if (state.autocompleteProvider !== prev.autocompleteProvider) {
@@ -299,6 +315,7 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
         }
       }
       onSavedRef.current?.();
+      window.dispatchEvent(new CustomEvent("gear:file-saved", { detail: { path: pathRef.current } }));
     }, []);
     const performSaveRef = useRef(performSave);
     performSaveRef.current = performSave;
@@ -361,12 +378,63 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
         // Track the last-focused editor so the command palette can act on it.
         EditorView.domEventHandlers({
           focus: (_event, view) => {
-            setActiveEditor(view, analyzableLangRef.current);
+            setActiveEditor(view, analyzableLangRef.current, pathRef.current);
+            return false;
+          },
+          // Feed clipboard history with what the editor copies (all ranges).
+          copy: (_event, view) => {
+            recordClip(view.state.selection.ranges.filter((r) => !r.empty).map((r) => view.state.sliceDoc(r.from, r.to)).join("\n"));
+            return false;
+          },
+          cut: (_event, view) => {
+            recordClip(view.state.selection.ranges.filter((r) => !r.empty).map((r) => view.state.sliceDoc(r.from, r.to)).join("\n"));
             return false;
           },
         }),
         // Semantic selection expand/shrink (Shift+Alt+Arrow), from the toolkit.
         keymap.of(codeActionsKeymap(() => analyzableLangRef.current)),
+        keymap.of(textToolsKeymap(() => analyzableLangRef.current)),
+        // Markdown formatting keys only in Markdown files.
+        keymap.of([
+          {
+            key: "Mod-b",
+            run: (v) => (/\.(md|markdown|mdx)$/i.test(pathRef.current) ? toggleMarkdownWrap("**")(v) : false),
+          },
+          {
+            key: "Mod-i",
+            run: (v) => (/\.(md|markdown|mdx)$/i.test(pathRef.current) ? toggleMarkdownWrap("_")(v) : false),
+          },
+        ]),
+        // Fallback rename when no language server claims F2 (LSP keymaps
+        // are registered at normal precedence and win).
+        Prec.low(
+          keymap.of([
+            {
+              key: "F2",
+              preventDefault: true,
+              run: (v) => {
+                void renameSymbolLocal(v, analyzableLangRef.current);
+                return true;
+              },
+            },
+          ]),
+        ),
+        colorSwatches(),
+        todoHighlight(),
+        suspiciousChars(),
+        rainbowBrackets(() => analyzableLangRef.current),
+        indentRainbow(),
+        stickyScroll(),
+        navigationTracker(() => pathRef.current),
+        fileLockFilter(() => pathRef.current),
+        editorGuides(),
+        conflictLens(),
+        debugGutter(() => pathRef.current),
+        testGutter(() => pathRef.current),
+        httpGutter(() => pathRef.current),
+        gitGutter(() => pathRef.current),
+        bookmarks(() => pathRef.current),
+        keymap.of(bookmarksKeymap()),
         keymap.of([
           {
             key: "Mod-s",
@@ -421,7 +489,7 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
       const diagLanguageId = languageFromExtension(resolveTarget);
       analyzableLangRef.current = diagLanguageId;
       const diagView = cmRef.current?.view;
-      if (diagView) setActiveEditor(diagView, diagLanguageId);
+      if (diagView) setActiveEditor(diagView, diagLanguageId, pathRef.current);
       if (diagView) {
         diagView.dispatch({
           effects: diagnosticsCompartment.reconfigure(gearLinter(diagLanguageId)),
@@ -453,6 +521,17 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
         ),
       });
     }, [readyContent]);
+
+    // Restore this file's bookmarks once per path, after its content loads.
+    const bookmarksRestoredFor = useRef<string | null>(null);
+    useEffect(() => {
+      if (readyContent === null || bookmarksRestoredFor.current === path) return;
+      const view = cmRef.current?.view;
+      if (!view) return;
+      bookmarksRestoredFor.current = path;
+      const positions = restoredBookmarks(path, view.state);
+      if (positions.length > 0) view.dispatch({ effects: setBookmarksEffect.of(positions) });
+    }, [readyContent, path]);
 
     // Swap the LSP extension in/out as activation and readiness change.
     useEffect(() => {

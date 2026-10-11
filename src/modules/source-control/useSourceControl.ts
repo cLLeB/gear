@@ -562,8 +562,12 @@ export function useSourceControl(
       }, 400);
     };
     window.addEventListener("focus", onFocus);
+    // Index / worktree edits made outside the panel (partial staging, merge tools).
+    const onGitChanged = () => void refresh({ remote: "never" });
+    window.addEventListener("gear:git-changed", onGitChanged);
     return () => {
       window.removeEventListener("focus", onFocus);
+      window.removeEventListener("gear:git-changed", onGitChanged);
       if (timer) window.clearTimeout(timer);
     };
   }, [refresh, enabled]);

@@ -27,6 +27,9 @@ import type { WorkspaceEnv } from "@/modules/workspace";
 import { useUpdaterStore } from "@/modules/updater";
 import { openSettingsWindow } from "@/modules/settings/openSettingsWindow";
 import { useBroadcastEnabled, toggleBroadcast } from "@/modules/terminal/lib/broadcast";
+import { LastCommandPill } from "@/modules/terminal/features/LastCommandPill";
+import { FocusTimerPill } from "@/modules/focus/FocusTimerPill";
+import { ExtensionStatusItems } from "@/modules/extensions/ExtensionsPanel";
 
 type Props = {
   cwd: string | null;
@@ -81,11 +84,13 @@ export function StatusBar({
   const broadcastEnabled = useBroadcastEnabled();
 
   return (
-    <footer className="flex h-8 shrink-0 items-center justify-between gap-3 border-t border-border/60 bg-card/60 px-3 text-[11px]">
+    <footer className="gear-frame-clear flex h-8 shrink-0 items-center justify-between gap-3 border-t border-border/60 bg-card/60 px-3 text-[11px]">
       <div className="flex min-w-0 flex-1 items-center gap-2">
         <WorkspaceEnvSelector onSelect={onWorkspaceChange} />
         <CwdBreadcrumb cwd={cwd} filePath={filePath} home={home} onCd={onCd} />
         <LspStatusPill filePath={filePath ?? null} />
+        <LastCommandPill />
+        <FocusTimerPill />
         {privateActive ? (
           <Tooltip>
             <TooltipTrigger asChild>
@@ -119,6 +124,7 @@ export function StatusBar({
         )}
       </div>
       <div className="flex shrink-0 items-center gap-1.5">
+        <ExtensionStatusItems />
         {runConfigs && onSelectRunConfig && (
           <RunConfigPicker
             configs={runConfigs}

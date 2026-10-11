@@ -152,12 +152,12 @@ export const native = {
       path,
       workspace: currentWorkspaceEnv(),
     }),
-  writeFile: (path: string, content: string) =>
+  writeFile: (path: string, content: string, source: "agent" | "user" = "agent") =>
     invoke<void>("fs_write_file", {
       path,
       content,
       workspace: currentWorkspaceEnv(),
-      source: "agent",
+      source,
       workspaceRoot: getLaunchDir() ?? null,
     }),
   canonicalize: (path: string) =>

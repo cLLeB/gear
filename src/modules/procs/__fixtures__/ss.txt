@@ -1,0 +1,7 @@
+LISTEN 0      80     127.0.0.1:53306 0.0.0.0:* users:(("mariadbd",pid=3539,fd=21))     
+LISTEN 0      200    127.0.0.1:55432 0.0.0.0:* users:(("postgres",pid=3531,fd=6))      
+LISTEN 0      512    127.0.0.1:39147 0.0.0.0:* users:(("python3",pid=120,fd=15))        
+LISTEN 0      4096   127.0.0.1:33081 0.0.0.0:* users:(("node",pid=87,fd=13))
+LISTEN 0      128      0.0.0.0:2025  0.0.0.0:*                                         
+LISTEN 0      128      0.0.0.0:2024  0.0.0.0:*                                         
+LISTEN 0      5        0.0.0.0:18765 0.0.0.0:* users:(("python3",pid=6041,fd=3))       

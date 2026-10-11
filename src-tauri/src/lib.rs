@@ -2,7 +2,8 @@ pub mod modules;
 
 use fs::to_canon;
 use modules::{
-    agent, chronicle, control, fs, git, history, lsp, net, pty, secrets, shell, workspace,
+    agent, chronicle, control, dap, db, fs, git, history, lsp, net, pty, secrets, shell, vibrancy,
+    workspace,
 };
 use std::sync::Mutex;
 use tauri::{Emitter, Manager, State};
@@ -153,6 +154,14 @@ pub fn run() {
         builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
     }
 
+    // Cmd+Q quits past the window, so route it through the close guard.
+    #[cfg(target_os = "macos")]
+    {
+        builder = builder
+            .menu(modules::app_menu::build)
+            .on_menu_event(modules::app_menu::handle_event);
+    }
+
     builder
         // Skip restoring VISIBLE — frontend calls window.show() after first
         // paint so the user never sees a transparent window-shadow flash on
@@ -186,6 +195,10 @@ pub fn run() {
         .manage(control_state)
         .manage(chronicle::ChronicleState::default())
         .manage(lsp::LspState::default())
+        .manage(dap::DapState::default())
+        .manage(db::DbState::default())
+        .manage(modules::logview::LogState::default())
+        .manage(modules::heapsnap::HeapState::default())
         .manage(shell::ShellState::default())
         .manage(history::HistoryState::default())
         .manage(secrets::SecretsState::default())
@@ -205,6 +218,7 @@ pub fn run() {
             pty::pty_write,
             pty::pty_resize,
             pty::pty_close,
+            pty::pty_set_paused,
             pty::pty_close_all,
             pty::pty_has_foreground_process,
             pty::pty_has_foreground_job,
@@ -215,12 +229,42 @@ pub fn run() {
             history::history_commands,
             history::history_record,
             history::history_list,
+            vibrancy::window_backdrop_kind,
+            vibrancy::window_set_backdrop,
             lsp::lsp_detect,
             lsp::lsp_host_pid,
             lsp::lsp_resolve_root,
             lsp::lsp_spawn,
             lsp::lsp_send,
             lsp::lsp_kill,
+            dap::dap_free_port,
+            dap::dap_spawn_tcp,
+            dap::dap_send,
+            dap::dap_kill,
+            db::db_connect,
+            db::db_query,
+            db::db_batch,
+            db::db_schema,
+            db::db_close,
+            modules::logview::log_open,
+            modules::logview::log_refresh,
+            modules::logview::log_rows,
+            modules::logview::log_filter,
+            modules::logview::log_search,
+            modules::logview::log_histogram,
+            modules::logview::log_row_at_time,
+            modules::logview::log_close,
+            modules::secretscan::secrets_scan,
+            modules::secretscan::secrets_hook_script,
+            modules::heapsnap::heap_open,
+            modules::heapsnap::heap_summary,
+            modules::heapsnap::heap_instances,
+            modules::heapsnap::heap_references,
+            modules::heapsnap::heap_retainers,
+            modules::heapsnap::heap_path,
+            modules::heapsnap::heap_diff,
+            modules::heapsnap::heap_new_instances,
+            modules::heapsnap::heap_close,
             fs::tree::list_subdirs,
             fs::tree::fs_read_dir,
             fs::file::fs_read_file,
@@ -235,11 +279,19 @@ pub fn run() {
             fs::mutate::fs_rename,
             fs::mutate::fs_delete,
             fs::clipboard::clipboard_read_files,
+            fs::clipboard_image::clipboard_save_image,
             fs::watch::fs_watch_add,
             fs::watch::fs_watch_remove,
             fs::search::fs_search,
             fs::search::fs_list_files,
             fs::grep::fs_grep,
+            fs::stats::fs_workspace_stats,
+            fs::stats::fs_duplicate_files,
+            fs::bytes::fs_read_bytes,
+            fs::sqlite::sqlite_query,
+            fs::scrollback::scrollback_save,
+            fs::scrollback::scrollback_load,
+            fs::scrollback::scrollback_prune,
             fs::grep::fs_glob,
             git::commands::git_resolve_repo,
             git::commands::git_panel_snapshot,
@@ -312,6 +364,9 @@ pub fn run() {
             if matches!(event, tauri::RunEvent::Exit) {
                 if let Some(state) = app.try_state::<control::ControlState>() {
                     state.shutdown();
+                }
+                if let Some(state) = app.try_state::<dap::DapState>() {
+                    state.kill_all();
                 }
             }
         });

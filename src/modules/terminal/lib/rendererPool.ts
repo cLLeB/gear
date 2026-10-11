@@ -21,14 +21,29 @@ import {
   transitionImeBridgeOwner,
 } from "./imeBridge";
 import {
+  readClipboardAttachmentPaths,
   readTerminalClipboard,
   writeTerminalClipboard,
 } from "./terminalClipboard";
+import { formatDroppedPaths } from "./quoteShellPath";
+import { getFeature } from "@/modules/settings/useFeature";
 import { terminalClipboardIntent, terminalReadlineSequence } from "./keymap";
 import { analyzePaste, pasteNeedsConfirmation } from "./pasteGuard";
 import { usePastePromptStore } from "./pastePrompt";
 import { createTerminalLinkHandler } from "./terminalLinks";
 import { broadcastPeers } from "./broadcast";
+import { createPathLinkProvider } from "./pathLinks";
+import { app } from "@/app/appBridge";
+import { invoke } from "@tauri-apps/api/core";
+import { homeDir } from "@tauri-apps/api/path";
+import { currentWorkspaceEnv } from "@/modules/workspace";
+
+let cachedHome: string | null = null;
+void homeDir()
+  .then((h) => {
+    cachedHome = h;
+  })
+  .catch(() => {});
 
 export const POOL_MAX_SIZE = 5;
 const FIT_DEBOUNCE_MS = 8;
@@ -44,6 +59,8 @@ export type SlotAdapter = {
   isLeafVisible(leafId: number): boolean;
   isLeafPowerShell(leafId: number): boolean;
   storeSnapshot(leafId: number, out: SerializeOutput): void;
+  /** Working directory of a leaf, for resolving relative file links. */
+  leafCwd?(leafId: number): string | null;
 };
 
 export type LeafBridge = {
@@ -156,6 +173,14 @@ export function poolSlotStats(): PoolSlotStat[] {
 
 // Bracketed paste via xterm, so an app that enabled it (Claude Code) treats a
 // dropped path as a real paste while a plain shell gets the literal text.
+/** Paste through the same sanitising/confirmation guard as Ctrl+V. */
+export function guardedPasteIntoLeaf(leafId: number, text: string): boolean {
+  const slot = slots.find((s) => s.currentLeafId === leafId);
+  if (!slot) return false;
+  void pasteIntoSlot(slot, text);
+  return true;
+}
+
 export function pasteIntoLeaf(leafId: number, text: string): boolean {
   const slot = slots.find((s) => s.currentLeafId === leafId);
   if (!slot) return false;
@@ -240,6 +265,20 @@ async function pasteIntoSlot(slot: Slot, raw: string): Promise<void> {
   slot.term.paste(analysis.text);
 }
 
+/**
+ * A paste from the clipboard. With no text on it, fall back to what else is
+ * there — copied files or a screenshot — pasted as shell-quoted paths, the way
+ * a drag-and-drop would, so image-aware CLIs (Claude Code…) can attach them.
+ */
+async function pasteClipboardIntoSlot(slot: Slot, text: string): Promise<void> {
+  if (text) return pasteIntoSlot(slot, text);
+  if (!getFeature("terminal.pasteImages")) return;
+  const targetLeafId = slot.currentLeafId;
+  const paths = await readClipboardAttachmentPaths();
+  if (!paths.length || slot.currentLeafId !== targetLeafId) return;
+  slot.term.paste(formatDroppedPaths(paths));
+}
+
 function broadcastToPty(sourceLeafId: number, data: string): void {
   adapter?.resolveLeaf(sourceLeafId)?.writeToPty(data);
   for (const peerId of broadcastPeers(sourceLeafId)) {
@@ -265,6 +304,25 @@ function createSlot(): Slot {
   term.loadAddon(
     new WebLinksAddon((_e, uri) => {
       void openExternalUrl(uri, () => term.focus());
+    }),
+  );
+
+  // Declared before `slot` exists; the provider only runs on hover, by which
+  // point `slotRef` is set.
+  let slotRef: Slot | null = null;
+  term.registerLinkProvider(
+    createPathLinkProvider(term, {
+      cwd: () => {
+        const leaf = slotRef?.currentLeafId;
+        return leaf == null ? null : (adapter?.leafCwd?.(leaf) ?? null);
+      },
+      home: () => cachedHome,
+      exists: (path) =>
+        invoke<{ kind: string }>("fs_stat", {
+          path,
+          workspace: currentWorkspaceEnv(),
+        }).then((st) => st.kind !== "dir"),
+      open: (path, line) => app().openFile(path, line ?? undefined),
     }),
   );
 
@@ -300,6 +358,7 @@ function createSlot(): Slot {
     lastUsedAt: 0,
     imeState: createImeBridgeState(),
   };
+  slotRef = slot;
 
   // Capture on the host fires before xterm's own textarea listener, so the
   // native paste path (Cmd+V, context menu, middle click) is routed through
@@ -310,10 +369,35 @@ function createSlot(): Slot {
       const text = (event as ClipboardEvent).clipboardData?.getData("text");
       event.preventDefault();
       event.stopPropagation();
-      if (text) void pasteIntoSlot(slot, text);
+      void pasteClipboardIntoSlot(slot, text ?? "");
     },
     true,
   );
+
+  // Copy-on-select (X11 / PuTTY / Windows Terminal option), debounced so a
+  // drag doesn't write the clipboard on every mouse move.
+  let selectionTimer: ReturnType<typeof setTimeout> | null = null;
+  term.onSelectionChange(() => {
+    if (selectionTimer) clearTimeout(selectionTimer);
+    selectionTimer = setTimeout(() => {
+      if (!getFeature("terminal.copyOnSelect") || !slot.term.hasSelection()) return;
+      const sel = slot.term.getSelection();
+      if (sel.trim()) void writeTerminalClipboard(sel);
+    }, 150);
+  });
+
+  // Right click: paste, or copy-the-selection-else-paste (Windows Terminal / PuTTY).
+  host.addEventListener("contextmenu", (event) => {
+    const mode = getFeature("terminal.rightClick");
+    if (mode === "menu") return;
+    event.preventDefault();
+    if (mode === "copyPaste" && slot.term.hasSelection()) {
+      void writeTerminalClipboard(slot.term.getSelection());
+      slot.term.clearSelection();
+      return;
+    }
+    void readTerminalClipboard().then((text) => pasteClipboardIntoSlot(slot, text));
+  });
 
   // Some WKWebView builds bypass xterm's composition events. The pure bridge
   // repairs that path and stands down when native composition is observed.
@@ -400,7 +484,9 @@ function createSlot(): Slot {
     }
     if (clip === "paste") {
       if (event.type === "keydown") {
-        void readTerminalClipboard().then((text) => pasteIntoSlot(slot, text));
+        void readTerminalClipboard().then((text) =>
+          pasteClipboardIntoSlot(slot, text),
+        );
       }
       event.preventDefault();
       return false;

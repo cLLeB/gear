@@ -142,12 +142,14 @@
   --editor-font-size: 13px;
 }
 
-/* Light-mode terminal: GitHub-style palette readable on a light surface */
+/* Light-mode terminal: GitHub-style palette readable on a light surface.
+ * The background follows the theme, as in dark mode, so the terminal never
+ * sits as an off-colour rectangle inside its pane. */
 :root {
-  --terminal-background: #f6f8fa;
+  --terminal-background: var(--background);
   --terminal-foreground: #24292e;
   --terminal-cursor: #24292e;
-  --terminal-cursor-accent: #f6f8fa;
+  --terminal-cursor-accent: var(--background);
   --terminal-selection: #c8d3e0;
   --terminal-ansi-black: #24292e;
   --terminal-ansi-red: #d73a49;
@@ -232,6 +234,31 @@ html[data-chrome="borderless"] #settings-root {
   overflow: hidden;
   border: 1px solid var(--border);
   background: var(--background);
+}
+
+/* Window backdrop (macOS NSVisualEffectView / Windows 11 Mica). Only the
+ * frame goes translucent: panes keep their own surfaces so terminal and
+ * editor text stays readable. */
+html[data-vibrancy],
+html[data-vibrancy] body {
+  background: transparent;
+}
+html[data-vibrancy] .gear-frame {
+  background: color-mix(in oklab, var(--card) 55%, transparent);
+}
+html[data-vibrancy] .gear-frame-clear,
+html[data-vibrancy][data-chrome="borderless"] #root {
+  background: transparent;
+}
+/* Solid, so the terminal canvas still matches its container. */
+html[data-vibrancy] .gear-pane-solid {
+  background: var(--background);
+}
+/* Windows rounds a Mica window itself; a second CSS radius would leave the
+ * backdrop showing outside it. */
+html[data-vibrancy="mica"][data-chrome="borderless"] #root {
+  border-radius: 0;
+  border: 0;
 }
 
 /*
@@ -352,4 +379,22 @@ html *::-webkit-scrollbar {
 }
 .Gear-collapsible-content[data-state="closed"] {
   animation: Gear-collapsible-up 160ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Terminal visual bell (terminal.bell = badge+flash). */
+@keyframes gear-visual-bell {
+  from {
+    box-shadow: inset 0 0 0 9999px color-mix(in srgb, var(--color-foreground, #888) 10%, transparent);
+  }
+  to {
+    box-shadow: inset 0 0 0 9999px transparent;
+  }
+}
+.gear-visual-bell {
+  animation: gear-visual-bell 180ms ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .gear-visual-bell {
+    animation: none;
+  }
 }

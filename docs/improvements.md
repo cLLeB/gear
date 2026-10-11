@@ -1,0 +1,321 @@
+# Improvements
+
+Everything below is reachable from the command palette (Mod+Shift+P) unless
+noted; tunable behaviour lives in **Settings → Features**.
+
+## Platform
+- Quick pick / input box service used by all new commands
+- Palette: fuzzy ranking with highlights, "Recently used", `@` symbol and `:` line prefixes
+- Schema-driven Features settings tab with search
+- Shortcut conflict detection (fixed two conflicting defaults: session timeline is now Mod+Shift+H; Clear terminal on Linux/Windows is Ctrl+Shift+L)
+
+## Terminal
+- Jump to previous/next prompt (Mod+Up/Down), copy last command / output, rerun last command
+- Notification when a long command finishes in the background
+- Problem matchers (tsc, eslint, rustc, gcc/clang, go, mypy, pytest, Python, Node) + next/previous problem
+- Clickable `path:line:col` links
+- Dev-server detection → open in preview
+- Secret-leak warnings with "clear scrollback"
+- "Did you mean …?" typo correction
+- Quick select (URLs, paths, hashes, IPs, UUIDs…)
+- Save/copy scrollback as text, ANSI or coloured HTML
+- Frecent directory jump (zoxide-style)
+- Workflows: parameterised command library + `.gear/workflows.json` + saved commands
+- Destructive-command confirmation
+- Program notifications (OSC 9 / 777 / 99), OSC 9;4 progress rings on tabs
+- Bell badges + visual bell, activity/silence monitors, read-only panes
+- Paste special, iTerm2-style triggers, Atuin-style history search, offline command explainer
+- AI: ask about the last command, generate a command from a description
+- Status bar: last command ✓/✗ and duration
+
+## Panes & tabs
+- Pane zoom (Mod+Shift+Enter), equalize, flip split, tmux layout presets
+- Reopen closed tabs (Mod+Alt+T) incl. split layouts
+- Saved layouts with startup commands
+
+## Workspace
+- Auto-detected tasks (npm/pnpm/yarn/bun, make, just, deno, composer, Taskfile, Poetry/PDM/uv, Cargo, Go, compose)
+- `.env` lint and drift vs `.env.example`
+- Workspace TODO/FIXME list
+
+## Editor (Text group)
+- Increment/decrement (Mod+Alt+= / -), toggle word (Mod+Alt+T), surround (Mod+Alt+S)
+- JSON ⇄ YAML, deep key sort, Markdown/CSV table tools, encode/decode, hashes
+- UUID v4/v7, ULID, NanoID, timestamps, epoch ⇄ ISO, JWT inspector, calculator, cron explainer
+- Colour swatches, bookmarks (Mod+Alt+K/L/J), TODO highlighting, rulers & whitespace rendering
+- Go to symbol (Mod+Shift+O), local rename (F2 without LSP), copy reference
+- Sequences at cursors, cursors at line ends (Shift+Alt+I), Markdown TOC & formatting
+- SQL / XML / HTML formatting, quote switching (Mod+Alt+'), organize imports (Shift+Alt+O)
+- Rewrap (Alt+Q), align (Mod+Alt+A), inline merge-conflict resolution
+
+## Git
+- Gutter change markers (Alt+F5 / Shift+Alt+F5), commit-message lint
+- Permalinks / open on GitHub-GitLab-Bitbucket-Gitea-Azure, open pull request
+- Switch/create branch, clean up merged/gone branches, file history
+- Undo last commit (soft), fold staged changes into an earlier commit (fixup + autosquash)
+
+# Checkpoint 2
+
+## Terminal
+- Paste screenshots / copied images and files into terminal apps (Claude Code, Codex…) as file paths; "Paste clipboard image as file path"
+- Command log per pane (status, duration, scroll to, rerun, copy output)
+- Run selected text / current line in the terminal; re-run last command on save (toggle)
+- SSH host picker (~/.ssh/config), Docker containers (shell, logs, stats, start/stop, remove), listening ports (preview, kill)
+- Record a pane to asciinema (.cast); environment variable browser
+- Copy on select and right-click paste / copy-else-paste (Settings → Features)
+
+## Tabs, panes & notifications
+- Switch to recent tab (MRU), go to previous tab, duplicate terminal tab
+- Move pane to a new tab / join a tab into the current one (live shells kept)
+- Notification history (every toast and OS notification)
+
+## Editor (Text group)
+- Copy JSON / YAML path (JSONPath, jq, JS, JSON Pointer, dotted)
+- Generate TypeScript / Zod / Go / Rust / Python types from JSON
+- Convert curl to fetch / Python requests / PowerShell
+- Send the HTTP request under the cursor (.http / .rest files)
+- Word count & statistics, sort lines by natural/length/number/column/shuffle
+- Number base conversion, change case (title/sentence/swap)
+- Flag and clean bidi (Trojan Source), zero-width, odd-space and homoglyph characters
+- Select all regex matches, fake data, paste URL as Markdown link, copy as Markdown code block
+- Compare file/selection with clipboard, with another file, or with the saved copy
+
+## Git
+- Stash changes / manage stashes (apply, pop, per-file diff, branch, drop)
+- Worktrees (create in a sibling folder + terminal, open, remove, prune)
+- Create / delete tags with semver suggestions, cherry-pick from a branch
+- Guided bisect (incl. `git bisect run`), reword last commit, restore file from ref, add to .gitignore
+
+## Workspace
+- Replace in files (literal or /regex/iw, $1/$<name>, case operators, preview)
+- Go to symbol in workspace (regex-based, no LSP)
+- Largest files, code statistics per language
+- Generate .gitignore from detected stacks, add a LICENSE file
+
+## Themes
+- Import iTerm2, Windows Terminal, VS Code, Alacritty, Kitty, Ghostty, Xresources and base16 schemes
+- WCAG contrast check of the active theme
+
+# Checkpoint 3
+
+## Local development
+- `codes/` scripts (Windows PowerShell and macOS/Linux) install the toolchain, clone or update the repo into `~/codes/gear` and install dependencies; `update.ps1` / `update.sh` pull the latest changes
+
+## Editor: data formats
+- Convert CSV/TSV ⇄ JSON, JSON ⇄ TOML, XML ⇄ JSON, .env ⇄ JSON, query string ⇄ JSON, JSON array → Markdown table
+
+## Tools (new palette group)
+- Subnet/CIDR calculator, chmod calculator, semver range explainer/tester, regex explainer
+- Duration converter, days between dates, time zone converter / world clock, unit converter
+- Password / passphrase generator, signed test JWT (HS256), HTTP status codes, exit code / signal explainer, colour contrast checker
+
+## Editor: code & writing
+- Insert / remove debug logs (12 languages), surround with try/if/for…, extract variable, concatenation → template literal
+- Writing checks, Markdown link & anchor checker, renumber lists, HTML / rich text → Markdown, line numbers
+- Snippets with tab stops (built-in + your own), clipboard history, scratchpad
+- File info (encoding, EOL, SHA-256, last commit), hex view, copy as data URI, go to file:line from clipboard, open recent file, lock file
+- Rainbow brackets (unmatched flagged), indentation rainbow, sticky scroll, go back / forward with history
+
+## Terminal
+- Find in all terminals, filter scrollback, marks, copy command + output as Markdown
+- Activate venv / nvm / asdf, new terminal at the file's folder, copy current directory
+- Kubernetes contexts & pods, process list & kill, scheduled / repeating commands, rotate panes, run in all terminals
+- Failed commands explained in the command log
+
+## Git
+- Commit for the current line, compare branches, files changed on this branch, conventional-commit builder
+- Search history (message / author / pickaxe), reflog recovery, contributors
+- Push with options, remotes, submodules, create / apply patches, revert, squash, copy SHA, open repository pages
+
+## Workspace
+- Outdated dependencies (npm/pnpm/yarn/pip), duplicate files, new file from 19 templates
+- Generate README, update CHANGELOG from commits, bump version (+ commit & tag)
+- Copy file tree, copy files as AI context, token estimates, secrets scan, file checksums & verify
+
+## AI (uses the model configured in Settings → Models)
+- Explain code, doc comments, unit tests, review changes, rename suggestions, translate code
+- PR description, regex / jq / SQL / awk / sed / XPath / cron from a description
+- Summarize command output, edit selection by instruction (with diff), explain stack traces
+
+## Look & feel
+- Generate a theme from an accent colour, light/dark schedule, focus (Pomodoro) timer in the status bar
+
+# Checkpoint 4
+
+## Editor
+- JSON ⇄ JS object literal; escape / unescape for C/Java, Python, shell, PowerShell, SQL, regex, CSV, XML
+- Join / split / wrap lines, SQL IN lists, CSV transpose, duplicate-line frequency table, compare two selections
+- Markdown: paste clipboard image as a saved file + link, callouts, copy as rich text / HTML
+- Colour scales (50–950) as CSS / Tailwind / SCSS; Base32, Base58, ROT13, Morse, binary
+- Inspect UUID / ULID / ObjectId / Snowflake ids and URLs at the cursor
+- Validate JSON / YAML / TOML / XML (jump to error); JSON Schema from a sample; flatten / unflatten JSON; structural JSON diff → JSON Patch; SQL keyword case & minify
+
+## Terminal & tools
+- Run a command in a new split pane; benchmark a command (mean ± σ, median, p95)
+- Check a URL (status, timing breakdown, redirects, headers, security headers); DNS lookup
+- Presentation mode (bigger fonts)
+
+## Git
+- Line ownership, file at another revision, stage / unstage / discard the current file, commit graph
+- Rename / delete branches, sync (pull --rebase + push), history of selected lines, per-repo identity, activity summary
+
+## Workspace
+- Unused / missing npm dependencies, dependency licences, env vars used in code vs .env.example
+- New project via official generators, check links in all Markdown files, bulk rename by regex
+- Go to imported file, find usages across the workspace
+
+## AI
+- Convert commands between Bash / PowerShell / cmd / fish, generate scripts
+- Ask about the project, release notes, summarize uncommitted changes, branch names
+- Add types, mock data, translate selected text
+
+# Checkpoint 5
+
+## Large features
+
+### Visual git client
+- **Hunk & line staging in the diff tab** — Stage / Unstage / Discard buttons above every hunk, plus "Stage selection" for any line range. Builds a partial patch and applies it with `git apply --cached --recount`; the Source Control panel refreshes immediately.
+- **3-way merge editor** — Ours | editable Result | Theirs. Non-conflicting changes from both sides are merged automatically (line-level diff3 on a Myers diff, fast on 20k-line files); each conflict has Accept ours / theirs / both buttons on the side panes and the inline lens in the result; conflict navigation, All ours / All theirs, Reset; "Save & mark resolved" stages the file and, after the last conflict, offers to continue the merge / rebase / cherry-pick. "Git: Resolve merge conflicts…" lists conflicted files (including deleted-by-us/them) with continue / skip / abort; the inline conflict lens gains "Open merge editor".
+- **Visual interactive rebase** — drag commits to reorder (or Alt+↑/↓), pick / reword / edit / squash / fixup / drop per commit, inline reword (applied with an `exec git commit --amend`, so no editor opens), autosquash for `fixup!`/`squash!`, a live preview of the resulting history, and warnings for pushed commits, dropped fixup targets and uncommitted changes (`--autostash`).
+
+### Debugger (Debug Adapter Protocol)
+- **Run and Debug view** in the sidebar: start / continue / pause / step over / into / out / restart / stop, call stack with threads, variables tree (lazy, double-click to edit), watch expressions, breakpoints list with exception filters, and a debug console with a REPL that evaluates in the selected frame.
+- **Editor integration** — breakpoint gutter (click to toggle; right-click for conditional, hit-count and logpoints, run to line), unverified / disabled styles, the paused line and caller frames highlighted, inline variable values while paused, breakpoints that move with edits.
+- **Adapters** — Python (debugpy), Node.js (js-debug, incl. child sessions), Go (Delve), C / C++ / Rust (lldb-dap, gdb ≥ 14 or CodeLLDB). Stdio adapters reuse the LSP process plumbing; TCP adapters use a new Rust transport. Project `.venv` is picked up automatically.
+- **Configurations** — reads `.vscode/launch.json` (JSONC, `${workspaceFolder}`/`${file}`/`${env:X}`…, `python`/`debugpy`/`node`/`pwa-node`/`go`/`lldb`/`cppdbg` types), or debugs the active file with zero config; `preLaunchCommand` runs a build first.
+- **Keys** — F6 start / pause, F5 continue while debugging (else Run file), F9 breakpoint, F10 / F11 / Shift+F11 step (only while paused, so terminal apps keep them), Shift+F5 stop.
+- Integration-tested against real debugpy, gdb and Delve sessions.
+
+### Test explorer
+- **Testing view** — every Vitest / Jest, pytest, Go and Rust test in the workspace, found statically (no run needed) and grouped by file and suite; run all / a file / a suite / one test, debug a test in the debugger, failure messages, durations, failed-only filter and the raw output.
+- **Editor** — a run / status marker beside each test (click to run, right-click to debug or run with coverage), the failure message shown on the failing line, markers that follow edits.
+- **Coverage** — run with coverage (Vitest / Jest lcov, pytest-cov, `go test -coverprofile`) and see covered / missed lines in the gutter of every source file, with per-file percentages.
+- Results come from each framework's machine-readable reporter (JSON, JUnit XML, `go test -json`, cargo output); the parsers are tested against real reporter output.
+
+### Jupyter notebooks
+- `.ipynb` files open as notebooks: code and Markdown cells with syntax highlighting, a real Jupyter kernel (any installed kernelspec — Python, R, Julia…) started through a small Python bridge (`pip install ipykernel` is all it needs; the project's `.venv` is used automatically).
+- Rich outputs: streams with progress-bar carriage returns, images, SVG, HTML tables (sanitized — no scripts), Markdown, JSON, coloured tracebacks, live `display` updates and `clear_output`.
+- Jupyter keys (Shift+Enter, Ctrl+Enter, Alt+Enter, Esc, A / B, D D, M / Y / R, ↑ / ↓), run all / above, interrupt, restart, restart & run all, clear outputs, kernel picker, kernel-powered completions, collapse outputs; saves standard nbformat 4.5 (byte-for-byte compatible with Jupyter).
+
+### Terminal session restore
+- Each terminal's scrollback is saved (compressed, on this machine, every 20 s and on quit) and shown again when Gear reopens, under a "restored session · N min ago" divider. Commands that were still running are offered for a re-run. Private terminals are never saved; can be turned off in Settings → Features.
+
+## Code analysis
+- Most complex functions across the workspace; hotspots (git churn × complexity); unused exports; circular imports; who imports this file (blast radius) and its local dependencies
+- Workspace structural search with `$metavariables`; structural replace in a file; duplicate code across files; call graph of a file (Mermaid + outline); taint check (user input → eval / exec / SQL / innerHTML)
+- Refactor: extract function (free variables become parameters, later-used locals become return values; JS/TS and Python), inline variable
+
+## Data & config
+- JSONPath queries (filters, slices, recursive descent) on JSON / YAML; validate against a JSON Schema; OpenAPI / Swagger endpoint browser with curl
+- Linters for Dockerfiles, GitHub Actions workflows (pinning, script injection, deprecated commands) and Kubernetes manifests
+- CSV column statistics, filter rows (`age > 30 and city = London`), sort by column; Markdown table column insert / delete / move / sort
+- Paste re-indented to the cursor; barrel index generator; function ⇄ arrow function; duplicate keys in JSON / YAML
+
+## Terminal
+- Last output as a table (CSV / JSON / Markdown), JSON from output with JSONPath, compare two commands' output, log viewer filtered by level
+- Retry with backoff, watch a command, run in every package folder, commands side by side in split panes, notify when the pane prints a pattern
+- scp / rsync helper, tail the active file, serve a folder over HTTP with preview, read-only SQLite browser (new Rust command), docker compose services
+
+## Git
+- Stage / unstage / discard selected lines; split the last commit per file; stale branches; largest files in history; add a co-author; oldest TODOs dated by blame
+- Clean untracked files with a preview; cherry-pick a range; which branches / tags contain a commit; incoming / outgoing commits
+
+# Checkpoint 6
+
+## Large features
+
+### CPU profiler & flame graphs
+- Open `.cpuprofile` (Node / Chrome), speedscope JSON (py-spy, rbspy…) and collapsed-stack files (perf, py-spy raw, inferno) in a canvas flame graph: click to zoom, double-click to open the source line, regex search highlighting, colours by file / package.
+- Functions table (self, total — recursion counted once — and frame count), click a function to see everything it calls merged into one tree; the hot path of your own code.
+- Record: profile the active Node / TypeScript / Python file, any command (NODE_OPTIONS profiles every node process an npm script starts; py-spy for Python), or attach py-spy to a running process; the profile opens by itself when it's written.
+
+### Database client
+- **Database view**: saved connections to PostgreSQL, MySQL / MariaDB and SQLite (paste a URL or fill the form, test before saving; TLS via rustls; passwords in the OS keychain), schema tree with tables, views, columns, types and keys.
+- **SQL console tabs**: SQL highlighting with table / column completion from the live schema, Ctrl+Enter runs the statement at the cursor (or the selection), Ctrl+Shift+Enter the script, Explain, history, row caps with timing.
+- **Results grid**: virtualized (thousands of rows), sortable, copy as CSV / JSON / Markdown; results of a plain single-table query are editable — change cells, set NULL, add / delete rows — and "Apply" shows the generated statements and runs them in one transaction (all or nothing).
+- Safety: confirmation for DROP / TRUNCATE / DELETE or UPDATE without WHERE, and a per-connection "ask before writing" mode for production. Run selected SQL from any `.sql` file against a connection.
+- **Query plans**: “Explain” shows the estimated plan and “Explain analyze” runs a read-only query and shows where the time went — one tree for PostgreSQL (EXPLAIN ANALYZE, BUFFERS, JSON), MySQL / MariaDB (EXPLAIN / ANALYZE FORMAT=JSON) and SQLite (EXPLAIN QUERY PLAN): each step's self time as a share of the query, estimated vs actual rows, loops, conditions, the slowest steps, and warnings for full scans that throw rows away, estimates off by 10× or more, sorts / hashes spilling to disk and inner loops run thousands of times; click a step for every property the engine reported.
+- **ER diagram** (connection menu or "Database: Show ER diagram…"): foreign keys read from PostgreSQL, MySQL / MariaDB and SQLite (composite and self-referencing keys included), laid out in layers with referenced tables on the left and crossings minimised, crow's-foot edges anchored on the key columns; pan, zoom, drag tables (positions remembered), hover or click to highlight a table's relationships, find a table, keys-only view, schema filter, export as SVG, double-click to open the table.
+
+### Containers & dev containers
+- **Containers view**: every container grouped by Compose project with state, live CPU / memory, published ports (click to open in the preview), start / stop / restart / pause / remove, a shell in a terminal tab (also as root), Compose start / stop / down for a whole project; local images (run interactively, remove); prune containers, images, volumes or build cache.
+- **Logs tabs**: live `docker logs --follow` with timestamps, regex filter with highlighting, error / warn / info / debug toggles with counts, follow / wrap, virtualized to 20k lines. **Inspect tabs**: state, command, user, restart policy, ports, networks, mounts, environment and labels, or the raw JSON.
+- **Dev containers** (`devcontainer.json`, JSONC): image, Dockerfile (build args, target) and Compose configs (with a generated override for labels, env, mounts, ports), `${localEnv:…}` / `${containerEnv:…}` / `${localWorkspaceFolder}` substitution, mounts, containerEnv / remoteEnv, remoteUser, runArgs, capAdd / privileged / init, forwarded ports, `initializeCommand` on the host and every lifecycle command (string, array or parallel object form) as the remote user in the workspace folder; the build log streams into a tab.
+- Containers carry the same labels as the reference CLI, so a container made by VS Code is found and reused. A changed config offers a rebuild; rebuild with or without cache, stop, remove; terminals and commands run inside the container. On Linux the remote user's UID/GID are matched to yours so bind-mounted files stay writable. Configs with features are handed to the devcontainer CLI when installed. Add a configuration from templates picked by the project's files.
+
+### Extensions
+- Extensions are folders in `~/.gear/extensions` with a `gear-extension.json` (id, version, main, permissions, activation events, contributed commands and settings) and CommonJS JavaScript (`require` between the extension's own files and JSON).
+- Each runs in its own Web Worker under the app's CSP (no eval, no importScripts). Network globals (fetch, XHR, WebSocket, nested workers) are removed unless it declares `network`. Every API call goes to the host, which checks the declared permissions (`editor.read/write`, `fs.read/write`, `fs.any` outside the workspace, `shell`, `clipboard`) and asks for consent on enable and again when an update asks for more.
+- API: commands, toasts with actions, quick picks, input boxes, status bar items, open files, the active editor (read, replace selection, insert, set text), workspace files and globbing, shell exec / terminal, clipboard, settings, per-extension storage, and events (save, active editor change, config change). console output goes to a per-extension log tab.
+- Extensions view: enable / disable, reload, log, source, uninstall, settings form generated from the manifest, contributed commands (also in the palette), install from a folder or a git URL, and a scaffold that creates a working word-count extension.
+
+### Remote development (SSH)
+- **Remote view**: hosts from `~/.ssh/config` (aliases, HostName, User, Port, IdentityFile, ProxyJump) plus hosts added as `user@host:port`; connect shows the system and opens the home folder (or the folder you chose last time) as a lazy file tree with new file / folder, rename, delete, copy path, search in folder and "use as root".
+- **Edit remote files**: a file opens in a normal editor tab (highlighting, LSP, formatting…) from a local mirror downloaded over sftp; saving uploads it back. If the file changed on the server since you opened it, you choose: overwrite, open the server's version next to yours, or skip.
+- **Terminals** on the host in any folder; **search** file contents with grep and jump to the match; **port forwards** with the host's listening ports offered (ss / netstat), live status, open in the preview, stop.
+- Plain OpenSSH (ssh / sftp) with no extra binaries; one shared connection on macOS / Linux (ControlMaster), so a password or passphrase typed once in a terminal is reused; scripts are POSIX sh (GNU, BSD / macOS, busybox) and base64-wrapped on Windows so PowerShell can't mangle them.
+
+### HTTP client (.http / .rest)
+- JetBrains HTTP Client / VS Code REST Client syntax: `###` blocks, `# @name`, query continuation lines, headers, bodies, `< ./file` bodies, `@var = value`, `{{$uuid}}`, `{{$timestamp}}`, `{{$isoTimestamp}}`, `{{$randomInt a b}}`, `{{$random.*}}`, environments from `http-client.env.json` + `http-client.private.env.json`, and `# @no-redirect`, `# @no-cookie-jar`, `# @timeout`.
+- **Chaining**: `{{login.response.body.$.token}}` / `{{login.response.headers.X}}` read the last response of a named request; if there is none yet, that request is sent first automatically.
+- **Scripts**: pre-request `< {% request.variables.set(…) %}` and response handlers `> {% client.test(…); client.assert(…); client.global.set(…) %}` with `response.body / status / headers / contentType`, run sandboxed in a worker (globals persist).
+- ▶ (or the last status) in the gutter on every request, Ctrl/⌘+Enter to send; a resizable response panel under the editor: status, time, size, redirects; body as a collapsible JSON tree, pretty or raw, HTML preview, images; headers, cookies, a timing waterfall (DNS, connect, TLS, request, waiting, download), test results and logs; history per file; Run all with a pass count; copy as curl / fetch / Python / HTTPie; save the body; cookie jar; skip TLS verification for self-signed hosts; cancel.
+- Requests go through curl with a config file (`curl -K`), so header and body text never pass through a shell, and URLs are percent-encoded where needed.
+
+### Kubernetes
+- **Kubernetes view** (uses your kubectl and kubeconfig): context and namespace pickers (or all namespaces); pods, deployments, statefulsets, daemonsets, jobs, cronjobs, services, ingresses, configmaps, secrets, PVCs, events, nodes and namespaces, with kubectl-style status (CrashLoopBackOff, Init:1/2, ExitCode:137…), ready counts, restarts and age, a filter, and live refresh.
+- Pods: live logs in a tab (follow, regex filter, levels, timestamps; container picker), shell (`kubectl exec -it`), port-forward with status. Any resource: describe, **edit YAML** (saving runs `kubectl replace`, so if someone changed it in the meantime you get a conflict instead of overwriting their change), delete; scale and rollout restart for workloads; run a CronJob now; decoded Secret values.
+- Apply, diff or delete the YAML file in the editor against the selected context and namespace.
+
+### Large log viewer
+- `.log` (and `.out`, rotated `.log.1`, syslog / messages) files open in a log viewer built for big files: Rust indexes line offsets in 1 MB chunks, so a multi-GB log opens quickly and only the rows on screen cross into the UI. "Logs: Open the current file in the log viewer" works for any file.
+- Include / exclude filters (text or regex, match case), level toggles with counts (alt-click for one level), and a time histogram stacked by level: click a bucket to jump there, drag to keep only that time range. Timestamps are recognized in ISO 8601 (with zones and fractions), Apache / nginx access logs, syslog, JSON `time` / `ts` / `@timestamp` (ISO or epoch) and dates near the start of a line; stack-trace lines inherit the previous time.
+- Find with next / previous (F3), go to line, follow mode (tail -f that keeps filters applied to new lines and survives rotation / truncation), JSON log lines shown as message + key=value fields, level colour bars, double-click to copy a line.
+
+### Dependency manager
+- "Dependencies: Show outdated and vulnerable packages" finds every project in the workspace — npm, pnpm, yarn, Cargo (workspace roots), Python (requirements / pyproject, using the project's venv) and Go — and lists each dependency's current version, the newest its declared range allows, and the latest release, with the size of the jump (patch / minor / major; 0.x minor bumps count as major).
+- Vulnerabilities: npm / pnpm audit (including advisories that come in through transitive packages, marked "via …"), PyPI's advisories for the installed version (with the first fixed release), and OSV.dev for Cargo and Go; each advisory links to its page.
+- Upgrade one package to the in-range or the latest version, or every patch / minor update in one go; major upgrades ask first. Uses the project's own tool (npm install, pnpm add, yarn add, cargo update --precise / cargo add, pip install with requirements pins kept in step, go get + go mod tidy) and rescans afterwards; the output is kept below the table.
+
+### Secret scanning
+- "Security: Scan for secrets" checks the working tree (respecting .gitignore; lockfiles, binaries and minified files skipped) and, optionally, every line ever added in git history (all refs) for AWS keys, GitHub / GitLab tokens, Slack tokens and webhooks, Stripe, Google, OpenAI, Anthropic, npm, SendGrid and Twilio keys, private keys, JWTs, passwords in connection URLs, and `password = "…"`-style assignments that look random enough (entropy), while skipping placeholders, `${templates}`, env-var names and non-ASCII text.
+- Findings show the masked value and the line; open the file at the line, or the commit's diff for history findings (with author and date, and a reminder to rotate anything ever committed). Findings in tests / fixtures / examples are grouped apart. Ignore one value or a whole file via `.gearsecretsignore` (fingerprints and globs); `gear:allow-secret` on a line skips it.
+- Install a pre-commit hook generated from the same rules that blocks commits adding secrets; an existing hook is kept and still runs afterwards.
+
+### Ports & processes
+- "Processes: Show ports and processes": every listening TCP port with its process (ss / lsof on Linux and macOS, Get-NetTCPConnection on Windows), common dev ports labelled; open one in the preview, jump to its process, or stop it.
+- A live process tree (every 2 s, pausable) with CPU and memory per process and per subtree, uptime, user and command line; sort by CPU / memory / PID / name, filter (matches keep their parents for context), collapse branches, and "this workspace" for processes whose working folder or command line is inside the open folder.
+- Stop (TERM), stop with children, or force kill (KILL / Stop-Process -Force / taskkill /T), open a terminal in a process's folder, copy its command line. "Processes: Stop whatever is listening on a port…" answers "address already in use" in one step.
+
+### Heap snapshots (memory leaks)
+- `.heapsnapshot` files (Chrome DevTools, Node's `v8.writeHeapSnapshot()` / `--heapsnapshot-signal`) open in a memory view computed in Rust: dominator tree, retained sizes, distances. The summary lists classes (DevTools-style grouping) with object count, shallow size and retained size (instances held by same-class instances aren't double-counted); expand a class for its biggest instances.
+- Pick an object to see **why it's alive** — the retaining path from a global (preferred over stack / handle roots, like DevTools) — plus all retainers and an expandable reference tree.
+- **Compare** with an earlier snapshot from the same folder: new / deleted objects and bytes per class, sorted by growth; expand a class to inspect the objects that appeared — the usual way to pin down a leak.
+- "Profile: Run this file with heap snapshots on demand" starts a Node script with `--heapsnapshot-signal`; "Profile: Take a heap snapshot of a Node process…" signals it and opens the snapshot as soon as it's written.
+
+## Look & feel
+- **Window backdrop** (Settings → Themes, off by default): Mica on Windows 11, vibrancy on macOS. Only the outer frame, header and status bar go translucent; panes stay solid.
+- Graphite and Xcode themes.
+- The light-mode terminal background follows the theme background instead of sitting as a paler rectangle inside its pane.
+
+## Agents
+- A sound with in-app agent alerts, and a **Notification sound** switch (Settings → General → Agents) that also silences the native notification.
+- The agent's icon stays on its tab after the alert is acknowledged.
+
+## Terminal
+- Output flow control: a program that prints faster than the terminal can draw is paused briefly instead of growing memory or losing output.
+- A shell that exits while a background job still holds the terminal now closes its tab (Linux, macOS).
+- Restoring a session no longer freezes on scrollback that contains a long run of blank lines.
+- Shells started by a Gear that was itself launched from a Gear terminal no longer inherit the outer instance's control credentials.
+
+## Editor & shortcuts
+- Mod+S saves from anywhere while an editor tab is active; Mod+Shift+Z redoes alongside Mod+Y.
+- Mod+Shift+. toggles hidden files in the explorer.
+- macOS: Cmd+Q goes through the unsaved-changes / running-process confirmation.
+
+## Small fixes
+- Preview: a note that cookie sign-in may not work in the sandboxed preview, with Open in browser.
+- Home-relative paths (`~/…`) are recognised on Windows regardless of slash direction or letter case.
+- Ports & processes and the test explorer read output with Windows line endings.
+- Windows: dragging works inside the app — explorer rows onto folders or into a terminal, tab reordering, rebase rows.
+- Explorer: Replace on a drag-move keeps the old item until the new one has landed, and a partly failed move or a failed delete says which items were affected.

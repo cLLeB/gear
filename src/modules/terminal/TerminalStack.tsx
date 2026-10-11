@@ -3,6 +3,8 @@ import type { SearchAddon } from "@xterm/addon-search";
 import { useEffect, useMemo, useRef } from "react";
 import { selectLiveTerminals } from "./lib/liveTerminals";
 import { leafIds } from "./lib/panes";
+import { findLeafNode, usePaneLayoutStore } from "./lib/paneLayout";
+import { usePaneStatusStore } from "./features/paneStatus";
 import { PaneTreeView } from "./PaneTreeView";
 import type { TerminalPaneHandle } from "./TerminalPane";
 
@@ -38,6 +40,26 @@ export function TerminalStack({
   onCloseLeaf,
 }: Props) {
   const terminals = useMemo(() => selectLiveTerminals(tabs), [tabs]);
+  const zoomed = usePaneLayoutStore((s) => s.zoomed);
+  const equalizeEpoch = usePaneLayoutStore((s) => s.equalizeEpoch);
+
+  // Visiting a tab acknowledges any bell rung in its panes.
+  useEffect(() => {
+    const tab = terminals.find((t) => t.id === activeId);
+    if (!tab) return;
+    const store = usePaneStatusStore.getState();
+    for (const id of leafIds(tab.paneTree)) if (store.attention[id]) store.setAttention(id, false);
+  }, [terminals, activeId]);
+
+  // Focus moving to another pane (keyboard, click on a label, AI) ends zoom.
+  useEffect(() => {
+    for (const t of terminals) {
+      const z = zoomed[t.id];
+      if (z !== undefined && (z !== t.activeLeafId || leafIds(t.paneTree).length < 2)) {
+        usePaneLayoutStore.getState().unzoom(t.id);
+      }
+    }
+  }, [terminals, zoomed]);
 
   const registerRef = useRef(registerHandle);
   const searchReadyRef = useRef(onSearchReady);
@@ -84,6 +106,10 @@ export function TerminalStack({
     <div className="relative h-full w-full">
       {terminals.map((t) => {
         const tabVisible = t.id === activeId;
+        const zoomLeaf =
+          zoomed[t.id] === t.activeLeafId && leafIds(t.paneTree).length > 1
+            ? findLeafNode(t.paneTree, t.activeLeafId)
+            : null;
         return (
           <div
             key={t.id}
@@ -97,7 +123,10 @@ export function TerminalStack({
             aria-hidden={!tabVisible}
           >
             <PaneTreeView
-              node={t.paneTree}
+              node={zoomLeaf ?? t.paneTree}
+              showLabel={zoomLeaf !== null}
+              zoomed={zoomLeaf !== null}
+              equalizeEpoch={equalizeEpoch[t.id] ?? 0}
               tabVisible={tabVisible}
               activeLeafId={t.activeLeafId}
               blocks={t.blocks ?? false}

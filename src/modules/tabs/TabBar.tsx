@@ -1,5 +1,6 @@
 import {
   Cancel01Icon,
+  Notification03Icon,
   CheckmarkCircle01Icon,
   Clock01Icon,
   ComputerTerminal02Icon,
@@ -39,6 +40,7 @@ import {
   useAgentActivityStore,
 } from "@/modules/terminal";
 import type { AgentLaunchRequest } from "@/modules/agents/lib/launcher";
+import { ProgressRing, useTabAttention, useTabProgress } from "@/modules/terminal/features/ProgressRing";
 import { computeCloseTargets, tabsToRight } from "./lib/closeTargets";
 import { NewTabMenu } from "./NewTabMenu";
 import { labelFor } from "./lib/tabLabel";
@@ -420,6 +422,8 @@ export function TabIcon({ tab }: { tab: Tab }) {
   // Agent state replaces the tab's normal icon while an agent is running, so
   // the strip shows what needs attention without a second badge element.
   const agentStatus = useTabAgentStatus(tab);
+  const progress = useTabProgress(tab.kind === "terminal" && !tab.private ? tab.paneTree : null);
+  const rang = useTabAttention(tab.kind === "terminal" ? tab.paneTree : null);
   if (agentStatus.state === "attention") {
     return (
       <HugeiconsIcon
@@ -440,9 +444,24 @@ export function TabIcon({ tab }: { tab: Tab }) {
       />
     );
   }
-  if (agentStatus.state === "working" && agentStatus.agent) {
+  if (
+    (agentStatus.state === "working" || agentStatus.state === "idle") &&
+    agentStatus.agent
+  ) {
     return (
       <AgentIcon agent={agentStatus.agent} size={14} className="shrink-0" />
+    );
+  }
+  if (progress) return <ProgressRing progress={progress} />;
+  if (rang) {
+    return (
+      <HugeiconsIcon
+        icon={Notification03Icon}
+        size={14}
+        strokeWidth={2}
+        className="shrink-0 text-amber-500"
+        aria-label="Bell rang in this tab"
+      />
     );
   }
   if (tab.kind === "editor" || tab.kind === "markdown") {
