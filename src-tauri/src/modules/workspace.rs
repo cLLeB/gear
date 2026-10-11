@@ -887,7 +887,15 @@ mod auth_tests {
         #[cfg(unix)]
         std::os::unix::fs::symlink(&outside, &link).expect("symlink");
         #[cfg(windows)]
-        std::os::windows::fs::symlink_dir(&outside, &link).expect("symlink");
+        if let Err(e) = std::os::windows::fs::symlink_dir(&outside, &link) {
+            // ERROR_PRIVILEGE_NOT_HELD: creating symlinks needs Developer Mode
+            // or an elevated shell, so there is nothing to test here.
+            if e.raw_os_error() == Some(1314) {
+                eprintln!("skipped: no privilege to create symlinks");
+                return;
+            }
+            panic!("symlink: {e}");
+        }
         let reg = WorkspaceRegistry::default();
         reg.authorize(&allowed).expect("authorize root");
         let s = link.to_string_lossy().into_owned();
