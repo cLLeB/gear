@@ -229,6 +229,12 @@ export function Header({
 
       <div
         className="flex min-w-0 flex-1 items-center gap-2"
+        onContextMenu={(e) => {
+          // Empty chrome falls through to the webview's own menu, whose Reload
+          // restarts the webview and closes every shell. Per-tab menus still
+          // open: Radix handles the trigger before this bubbles.
+          e.preventDefault();
+        }}
       >
         <TabBar
           tabs={tabs}
