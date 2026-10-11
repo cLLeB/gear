@@ -42,7 +42,7 @@ jobs:
           VERSION: ${{ steps.tag.outputs.version }}
         run: |
           gh release download "$TAG" \
-            --repo crynta/gear-ai \
+            --repo cLLeB/gear \
             --pattern "Gear_${VERSION}_amd64.deb" \
             --pattern "Gear_x64.app.tar.gz" \
             --pattern "Gear_aarch64.app.tar.gz"
