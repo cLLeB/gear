@@ -77,7 +77,7 @@ jobs:
   # Submits a PR to microsoft/winget-pkgs automatically. komac carries the
   # previous version's metadata (description, tags, product codes) forward, so
   # the only thing a release has to get right is the .msi asset name.
-  # Requires: WINGET_TOKEN secret (GitHub PAT, public_repo scope)
+  # Requires: WINGET_TOKEN secret (classic GitHub PAT, public_repo + workflow scopes)
   winget:
     needs: resolve
     if: needs.resolve.outputs.channels == 'all' || contains(needs.resolve.outputs.channels, 'winget')
@@ -96,7 +96,7 @@ jobs:
         run: |
           set -uo pipefail
           if [ -z "${WINGET_TOKEN}" ]; then
-            echo "::error::WINGET_TOKEN is not set. Create a classic PAT with public_repo scope and add it as a repository secret."
+            echo "::error::WINGET_TOKEN is not set. Create a classic PAT with the public_repo and workflow scopes and add it as a repository secret."
             exit 1
           fi
 
@@ -109,10 +109,19 @@ jobs:
           expiry=$(printf '%s' "$hdr" | tr -d '\r' | awk -F': ' 'tolower($1)=="github-authentication-token-expiration"{print $2}')
 
           if [ "$code" != "200" ]; then
-            echo "::error::WINGET_TOKEN was rejected by the GitHub API (HTTP $code). It has most likely EXPIRED — regenerate a classic PAT with public_repo scope and update the secret."
+            echo "::error::WINGET_TOKEN was rejected by the GitHub API (HTTP $code). It has most likely EXPIRED — regenerate a classic PAT with the public_repo and workflow scopes and update the secret."
             exit 1
           fi
           echo "Token OK. scopes=[${scopes:-none}] expires=[${expiry:-never}]"
+
+          # Syncing the fork brings in microsoft/winget-pkgs' own workflow files,
+          # and GitHub refuses that from a token without the workflow scope. A
+          # fine-grained token reports no scopes here, so only a classic one that
+          # visibly lacks it is rejected.
+          if [ -n "$scopes" ] && ! grep -qw workflow <<<"$scopes"; then
+            echo "::error::WINGET_TOKEN lacks the 'workflow' scope (it has: $scopes). The winget-pkgs fork cannot be synced without it, and komac then fails with a misleading 'does not have the correct permissions to execute UpdateRef'. Edit the token at github.com/settings/tokens, tick 'workflow', and re-run this job."
+            exit 1
+          fi
 
           # komac creates its branch in the FORK, not in microsoft/winget-pkgs,
           # so push on the fork is the permission that actually matters.
@@ -143,9 +152,17 @@ jobs:
           OWNER: ${{ github.repository_owner }}
         run: |
           set -euo pipefail
-          gh api -X POST "repos/${OWNER}/winget-pkgs/merge-upstream" \
-            -f branch=master --jq '"\(.merge_type): \(.message)"' \
-            || echo "::warning::Fork sync did not report success; continuing — komac may still fail on a stale fork."
+          if ! out=$(gh api -X POST "repos/${OWNER}/winget-pkgs/merge-upstream" \
+                 -f branch=master --jq '"\(.merge_type): \(.message)"' 2>&1); then
+            echo "$out"
+            if grep -q "workflow. scope" <<<"$out"; then
+              echo "::error::The fork could not be synced because WINGET_TOKEN lacks the 'workflow' scope. Tick 'workflow' on the token at github.com/settings/tokens and re-run this job."
+              exit 1
+            fi
+            echo "::warning::Fork sync did not report success; continuing — komac may still fail on a stale fork."
+          else
+            echo "$out"
+          fi
           gh api "repos/${OWNER}/winget-pkgs/branches/master" \
             --jq '"fork master is now \(.commit.sha[0:10]) (\(.commit.commit.committer.date))"'
 

@@ -64,7 +64,7 @@ gh workflow run release.yml -R cLLeB/gear -f tag=v0.1.3
 
 **Create the PAT:**
 1. Go to GitHub → Settings → Developer Settings → Personal Access Tokens → **Tokens (classic)**
-2. Grant the **`public_repo`** scope
+2. Grant the **`public_repo`** and **`workflow`** scopes (the second lets the job sync your `winget-pkgs` fork)
 3. Add as repo secret: `WINGET_TOKEN`
 
 > The token must be able to **push to your fork, `cLLeB/winget-pkgs`** — komac
