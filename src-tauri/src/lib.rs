@@ -188,6 +188,7 @@ pub fn run() {
         .manage(lsp::LspState::default())
         .manage(dap::DapState::default())
         .manage(db::DbState::default())
+        .manage(modules::logview::LogState::default())
         .manage(shell::ShellState::default())
         .manage(history::HistoryState::default())
         .manage(secrets::SecretsState::default())
@@ -232,6 +233,14 @@ pub fn run() {
             db::db_batch,
             db::db_schema,
             db::db_close,
+            modules::logview::log_open,
+            modules::logview::log_refresh,
+            modules::logview::log_rows,
+            modules::logview::log_filter,
+            modules::logview::log_search,
+            modules::logview::log_histogram,
+            modules::logview::log_row_at_time,
+            modules::logview::log_close,
             fs::tree::list_subdirs,
             fs::tree::fs_read_dir,
             fs::file::fs_read_file,

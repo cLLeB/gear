@@ -53,6 +53,7 @@ import { EXTENSION_ACTIONS } from "@/modules/extensions/actions";
 import { REMOTE_ACTIONS } from "@/modules/remote/actions";
 import { HTTP_ACTIONS } from "@/modules/http/actions";
 import { K8S_ACTIONS } from "@/modules/k8s/actions";
+import { LOG_ACTIONS } from "@/modules/logview/actions";
 import { THEME_ACTIONS } from "@/modules/theme/themeActions";
 import { NOTIFICATION_ACTIONS } from "@/modules/notifications/actions";
 import { COMPARE_ACTIONS } from "@/modules/compare/actions";
@@ -460,7 +461,7 @@ export function createCommandPaletteActions(
       run: () => void action.run(),
       deferRun: true,
     })),
-    ...[...DEBUG_ACTIONS, ...TESTING_ACTIONS, ...NOTEBOOK_ACTIONS, ...PROFILER_ACTIONS, ...DATABASE_ACTIONS, ...CONTAINER_ACTIONS, ...EXTENSION_ACTIONS, ...REMOTE_ACTIONS, ...HTTP_ACTIONS, ...K8S_ACTIONS].map((action): CommandPaletteAction => ({
+    ...[...DEBUG_ACTIONS, ...TESTING_ACTIONS, ...NOTEBOOK_ACTIONS, ...PROFILER_ACTIONS, ...DATABASE_ACTIONS, ...CONTAINER_ACTIONS, ...EXTENSION_ACTIONS, ...REMOTE_ACTIONS, ...HTTP_ACTIONS, ...K8S_ACTIONS, ...LOG_ACTIONS].map((action): CommandPaletteAction => ({
       id: action.id,
       label: action.label,
       group: "Code",
