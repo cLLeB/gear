@@ -44,8 +44,25 @@ export function restoreDivider(savedAt: number, now = Date.now()): string {
 
 /** Trim a serialized buffer to its last `maxLines` lines and drop trailing blank lines. */
 export function trimRestored(ansi: string, maxLines = MAX_LINES): string {
-  const lines = ansi.replace(/(\r?\n|\x1b\[[0-9;]*m|\s)+$/u, "").split(/\r?\n/);
+  const lines = ansi.slice(0, trailingBlankStart(ansi)).split(/\r?\n/);
   return lines.slice(-maxLines).join("\r\n");
+}
+
+/** Index where the trailing run of whitespace and SGR codes begins. Scanned by
+ * hand: a regex for this backtracks exponentially on a long run of blank lines
+ * that is not at the very end, which froze startup. */
+function trailingBlankStart(ansi: string): number {
+  let end = ansi.length;
+  for (;;) {
+    const before = end;
+    while (end > 0 && /\s/.test(ansi[end - 1])) end--;
+    if (end > 0 && ansi[end - 1] === "m") {
+      let i = end - 2;
+      while (i >= 0 && /[0-9;]/.test(ansi[i])) i--;
+      if (i >= 1 && ansi[i] === "[" && ansi[i - 1] === "\x1b") end = i - 1;
+    }
+    if (end === before) return end;
+  }
 }
 
 const pendingReruns: { leafId: number; command: string }[] = [];
