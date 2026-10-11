@@ -1,0 +1,22 @@
+{
+	"Path": "example.com/gop",
+	"Main": true,
+	"Dir": "/w/gop",
+	"GoMod": "/w/gop/go.mod",
+	"GoVersion": "1.24.7"
+}
+{
+	"Path": "golang.org/x/text",
+	"Version": "v0.3.0",
+	"Time": "2017-12-14T13:08:43Z",
+	"Update": {
+		"Path": "golang.org/x/text",
+		"Version": "v0.43.0",
+		"Time": "2026-10-09T15:18:32Z"
+	},
+	"Indirect": true,
+	"Dir": "/root/go/pkg/mod/golang.org/x/text@v0.3.0",
+	"GoMod": "/root/go/pkg/mod/cache/download/golang.org/x/text/@v/v0.3.0.mod",
+	"Sum": "h1:g61tztE5qeGQ89tm6NTjjM9VPIm088od1l6aSorWRWg=",
+	"GoModSum": "h1:NqM8EUOU14njkJ3fqMW+pc6Ldnwhi/IjpwHt7yyuwOQ="
+}

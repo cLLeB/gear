@@ -281,7 +281,9 @@ export function quoteArg(a: string, windows: boolean): string {
 }
 
 export function commandLine(argv: string[], windows: boolean): string {
-  return argv.map((a) => quoteArg(a, windows)).join(" ");
+  const line = argv.map((a) => quoteArg(a, windows)).join(" ");
+  // PowerShell treats a quoted first word as a string, not a command: call it with &.
+  return windows && argv.length && quoteArg(argv[0], true) !== argv[0] ? `& ${line}` : line;
 }
 
 export const LABEL_FOLDER = "devcontainer.local_folder";

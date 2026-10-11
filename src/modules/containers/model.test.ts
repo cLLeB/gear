@@ -92,6 +92,7 @@ describe("resolution and commands", () => {
     expect(run[run.length - 3]).toBe(r.image);
     expect(commandLine(["docker", "exec", "-e", "A=b c", "x", "/bin/sh", "-c", "echo 'hi'"], false)).toBe(`docker exec -e 'A=b c' x /bin/sh -c 'echo '\\''hi'\\'''`);
     expect(commandLine(["docker", "run", "--mount", "type=bind,source=C:/w"], true)).toBe("docker run --mount 'type=bind,source=C:/w'");
+    expect(commandLine(["C:\\Program Files\\py\\python.exe", "-m", "pip"], true)).toBe("& 'C:\\Program Files\\py\\python.exe' -m pip");
     expect(execArgv("c1", ["ls"], { user: "vscode", cwd: "/workspaces/api", env: { A: "1", B: null } })).toEqual(["docker", "exec", "-u", "vscode", "-w", "/workspaces/api", "-e", "A=1", "c1", "ls"]);
   });
 
