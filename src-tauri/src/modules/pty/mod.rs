@@ -6,6 +6,8 @@ mod job;
 pub mod notify_pipe;
 mod session;
 pub(crate) mod shell_init;
+#[cfg(unix)]
+mod unix_reader;
 
 use std::collections::HashMap;
 use std::io::Write;

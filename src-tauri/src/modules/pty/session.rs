@@ -43,6 +43,8 @@ pub struct Session {
     //      is dead and conhost has nothing left to drain.
     #[cfg(windows)]
     _job: Option<super::job::PtyJob>,
+    #[cfg(unix)]
+    reader_control: Arc<super::unix_reader::ReaderControl>,
     /// PID of the shell process. 0 means unknown; callers must skip checks when 0.
     pub shell_pid: u32,
     pub killer: Mutex<Box<dyn ChildKiller + Send + Sync>>,
@@ -55,6 +57,8 @@ pub struct Session {
 
 impl Drop for Session {
     fn drop(&mut self) {
+        #[cfg(unix)]
+        self.reader_control.cancel();
         // If the session Arc is dropped without an explicit pty_close (e.g.
         // frontend disconnected, window crashed, dev HMR), the reader/flusher
         // threads would otherwise stay alive forever holding the child. Kill
@@ -138,7 +142,13 @@ pub fn spawn(
     // can't outlive an aborted pty_open.
     let mut guard = ChildKillGuard::new(child.clone_killer());
     let killer = child.clone_killer();
+    #[cfg(not(unix))]
     let mut reader = pair.master.try_clone_reader().map_err(|e| e.to_string())?;
+    // A plain blocking read never returns while a background process keeps the
+    // slave open, which left the exit waiter stuck after the shell quit.
+    #[cfg(unix)]
+    let (mut reader, reader_control) =
+        super::unix_reader::UnixPtyReader::new(pair.master.as_ref()).map_err(|e| e.to_string())?;
     let writer: Arc<Mutex<Box<dyn Write + Send>>> = Arc::new(Mutex::new(
         pair.master.take_writer().map_err(|e| e.to_string())?,
     ));
@@ -163,6 +173,8 @@ pub fn spawn(
     let session = Arc::new(Session {
         #[cfg(windows)]
         _job: job,
+        #[cfg(unix)]
+        reader_control: reader_control.clone(),
         shell_pid,
         killer: Mutex::new(killer),
         writer: writer.clone(),
@@ -301,6 +313,10 @@ pub fn spawn(
                     thread::sleep(Duration::from_millis(5));
                 }
             }
+            // Drain what is already buffered, then stop: descendants may hold
+            // the slave open, so EOF might never come.
+            #[cfg(unix)]
+            reader_control.finish();
             #[cfg(not(windows))]
             if let Err(e) = reader_thread.join() {
                 log::error!("pty reader thread panicked: {e:?}");
