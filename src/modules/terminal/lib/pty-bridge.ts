@@ -12,6 +12,8 @@ export type PtySession = {
   id: number;
   write: (data: string) => Promise<void>;
   resize: (cols: number, rows: number) => Promise<void>;
+  /** Flow control: stop or resume the backend reading this pty's output. */
+  setPaused: (paused: boolean) => void;
   close: () => Promise<void>;
 };
 
@@ -63,6 +65,9 @@ export async function openPty(
     // Raw bytes + id header: no JSON round-trip on the per-keystroke path.
     write: (data) => invoke("pty_write", textEncoder.encode(data), { headers }),
     resize: (c, r) => invoke("pty_resize", { id, cols: c, rows: r }),
+    setPaused: (paused) => {
+      if (!closed) void invoke("pty_set_paused", { id, paused }).catch(() => {});
+    },
     close: async () => {
       if (closed) return;
       closed = true;
