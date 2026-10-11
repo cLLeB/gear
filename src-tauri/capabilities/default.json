@@ -18,6 +18,8 @@
     "core:window:allow-show",
     "core:window:allow-set-focus",
     "core:window:allow-set-title",
+    "core:window:allow-set-always-on-top",
+    "core:window:allow-is-always-on-top",
     "core:event:allow-listen",
     "core:event:allow-unlisten",
     "opener:default",

@@ -59,6 +59,7 @@ export const FEATURE_DEFAULTS = {
   "theme.schedule": "",
   "editor.indentRainbow": false,
   "editor.stickyScroll": true,
+  "editor.minimap": false,
   "editor.snippets": "[\n  { \"name\": \"Log JSON\", \"lang\": \"js\", \"body\": \"console.log(JSON.stringify(${1:value}, null, 2));\" }\n]",
   "editor.rulers": "",
   "editor.renderWhitespace": false,
@@ -196,6 +197,11 @@ export const FEATURE_META: Record<FeatureKey, Meta> = {
   "editor.stickyScroll": {
     label: "Sticky scroll",
     description: "Pin the enclosing function / class / heading lines to the top while scrolling; click one to jump to it.",
+    section: "Editor",
+  },
+  "editor.minimap": {
+    label: "Minimap",
+    description: "Show a zoomed-out strip of the file on the right edge of the editor; click or drag it to scroll.",
     section: "Editor",
   },
   "editor.snippets": {
