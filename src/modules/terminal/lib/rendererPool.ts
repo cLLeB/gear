@@ -4,6 +4,7 @@ import { usePreferencesStore } from "@/modules/settings/preferences";
 import type { TerminalCursorStyle } from "@/modules/settings/store";
 import { buildTerminalTheme } from "@/styles/terminalTheme";
 import { FitAddon } from "@xterm/addon-fit";
+import { ImageAddon } from "@xterm/addon-image";
 import { SearchAddon } from "@xterm/addon-search";
 import { SerializeAddon } from "@xterm/addon-serialize";
 import { WebLinksAddon } from "@xterm/addon-web-links";
@@ -301,6 +302,10 @@ function createSlot(): Slot {
   term.loadAddon(fitAddon);
   term.loadAddon(searchAddon);
   term.loadAddon(serializeAddon);
+  // Sixel and iTerm2 inline images (img2sixel, chafa, imgcat, matplotlib backends).
+  if (getFeature("terminal.inlineImages")) {
+    term.loadAddon(new ImageAddon({ storageLimit: 64, pixelLimit: 4096 * 4096 }));
+  }
   term.loadAddon(
     new WebLinksAddon((_e, uri) => {
       void openExternalUrl(uri, () => term.focus());
