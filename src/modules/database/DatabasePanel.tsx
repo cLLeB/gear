@@ -4,9 +4,11 @@
 
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
+import { app } from "@/app/appBridge";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { confirmPick, quickPick } from "@/modules/quick-pick";
+import { erPath } from "./ErPane";
 import { parseConnectionUrl, type Dialect } from "./model";
 import { connect, deleteProfile, disconnect, newProfileId, openConsole, refreshSchema, saveProfile, testConnection, useDbStore, type DbProfile, type TableInfo } from "./store";
 
@@ -196,6 +198,7 @@ function ProfileRow({ p, onEdit }: { p: DbProfile; onEdit: () => void }) {
     const a = await quickPick(
       [
         { label: "New console", value: "console" },
+        { label: "ER diagram", value: "er" },
         { label: "Refresh schema", value: "refresh" },
         { label: live ? "Disconnect" : "Connect", value: "toggle" },
         { label: "Edit…", value: "edit" },
@@ -204,6 +207,7 @@ function ProfileRow({ p, onEdit }: { p: DbProfile; onEdit: () => void }) {
       { title: p.name },
     );
     if (a === "console") openConsole(p.id);
+    else if (a === "er") app().openFile(erPath(p.id));
     else if (a === "refresh") void refreshSchema(p.id);
     else if (a === "toggle") void (live ? disconnect(p.id) : connect(p.id).catch((e) => toast.error(String(e))));
     else if (a === "edit") onEdit();
