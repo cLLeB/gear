@@ -28,7 +28,11 @@ const addrPort = (s: string): { address: string; port: number } | null => {
 };
 
 /** `ss -ltnpH` (Linux). Processes are only shown for sockets we may see. */
+/** Output that came through a terminal or SSH ends its lines with CRLF. */
+const lf = (s: string): string => s.replace(/\r\n?/g, "\n");
+
 export function parseSs(text: string): Listener[] {
+  text = lf(text);
   const out: Listener[] = [];
   for (const line of text.split("\n")) {
     const f = line.trim().split(/\s+/);
@@ -43,6 +47,7 @@ export function parseSs(text: string): Listener[] {
 
 /** `lsof -nP -iTCP -sTCP:LISTEN -F pcn` (macOS / Linux fallback). */
 export function parseLsof(text: string): Listener[] {
+  text = lf(text);
   const out: Listener[] = [];
   let pid: number | null = null;
   let cmd: string | null = null;
@@ -87,6 +92,7 @@ export function parseEtime(s: string): number {
 
 /** `ps -axo pid=,ppid=,pcpu=,pmem=,rss=,etime=,user=,comm=,args=` (Linux and macOS). */
 export function parsePs(text: string): Proc[] {
+  text = lf(text);
   const out: Proc[] = [];
   for (const line of text.split("\n")) {
     const m = /^\s*(\d+)\s+(\d+)\s+([\d.,]+)\s+([\d.,]+)\s+(\d+)\s+(\S+)\s+(\S+)\s+(.*)$/.exec(line);
@@ -150,6 +156,7 @@ export function parseWinProcs(json: string, prev: Map<number, { cpu: number; at:
 
 /** `pid cwd` lines (from each /proc/<pid>/cwd link) or `lsof -d cwd -F pn` output. */
 export function parseCwds(text: string): Map<number, string> {
+  text = lf(text);
   const out = new Map<number, string>();
   let pid: number | null = null;
   for (const line of text.split("\n")) {

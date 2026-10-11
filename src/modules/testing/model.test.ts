@@ -97,6 +97,15 @@ describe("parsers (real framework output)", () => {
     expect(r[1].message).toContain("left: 4");
   });
 
+  it("reads CRLF output the same as LF", () => {
+    const crlf = (s: string) => s.replace(/\r?\n/g, "\r\n");
+    const unix = (s: string) => s.replace(/\r\n/g, "\n");
+    expect(parseCargo(crlf(fx("cargo.txt")))).toEqual(parseCargo(unix(fx("cargo.txt"))));
+    expect(parseGoJson(crlf(fx("go.json")))).toEqual(parseGoJson(unix(fx("go.json"))));
+    expect(parseLcov(crlf(fx("py.lcov")))).toEqual(parseLcov(unix(fx("py.lcov"))));
+    expect(parseGoCover(crlf(fx("go.cover")))).toEqual(parseGoCover(unix(fx("go.cover"))));
+  });
+
   it("reads coverage", () => {
     const lcov = parseLcov(fx("py.lcov"));
     const calc = [...lcov.entries()].find(([f]) => f.endsWith("test_calc.py"))![1];

@@ -5,6 +5,19 @@ import { filterProcs, parseCwds, parseEtime, parseLsof, parseNetTcp, parsePs, pa
 
 const fx = (f: string) => readFileSync(join(__dirname, "__fixtures__", f), "utf8");
 
+const crlf = (s: string) => s.replace(/\r?\n/g, "\r\n");
+const unix = (s: string) => s.replace(/\r\n/g, "\n");
+
+describe("line endings", () => {
+  it("parses CRLF output the same as LF", () => {
+    for (const [parse, file] of [[parseSs, "ss.txt"], [parseLsof, "lsof.txt"], [parsePs, "ps-linux.txt"]] as const) {
+      const text = fx(file);
+      expect(parse(crlf(text))).toEqual(parse(unix(text)));
+      expect(parse(unix(text)).length).toBeGreaterThan(0);
+    }
+  });
+});
+
 describe("ports", () => {
   it("parses ss and lsof the same way", () => {
     const ss = parseSs(fx("ss.txt"));
