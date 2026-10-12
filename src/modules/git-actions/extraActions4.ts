@@ -40,7 +40,8 @@ async function selectionInRepo() {
   const root = await requireRepo();
   if (!root) return null;
   const disk = await native.readFile(ed.path).catch(() => null);
-  if (disk?.kind === "text" && disk.content !== ed.view.state.doc.toString()) {
+  // The editor holds text with \n; a file checked out with Windows line endings is still the same text.
+  if (disk?.kind === "text" && disk.content.replace(/\r\n/g, "\n") !== ed.view.state.doc.toString()) {
     toast.error("Save the file first");
     return null;
   }
