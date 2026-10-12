@@ -61,6 +61,7 @@ import { colorSwatches } from "./lib/colorSwatches";
 import { todoHighlight } from "./lib/todoHighlight";
 import { suspiciousChars } from "./lib/suspiciousChars";
 import { recordClip } from "@/modules/clipboard/history";
+import { offsetInLine } from "./lib/offsetInLine";
 import { indentRainbow, rainbowBrackets, refreshAidsOnSettingChange, stickyScroll } from "./lib/visualAids";
 import { minimap } from "./lib/minimap";
 import { navigationTracker } from "./lib/navHistory";
@@ -96,7 +97,7 @@ export type EditorPaneHandle = {
   /** Re-read the file from disk. Skips silently if the buffer is dirty. */
   reload: () => boolean;
   /** Move the cursor to a 1-based line and center it, once content is ready. */
-  gotoLine: (line: number, options?: { focus?: boolean }) => void;
+  gotoLine: (line: number, options?: { focus?: boolean; column?: number }) => void;
   /** Apply CodeMirror's undo/redo commands. */
   undo: () => void;
   redo: () => void;
@@ -214,7 +215,7 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
     // A goto/focus can arrive before the document has loaded (opening a file
     // and jumping to a line is one action), so both are parked and replayed
     // once `doc.status` reaches "ready".
-    const pendingLineRef = useRef<{ line: number; focus: boolean } | null>(
+    const pendingLineRef = useRef<{ line: number; column?: number; focus: boolean } | null>(
       null,
     );
     const pendingFocusRef = useRef(false);
@@ -234,7 +235,7 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
       const pending = pendingLineRef.current;
       if (!view || pending == null || statusRef.current !== "ready") return;
       const target = Math.max(1, Math.min(pending.line, view.state.doc.lines));
-      const at = view.state.doc.line(target).from;
+      const at = offsetInLine(view.state.doc.line(target), pending.column);
       view.dispatch({
         selection: { anchor: at },
         effects: EditorView.scrollIntoView(at, { y: "center" }),
@@ -610,7 +611,7 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
         getPath: () => path,
         reload: () => reloadRef.current(),
         gotoLine: (line: number, options) => {
-          pendingLineRef.current = { line, focus: options?.focus ?? true };
+          pendingLineRef.current = { line, column: options?.column, focus: options?.focus ?? true };
           applyPendingGoto();
         },
         undo: () => {

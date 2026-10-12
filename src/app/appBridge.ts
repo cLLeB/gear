@@ -14,7 +14,8 @@ export interface OpenTerminalOptions {
 }
 
 export interface AppBridge {
-  openFile: (path: string, line?: number) => void;
+  /** `line` and `column` are 1-based; the column is ignored without a line. */
+  openFile: (path: string, line?: number, column?: number) => void;
   openTerminal: (options?: OpenTerminalOptions) => void;
   openPreview: (url: string) => void;
   /** Leaf id of the active pane when the active tab is a terminal. */

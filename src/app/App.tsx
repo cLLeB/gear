@@ -1781,7 +1781,7 @@ export default function App() {
 				if (pending != null) {
 					pendingEditorNavigation.current.delete(id);
 					if (pending.line === undefined) h.focus();
-					else h.gotoLine(pending.line, { focus: pending.focus });
+					else h.gotoLine(pending.line, { focus: pending.focus, column: pending.column });
 				}
 			} else {
 				editorRefs.current.delete(id);
@@ -1794,18 +1794,20 @@ export default function App() {
 	// `gear <file>` from a pane: open in that pane's space, and only steal
 	// window focus when the caller asked for it.
 	const pendingEditorNavigation = useRef<
-		Map<number, { line?: number; focus: boolean }>
+		Map<number, { line?: number; column?: number; focus: boolean }>
 	>(new Map());
 
 	const openControlFile = useCallback(
 		({
 			path,
 			line,
+			column,
 			focus,
 			spaceId,
 		}: {
 			path: string;
 			line?: number;
+			column?: number;
 			focus: boolean;
 			spaceId: string;
 		}) => {
@@ -1816,8 +1818,8 @@ export default function App() {
 			if (id === null) return null;
 			const editor = editorRefs.current.get(id);
 			if (line !== undefined) {
-				if (editor) editor.gotoLine(line, { focus });
-				else pendingEditorNavigation.current.set(id, { line, focus });
+				if (editor) editor.gotoLine(line, { focus, column });
+				else pendingEditorNavigation.current.set(id, { line, column, focus });
 			} else if (focus) {
 				if (editor) editor.focus();
 				else pendingEditorNavigation.current.set(id, { focus: true });
@@ -2057,7 +2059,7 @@ export default function App() {
 			return t?.kind === "terminal" ? t.activeLeafId : null;
 		};
 		return registerAppBridge({
-			openFile: (path, line) => {
+			openFile: (path, line, column) => {
 				if (line === undefined) {
 					d().handleOpenFile(path, true);
 					return;
@@ -2065,6 +2067,7 @@ export default function App() {
 				d().openControlFile({
 					path,
 					line,
+					column,
 					focus: true,
 					spaceId: d().activeSpaceId,
 				});
