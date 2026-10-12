@@ -74,12 +74,16 @@ function global:__gear_install_readline {
 }
 
 function global:prompt {
-    __gear_install_readline
+    # Must be the first statement: any call below resets $?.
+    $ok = $global:?
     $lec = $LASTEXITCODE
-    if ($null -eq $lec) { $lec = if ($?) { 0 } else { 1 } }
+    __gear_install_readline
+    # $LASTEXITCODE only changes when a native program runs, so a failed cmdlet or an
+    # unknown command would otherwise report the previous program's code (usually 0).
+    $code = if ($ok) { 0 } elseif ($lec) { $lec } else { 1 }
     $esc = [char]27
 
-    $oscD = "$esc]133;D;$lec$esc\"
+    $oscD = "$esc]133;D;$code$esc\"
     $oscA = "$esc]133;A$esc\"
     $oscB = "$esc]133;B$esc\"
 
