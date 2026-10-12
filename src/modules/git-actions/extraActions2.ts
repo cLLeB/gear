@@ -371,7 +371,9 @@ export async function applyPatchFromClipboard(): Promise<void> {
   const dir = `${root}/.git`;
   const file = `${dir}/gear-clipboard.patch`;
   const { native } = await import("@/modules/ai/lib/native");
-  await native.writeFile(file, patch.endsWith("\n") ? patch : `${patch}\n`, "user");
+  // The Windows clipboard hands text back with \r\n, and git rejects a patch whose own lines end that way.
+  const text = patch.replace(/\r\n/g, "\n");
+  await native.writeFile(file, text.endsWith("\n") ? text : `${text}\n`, "user");
   const isMail = /^From [0-9a-f]{40}/m.test(patch);
   const check = await git(root, isMail ? ["am", "--3way", file] : ["apply", "--3way", "--check", file]);
   if (isMail) return void (check.ok ? toast.success("Applied patch as commits (git am)") : toast.error("git am failed — run `git am --abort` to undo", { description: check.stderr.trim().slice(0, 300) }));
