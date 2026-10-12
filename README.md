@@ -129,11 +129,6 @@ pnpm build
 
 ---
 
-## Distribution
-
-
----
-
 ## Project structure
 
 ```
