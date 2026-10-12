@@ -19,6 +19,7 @@ Gear is a native desktop application built on [Tauri 2](https://tauri.app) (Rust
 - **Settings import/export** — JSON backup and restore of all preferences
 - **Per-workspace config** — `.gear/settings.json` overrides global preferences per project
 - **Keyboard shortcuts** — fully customisable; shown in the shortcuts dialog (Cmd/Ctrl+K)
+- **Tool tabs** — folder compare, disk usage map, mock API server, editor macros, Kanban board over Markdown, time tracking, hex editor, CSV table view, WebSocket client and regex workbench ([docs/tools.md](docs/tools.md))
 
 ---
 
