@@ -14,6 +14,15 @@ import { LogPane } from "@/modules/logview/LogPane";
 import { DepsPane } from "@/modules/deps/DepsPane";
 import { SecretsPane } from "@/modules/security/SecretsPane";
 import { ProcsPane } from "@/modules/procs/ProcsPane";
+import { BoardPane } from "@/modules/board/BoardPane";
+import { DirComparePane } from "@/modules/dircompare/DirComparePane";
+import { DiskUsagePane } from "@/modules/diskusage/DiskUsagePane";
+import { HexPane } from "@/modules/hexedit/HexPane";
+import { MockPane } from "@/modules/mockserver/MockPane";
+import { RegexPane } from "@/modules/regexlab/RegexPane";
+import { TablePane } from "@/modules/table/TablePane";
+import { TimePane } from "@/modules/timetrack/TimePane";
+import { WsPane } from "@/modules/wsclient/WsPane";
 import { isLogFile } from "@/modules/logview/model";
 import { EditorPane, type EditorPaneHandle } from "./EditorPane";
 
@@ -119,6 +128,24 @@ export function EditorStack({
                 <DockerPane ref={getRefCallback(t.id)} path={t.path} />
               ) : t.path.startsWith("gear-procs://") ? (
                 <ProcsPane ref={getRefCallback(t.id)} path={t.path} />
+              ) : t.path.startsWith("gear-dircmp://") ? (
+                <DirComparePane ref={getRefCallback(t.id)} path={t.path} />
+              ) : t.path.startsWith("gear-disk://") ? (
+                <DiskUsagePane ref={getRefCallback(t.id)} path={t.path} />
+              ) : t.path.startsWith("gear-mock://") ? (
+                <MockPane ref={getRefCallback(t.id)} path={t.path} />
+              ) : t.path.startsWith("gear-board://") ? (
+                <BoardPane ref={getRefCallback(t.id)} path={t.path} />
+              ) : t.path.startsWith("gear-time://") ? (
+                <TimePane ref={getRefCallback(t.id)} path={t.path} />
+              ) : t.path.startsWith("gear-hex://") ? (
+                <HexPane ref={getRefCallback(t.id)} path={t.path} onDirtyChange={getDirtyCallback(t.id)} />
+              ) : t.path.startsWith("gear-table://") ? (
+                <TablePane ref={getRefCallback(t.id)} path={t.path} onDirtyChange={getDirtyCallback(t.id)} />
+              ) : t.path.startsWith("gear-ws://") ? (
+                <WsPane ref={getRefCallback(t.id)} path={t.path} />
+              ) : t.path.startsWith("gear-regex://") ? (
+                <RegexPane ref={getRefCallback(t.id)} path={t.path} />
               ) : t.path.startsWith("gear-secrets://") ? (
                 <SecretsPane ref={getRefCallback(t.id)} path={t.path} />
               ) : t.path.startsWith("gear-deps://") ? (

@@ -63,6 +63,7 @@ import { suspiciousChars } from "./lib/suspiciousChars";
 import { recordClip } from "@/modules/clipboard/history";
 import { offsetInLine } from "./lib/offsetInLine";
 import { indentRainbow, rainbowBrackets, refreshAidsOnSettingChange, stickyScroll } from "./lib/visualAids";
+import { macroRecorder } from "@/modules/macros/recorder";
 import { minimap } from "./lib/minimap";
 import { navigationTracker } from "./lib/navHistory";
 import { fileLockFilter } from "./lib/fileLock";
@@ -443,6 +444,7 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
         rainbowBrackets(() => analyzableLangRef.current),
         indentRainbow(),
         refreshAidsOnSettingChange(),
+        macroRecorder(),
         stickyScroll(),
         minimap(),
         navigationTracker(() => pathRef.current),
