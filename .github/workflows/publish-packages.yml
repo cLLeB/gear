@@ -43,10 +43,12 @@ jobs:
   # ── Shared: resolve the release tag and channel selection once ───────────
   resolve:
     # Test builds (v1.2.3-rc.N / -test.N) are draft prereleases: never push them to package managers.
-    # A Release dispatched from a feature branch is a test build: never publish it.
+    # A Release started by hand never publishes on its own, whatever branch it ran on: the tag it
+    # built is not visible here, so this would publish the latest stable release a second time.
+    # Run this workflow by hand with the tag when a dispatched build should go out.
     if: >-
       (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success') &&
-      !(github.event_name == 'workflow_run' && github.event.workflow_run.event == 'workflow_dispatch' && github.event.workflow_run.head_branch != 'main') &&
+      !(github.event_name == 'workflow_run' && github.event.workflow_run.event == 'workflow_dispatch') &&
       !contains(github.event.workflow_run.head_branch || inputs.tag || '', '-rc') &&
       !contains(github.event.workflow_run.head_branch || inputs.tag || '', '-test')
     runs-on: ubuntu-latest
