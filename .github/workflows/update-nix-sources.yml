@@ -1,24 +1,28 @@
 name: Update Nix sources
 
 on:
-  release:
-    types: [published]
   workflow_dispatch:
     inputs:
       tag:
-        description: "Release tag (e.g. v0.6.6)"
+        description: "Release tag (e.g. v0.1.6)"
         required: true
+  # Callable from release-please.yml once the release is built. A release cut by
+  # release-please carries GITHUB_TOKEN, and GITHUB_TOKEN-created events never
+  # start a new workflow run, so a `release: published` trigger would not fire.
+  workflow_call:
+    inputs:
+      tag:
+        description: "Release tag"
+        required: true
+        type: string
 
 jobs:
   update:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      pull-requests: write
 
     steps:
-      # On a `release` event the default checkout lands on the tag (detached
-      # HEAD); create-pull-request needs a branch base, so check out main.
       - uses: actions/checkout@v7
         with:
           ref: main
@@ -26,7 +30,7 @@ jobs:
       - name: Normalize tag
         id: tag
         env:
-          RAW_TAG: ${{ github.event.release.tag_name || github.event.inputs.tag }}
+          RAW_TAG: ${{ inputs.tag }}
         run: |
           case "$RAW_TAG" in
             v*) TAG="$RAW_TAG" ;;
@@ -35,53 +39,54 @@ jobs:
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
 
+      # The macOS build is one universal archive. Match it by pattern: its file
+      # name is chosen by the release tooling and may carry the version.
       - name: Download release assets
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.tag.outputs.tag }}
           VERSION: ${{ steps.tag.outputs.version }}
         run: |
+          mkdir -p "$RUNNER_TEMP/assets"
           gh release download "$TAG" \
-            --repo cLLeB/gear \
+            --repo "$GITHUB_REPOSITORY" \
+            --dir "$RUNNER_TEMP/assets" \
             --pattern "Gear_${VERSION}_amd64.deb" \
-            --pattern "Gear_x64.app.tar.gz" \
-            --pattern "Gear_aarch64.app.tar.gz"
+            --pattern "Gear*universal.app.tar.gz"
 
-      - name: Compute SRI hashes
-        id: hashes
+      - name: Update nix/sources.json
         env:
           VERSION: ${{ steps.tag.outputs.version }}
         run: |
+          set -euo pipefail
           hash_sri() {
-            openssl dgst -sha256 -binary "$1" | base64 | tr -d '\n'
+            echo "sha256-$(openssl dgst -sha256 -binary "$1" | base64 | tr -d '\n')"
           }
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "linux=sha256-$(hash_sri "Gear_${VERSION}_amd64.deb")" >> "$GITHUB_OUTPUT"
-          echo "x64-darwin=sha256-$(hash_sri "Gear_x64.app.tar.gz")" >> "$GITHUB_OUTPUT"
-          echo "aarch64-darwin=sha256-$(hash_sri "Gear_aarch64.app.tar.gz")" >> "$GITHUB_OUTPUT"
+          cd "$RUNNER_TEMP/assets"
+          DARWIN=$(ls Gear*universal.app.tar.gz)
+          [ "$(echo "$DARWIN" | wc -l)" -eq 1 ] \
+            || { echo "::error::expected one universal macOS archive, got: $DARWIN"; exit 1; }
+          jq -n \
+            --arg version "$VERSION" \
+            --arg darwinAsset "$DARWIN" \
+            --arg linux "$(hash_sri "Gear_${VERSION}_amd64.deb")" \
+            --arg darwin "$(hash_sri "$DARWIN")" \
+            '{version: $version, darwinAsset: $darwinAsset, hashes: {"x86_64-linux": $linux, darwin: $darwin}}' \
+            > "$GITHUB_WORKSPACE/nix/sources.json"
 
-      - name: Update nix/sources.json
+      - name: Commit if the sources moved
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
         run: |
-          cat > nix/sources.json <<- EOF
-          {
-            "version": "${{ steps.hashes.outputs.version }}",
-            "hashes": {
-              "x86_64-linux": "${{ steps.hashes.outputs.linux }}",
-              "x86_64-darwin": "${{ steps.hashes.outputs.x64-darwin }}",
-              "aarch64-darwin": "${{ steps.hashes.outputs.aarch64-darwin }}"
-            }
-          }
-          EOF
-
-      - name: Create PR
-        uses: peter-evans/create-pull-request@v8
-        with:
-          commit-message: "update nix sources to ${{ steps.hashes.outputs.version }}"
-          title: "nix: update sources to ${{ steps.hashes.outputs.version }}"
-          body: 'Automated update of `nix/sources.json` for release ${{ steps.tag.outputs.tag }}.'
-          base: main
-          # Only commit the manifest; the downloaded release assets sit in the
-          # work tree and must not be committed.
-          add-paths: nix/sources.json
-          branch: update-nix-sources/${{ steps.hashes.outputs.version }}
-          delete-branch: true
+          set -euo pipefail
+          if git diff --quiet -- nix/sources.json; then
+            echo "nix/sources.json already matches $TAG."
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add nix/sources.json
+          git commit -m "chore: point the Nix package at $TAG"
+          # sync-lockfile may have pushed to main since the checkout.
+          git pull --rebase origin main
+          git push origin HEAD:main
