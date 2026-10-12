@@ -61,7 +61,7 @@ import { colorSwatches } from "./lib/colorSwatches";
 import { todoHighlight } from "./lib/todoHighlight";
 import { suspiciousChars } from "./lib/suspiciousChars";
 import { recordClip } from "@/modules/clipboard/history";
-import { indentRainbow, rainbowBrackets, stickyScroll } from "./lib/visualAids";
+import { indentRainbow, rainbowBrackets, refreshAidsOnSettingChange, stickyScroll } from "./lib/visualAids";
 import { minimap } from "./lib/minimap";
 import { navigationTracker } from "./lib/navHistory";
 import { fileLockFilter } from "./lib/fileLock";
@@ -425,6 +425,7 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
         suspiciousChars(),
         rainbowBrackets(() => analyzableLangRef.current),
         indentRainbow(),
+        refreshAidsOnSettingChange(),
         stickyScroll(),
         minimap(),
         navigationTracker(() => pathRef.current),
