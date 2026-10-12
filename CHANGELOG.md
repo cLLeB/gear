@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.1.6](https://github.com/cLLeB/gear/compare/v0.1.5...v0.1.6) (2026-10-12)
+
+
+### Features
+
+* **editor:** minimap (Settings → Features, or 'Toggle minimap') — a zoomed-out strip of the file with a slider over the visible part; click or drag to scroll. Also 'Window: Toggle always on top' ([9e6abd2](https://github.com/cLLeB/gear/commit/9e6abd2e996a2e762e01db7439be89a4bb3bdbb2))
+* **github:** pull requests, workflow runs and issues from the palette via the gh CLI — check out / diff / checks / merge a PR, read a failed run's log, re-run, watch or cancel it, start a branch for an issue ([b9adb06](https://github.com/cLLeB/gear/commit/b9adb0649fd4167c2dc9a5821d5ca70ea4068593))
+* **terminal:** inline images — Sixel and the iTerm2 image protocol (img2sixel, chafa, imgcat, plotting libraries) via the xterm image addon; Settings → Features → Inline images ([21e3140](https://github.com/cLLeB/gear/commit/21e3140d0ece9d8714b111cf5ee990d605837d06))
+* **window:** global show / hide hotkey — a system-wide key combination brings Gear forward from any app, or hides it when it is already in front (drop-down terminal). Settings → Features, or 'Window: Set the global show / hide hotkey…' ([f1e2b42](https://github.com/cLLeB/gear/commit/f1e2b425492a70af112a8dc8bb180cce7bf3c4f3))
+
+
+### Bug Fixes
+
+* **editor:** text commands no longer edit a hidden tab — with a Markdown preview or another non-editor tab in front they changed the last-used file out of sight; they now say to switch to the editor tab ([b6aba25](https://github.com/cLLeB/gear/commit/b6aba257ca8fd68daccc9dbfddd3f0b7514d7cd9))
+* **github:** strip the caret-notation colour codes gh writes into piped run logs ([eb02f66](https://github.com/cLLeB/gear/commit/eb02f661ee63aeb6ad596348745dcb005e36c39d))
+* **git:** quote arguments that contain a comma — PowerShell split 'log -L5,9:file' in two, so 'History of the selected lines' always failed on Windows ([dab96f3](https://github.com/cLLeB/gear/commit/dab96f36f3595d7a242f15a48c1a5557e7b4ea81))
+* **logview:** opening a log file crashed the editor area — the pane gave the tab host a new handle on every render, which re-rendered it without end; the handle now keeps its identity ([9de3c1e](https://github.com/cLLeB/gear/commit/9de3c1e5d35884035c06599df4c5c4db1efb309a))
+* **palette:** file search always said 'Could not search workspace' — read the hits out of the search result instead of treating the result as the list ([020226c](https://github.com/cLLeB/gear/commit/020226cd993e836a0b274062653d35afb4c29248))
+* **publish:** a Release started by hand never publishes packages on its own — a test build dispatched from main re-published the latest stable release ([aff0a5b](https://github.com/cLLeB/gear/commit/aff0a5bb786a65db3b756045e1f136c619f25506))
+* **publish:** winget needs the workflow scope on WINGET_TOKEN — check for it up front and fail the fork sync with that message instead of komac's misleading UpdateRef error ([28ec150](https://github.com/cLLeB/gear/commit/28ec150d0a2c1d38e554acc79b3f0af1b24692ed))
+* **terminal:** 'Show environment variables' on Windows — 'set' is Set-Variable in PowerShell, so list the environment through cmd ([b828ca1](https://github.com/cLLeB/gear/commit/b828ca1a18f88c0dc72db3bb12a029045fe85f24))
+* **terminal:** report failed PowerShell commands as failed — an unknown command or failing cmdlet inherited the last program's exit code 0, so typo correction and failure marks never fired ([f3fd5eb](https://github.com/cLLeB/gear/commit/f3fd5ebc5954df39193cc579eef3a91fc907bf18))
+
 ## [0.1.5](https://github.com/cLLeB/gear/compare/v0.1.4...v0.1.5) (2026-10-11)
 
 
