@@ -78,7 +78,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           # Explicit: when called by release-please the run's ref is `main`, and
           # main may already have moved past the release commit.
@@ -87,12 +87,12 @@ jobs:
           ref: ${{ (github.event_name == 'workflow_dispatch' && needs.resolve.outputs.prerelease == 'true') && github.sha || needs.resolve.outputs.tag }}
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           version: 9
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 20
           cache: pnpm
@@ -139,7 +139,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build and publish release
-        uses: tauri-apps/tauri-action@v0
+        uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Pin the sidecar's target so a host-arch guess can't ship the wrong
