@@ -177,6 +177,13 @@ export const native = {
       showHidden: false,
       workspace: currentWorkspaceEnv(),
     }),
+  // For Gear's own detection (virtualenvs, version files, task files), which has to see dot-entries.
+  readDirAll: (path: string) =>
+    invoke<DirEntry[]>("fs_read_dir", {
+      path,
+      showHidden: true,
+      workspace: currentWorkspaceEnv(),
+    }),
   grep: (params: {
     pattern: string;
     root: string;

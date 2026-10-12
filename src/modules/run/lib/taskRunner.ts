@@ -28,7 +28,7 @@ const SOURCE_LABEL: Record<string, string> = {
 let lastTask: { root: string; task: DetectedTask } | null = null;
 
 export async function loadProjectTasks(root: string): Promise<DetectedTask[]> {
-  const entries = await native.readDir(root);
+  const entries = await native.readDirAll(root);
   const names = entries.filter((e) => e.kind !== "dir").map((e) => e.name);
   const wanted = TASK_FILES.filter((f) => names.includes(f));
   const contents = new Map<string, string>();
