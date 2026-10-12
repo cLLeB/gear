@@ -14,7 +14,8 @@ export interface OpenTerminalOptions {
 }
 
 export interface AppBridge {
-  openFile: (path: string, line?: number) => void;
+  /** `line` and `column` are 1-based; the column is ignored without a line. */
+  openFile: (path: string, line?: number, column?: number) => void;
   openTerminal: (options?: OpenTerminalOptions) => void;
   openPreview: (url: string) => void;
   /** Leaf id of the active pane when the active tab is a terminal. */
@@ -82,4 +83,16 @@ export function registerAppBridge(impl: AppBridge): () => void {
 
 export function app(): AppBridge {
   return bridge;
+}
+
+/**
+ * Path of the file shown in the tab in front: an editor, a Markdown preview or the log viewer.
+ * Null when the front tab is not a file (a terminal, a tool tab), so callers can fall back to
+ * the last editor the user was in.
+ */
+export function frontFilePath(): string | null {
+  const tab = bridge.tabs().find((t) => t.id === bridge.activeTabId());
+  if (!tab || (tab.kind !== "editor" && tab.kind !== "markdown")) return null;
+  const path = tab.path.startsWith("gear-log://") ? tab.path.slice("gear-log://".length) : tab.path;
+  return /^[a-z][a-z0-9+.-]*:\/\//i.test(path) ? null : path;
 }

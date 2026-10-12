@@ -177,7 +177,7 @@ export async function activateToolchain(): Promise<void> {
   if (leaf === null) return void toast.error("Focus a terminal first");
   const cwd = leafCwd(leaf) ?? app().activeCwd();
   if (!cwd) return;
-  const entries = await native.readDir(cwd).catch(() => []);
+  const entries = await native.readDirAll(cwd).catch(() => []);
   const names = new Set(entries.map((e) => e.name));
   const venvDirs: string[] = [];
   for (const d of [".venv", "venv", "env", ".env"].filter((n) => entries.some((e) => e.name === n && e.kind === "dir"))) {

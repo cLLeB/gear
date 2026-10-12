@@ -52,7 +52,7 @@ function truncate(s: string, n: number): string {
 }
 
 function openProblem(p: ResolvedProblem): void {
-  app().openFile(p.path, p.line);
+  app().openFile(p.path, p.line, p.column ?? undefined);
 }
 
 /** Problems for the focused terminal, else the most recent pane that had any. */

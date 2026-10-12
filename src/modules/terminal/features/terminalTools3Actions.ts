@@ -5,7 +5,7 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { toast } from "sonner";
-import { app } from "@/app/appBridge";
+import { app, frontFilePath } from "@/app/appBridge";
 import { IS_WINDOWS } from "@/lib/platform";
 import { native } from "@/modules/ai/lib/native";
 import { osNotify } from "@/modules/agents/lib/notify";
@@ -257,7 +257,8 @@ async function transferCmd(): Promise<void> {
 }
 
 function tailActiveFile(): void {
-  const path = getActiveEditor()?.path;
+  // The log viewer is not a text editor, so "the last editor" would be some other file.
+  const path = frontFilePath() ?? getActiveEditor()?.path;
   if (!path) return void toast.info("Open the log file in the editor first");
   const cmd = tailCommand(path, SHELL);
   if (!app().splitAndRun("col", cmd)) app().openTerminal({ command: cmd });
@@ -276,7 +277,7 @@ async function serveFolder(): Promise<void> {
   );
   if (!dir) return;
   const port = 8000 + Math.floor(Math.random() * 900);
-  const probe = await native.runCommand(IS_WINDOWS ? "where python & where node" : "command -v python3 || command -v python; command -v node", null, 10).catch(() => null);
+  const probe = await native.runCommand(IS_WINDOWS ? "where.exe python; where.exe node" : "command -v python3 || command -v python; command -v node", null, 10).catch(() => null);
   const out = probe?.stdout ?? "";
   const python = /python3/.test(out) ? "python3" : /python/i.test(out) ? "python" : undefined;
   const cmd = serveCommand({ python, node: /node/i.test(out) }, port);

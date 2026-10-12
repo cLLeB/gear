@@ -65,7 +65,7 @@ async function profileCurrentFile(): Promise<void> {
   } else if (/\.py$/.test(path)) {
     if (!(await hasCommand("py-spy"))) return void toast.error("Python profiling uses py-spy", { description: "Install it with: pip install py-spy" });
     const py = (await pythonFor(cwd)) ?? "python";
-    runInTerminal(`py-spy record -f speedscope -r 250 -o ${q(`${dir}/profile.speedscope.json`)} -- ${q(py)} ${q(path)}`, cwd);
+    runInTerminal(`py-spy record -f speedscope -r 250 --subprocesses -o ${q(`${dir}/profile.speedscope.json`)} -- ${q(py)} ${q(path)}`, cwd);
   } else return void toast.info("Profiling works for JavaScript / TypeScript (Node) and Python files");
   toast.info("Recording… the profile opens when the program exits");
   openWhenWritten(dir);
@@ -90,12 +90,14 @@ async function profileCommand(): Promise<void> {
     runInTerminal(IS_WINDOWS ? `$env:NODE_OPTIONS='${opts}'; ${cmd}; Remove-Item Env:NODE_OPTIONS` : `NODE_OPTIONS=${q(opts)} ${cmd}`, cwd);
   } else {
     if (!(await hasCommand("py-spy"))) return void toast.error("Install py-spy first: pip install py-spy");
-    runInTerminal(`py-spy record -f speedscope -r 250 -o ${q(`${dir}/profile.speedscope.json`)} -- ${cmd}`, cwd);
+    runInTerminal(`py-spy record -f speedscope -r 250 --subprocesses -o ${q(`${dir}/profile.speedscope.json`)} -- ${cmd}`, cwd);
   }
   toast.info("Recording… the profile opens when the command exits");
   openWhenWritten(dir);
 }
 
+// py-spy runs with --subprocesses everywhere: a virtualenv's python.exe on Windows is a small launcher
+// that starts the real interpreter as a child, and py-spy cannot read the launcher itself.
 async function attachPython(): Promise<void> {
   if (!(await hasCommand("py-spy"))) return void toast.error("Install py-spy first: pip install py-spy");
   const ps = await native.runCommand(IS_WINDOWS ? "Get-Process python*,py | Select-Object Id,ProcessName,Path | ConvertTo-Csv -NoTypeInformation" : "ps -eo pid,args | grep -i [p]ython", null, 10).catch(() => null);
@@ -111,7 +113,7 @@ async function attachPython(): Promise<void> {
   const secs = await quickPick([10, 30, 60].map((n) => ({ label: `${n} seconds`, value: n })), { title: "Record for" });
   if (!secs) return;
   const dir = await outDir();
-  runInTerminal(`${IS_WINDOWS ? "" : "sudo "}py-spy record -f speedscope -r 250 -d ${secs} -p ${target} -o ${q(`${dir}/profile.speedscope.json`)}`, null);
+  runInTerminal(`${IS_WINDOWS ? "" : "sudo "}py-spy record -f speedscope -r 250 --subprocesses -d ${secs} -p ${target} -o ${q(`${dir}/profile.speedscope.json`)}`, null);
   toast.info(`Recording ${secs}s from PID ${target}…`);
   openWhenWritten(dir, 10);
 }

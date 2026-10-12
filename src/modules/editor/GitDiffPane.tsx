@@ -202,8 +202,11 @@ export function GitDiffPane({ source, chipLabel, active }: Props) {
   const repoRoot = source.repoRoot;
   const mode = source.kind === "working" ? source.mode : "+";
   const loaded = state.kind === "loaded" ? state : null;
-  const originalContent = loaded?.originalContent ?? "";
-  const modifiedContent = loaded?.modifiedContent ?? "";
+  // Both sides go to the editor with \n only. A working file with Windows line endings would otherwise
+  // never equal the editor's own text, the view kept replacing its document, and no change was drawn.
+  // Line numbers are the same either way, so hunk and line staging are unaffected.
+  const originalContent = useMemo(() => (loaded?.originalContent ?? "").replace(/\r\n/g, "\n"), [loaded?.originalContent]);
+  const modifiedContent = useMemo(() => (loaded?.modifiedContent ?? "").replace(/\r\n/g, "\n"), [loaded?.modifiedContent]);
   const isBinary = loaded?.isBinary ?? false;
   const fallbackPatch = loaded?.fallbackPatch ?? "";
 

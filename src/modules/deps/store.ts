@@ -49,9 +49,11 @@ interface DepsStore {
   projects: Project[];
   busy: Record<string, boolean>;
   log: string;
+  /** True once a search of `root` has finished, so "none found" can be told from "still looking". */
+  discovered: boolean;
 }
 
-export const useDepsStore = create<DepsStore>(() => ({ root: null, projects: [], busy: {}, log: "" }));
+export const useDepsStore = create<DepsStore>(() => ({ root: null, projects: [], busy: {}, log: "", discovered: false }));
 export const DEPS_PATH = "gear-deps://Dependencies";
 
 const line = (argv: string[]) => commandLine(argv, IS_WINDOWS);
@@ -94,7 +96,7 @@ const SKIP = /(^|\/)(node_modules|target|vendor|\.venv|venv|env|dist|build|\.git
 export async function discover(): Promise<Project[]> {
   const root = app().workspaceRoot()?.replace(/\\/g, "/") ?? null;
   if (!root) {
-    useDepsStore.setState({ root: null, projects: [] });
+    useDepsStore.setState({ root: null, projects: [], discovered: true });
     return [];
   }
   const hits = await native.glob({ pattern: "**/{package.json,Cargo.toml,go.mod,pyproject.toml,requirements.txt}", root, maxResults: 400 }).catch(() => ({ hits: [] as { path: string; rel: string }[], truncated: false }));
@@ -131,7 +133,7 @@ export async function discover(): Promise<Project[]> {
     }
   }
   const prev = useDepsStore.getState().projects;
-  useDepsStore.setState({ root, projects: projects.map((p) => prev.find((x) => x.dir === p.dir && x.eco === p.eco) ?? p) });
+  useDepsStore.setState({ root, discovered: true, projects: projects.map((p) => prev.find((x) => x.dir === p.dir && x.eco === p.eco) ?? p) });
   return projects;
 }
 

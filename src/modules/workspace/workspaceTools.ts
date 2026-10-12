@@ -188,7 +188,7 @@ export async function codeStatistics(): Promise<void> {
 export async function generateGitignore(): Promise<void> {
   const root = requireRoot();
   if (!root) return;
-  const entries = await native.readDir(root).catch(() => []);
+  const entries = await native.readDirAll(root).catch(() => []);
   const detected = new Set(detectTemplates(entries.map((e) => e.name)));
   const chosen: string[] = [...detected];
   for (;;) {

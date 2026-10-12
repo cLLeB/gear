@@ -351,9 +351,22 @@ const SKIP_NAMES: &[&str] = &[
     "poetry.lock",
 ];
 
+/// Folders of installed third-party code: their sample keys and test fixtures are noise, not the user's secrets.
+const SKIP_DIRS: &[&str] = &[
+    ".git",
+    "node_modules",
+    ".venv",
+    "venv",
+    "site-packages",
+    "__pycache__",
+];
+
 fn skip_path(rel: &str) -> bool {
     let name = rel.rsplit('/').next().unwrap_or(rel);
-    if SKIP_NAMES.contains(&name) || rel.contains("node_modules/") || rel.starts_with(".git/") {
+    let in_skipped_dir = rel
+        .rsplit_once('/')
+        .is_some_and(|(dirs, _)| dirs.split('/').any(|part| SKIP_DIRS.contains(&part)));
+    if SKIP_NAMES.contains(&name) || in_skipped_dir {
         return true;
     }
     let ext = name
@@ -418,7 +431,7 @@ pub fn scan_tree(root: &Path) -> Result<Vec<Finding>, String> {
     let walker = ignore::WalkBuilder::new(root)
         .hidden(false)
         .git_ignore(true)
-        .filter_entry(|e| e.file_name() != ".git" && e.file_name() != "node_modules")
+        .filter_entry(|e| !SKIP_DIRS.iter().any(|d| e.file_name() == *d))
         .build();
     for entry in walker.flatten() {
         if !entry.file_type().is_some_and(|t| t.is_file()) {

@@ -171,7 +171,9 @@ export function planPreview(rows: RebaseRow[]): string[] {
 export function splitCommitScript(subject: string, files: string[], shell: "posix" | "powershell"): string {
   const q = shell === "powershell" ? (s: string) => `'${s.replace(/'/g, "''")}'` : (s: string) => `'${s.replace(/'/g, `'\\''`)}'`;
   const name = (f: string) => f.replace(/^.*\//, "");
-  const steps = ["git reset --soft HEAD~1", "git reset -q", ...files.map((f) => `git add -A -- ${q(f)} && git commit -q -m ${q(`${subject} (${name(f)})`)}`)];
+  // Windows PowerShell 5.1 has no &&, so there the commit is guarded with $? instead.
+  const both = (add: string, commit: string) => (shell === "powershell" ? `${add}; if ($?) { ${commit} }` : `${add} && ${commit}`);
+  const steps = ["git reset --soft HEAD~1", "git reset -q", ...files.map((f) => both(`git add -A -- ${q(f)}`, `git commit -q -m ${q(`${subject} (${name(f)})`)}`))];
   return steps.join(shell === "powershell" ? "; " : " && ");
 }
 

@@ -6,6 +6,7 @@ import { RangeSetBuilder, type Extension } from "@codemirror/state";
 import { Decoration, type DecorationSet, EditorView, ViewPlugin, type ViewUpdate } from "@codemirror/view";
 import { computeBracketPairs } from "@/lib/lang/bracketPairs";
 import { getFeature } from "@/modules/settings/useFeature";
+import { usePreferencesStore } from "@/modules/settings/preferences";
 
 const MAX_DOC = 600_000;
 const BRACKET_COLORS = 6;
@@ -190,20 +191,30 @@ export function enclosingHeaders(lines: (n: number) => string, lineNo: number, m
 class StickyPlugin {
   dom: HTMLElement;
   private raf = 0;
-  private onScroll = () => {
+  // Reading line positions is not allowed while the editor is updating, so every render waits a frame.
+  private schedule = () => {
     cancelAnimationFrame(this.raf);
     this.raf = requestAnimationFrame(() => this.render());
   };
+  private unsubscribe: () => void;
   constructor(readonly view: EditorView) {
     // An overlay on the editor (outside the scroller) so it never shifts layout.
     this.dom = document.createElement("div");
     this.dom.className = "cm-sticky";
     view.dom.appendChild(this.dom);
-    view.scrollDOM.addEventListener("scroll", this.onScroll, { passive: true });
-    this.render();
+    view.scrollDOM.addEventListener("scroll", this.schedule, { passive: true });
+    let enabled = getFeature("editor.stickyScroll");
+    this.unsubscribe = usePreferencesStore.subscribe(() => {
+      const now = getFeature("editor.stickyScroll");
+      if (now !== enabled) {
+        enabled = now;
+        this.schedule();
+      }
+    });
+    this.schedule();
   }
   update(u: ViewUpdate) {
-    if (u.docChanged || u.viewportChanged || u.geometryChanged) this.render();
+    if (u.docChanged || u.viewportChanged || u.geometryChanged) this.schedule();
   }
   render() {
     const view = this.view;
@@ -247,9 +258,36 @@ class StickyPlugin {
   }
   destroy() {
     cancelAnimationFrame(this.raf);
-    this.view.scrollDOM.removeEventListener("scroll", this.onScroll);
+    this.view.scrollDOM.removeEventListener("scroll", this.schedule);
+    this.unsubscribe();
     this.dom.remove();
   }
+}
+
+/**
+ * Redraws the aids above the moment their setting changes. Their plugins only look at the setting
+ * during an editor update, so without this a toggle showed nothing until the next keystroke.
+ */
+export function refreshAidsOnSettingChange(): Extension {
+  return ViewPlugin.fromClass(
+    class {
+      private unsubscribe: () => void;
+      constructor(view: EditorView) {
+        const read = () => `${getFeature("editor.rainbowBrackets")}|${getFeature("editor.indentRainbow")}`;
+        let last = read();
+        this.unsubscribe = usePreferencesStore.subscribe(() => {
+          const now = read();
+          if (now === last) return;
+          last = now;
+          // An empty transaction is enough to run every plugin's update.
+          queueMicrotask(() => view.dispatch({}));
+        });
+      }
+      destroy() {
+        this.unsubscribe();
+      }
+    },
+  );
 }
 
 export function stickyScroll(): Extension {

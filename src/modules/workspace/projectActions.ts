@@ -188,10 +188,18 @@ export async function bumpVersion(): Promise<void> {
   for (const f of found) await native.writeFile(`${root}/${f.file}`, setManifestVersion(f.file, f.content, next)!.content, "user");
   const tag = await confirmPick(`Version is now ${next}. Commit and tag v${next}?`, "Commit + tag", "Runs git commit and git tag in the workspace");
   if (tag) {
-    const files = found.map((f) => f.file).join(" ");
-    const r = await native.runCommand(`git add ${files} && git commit -m "chore: release ${next}" && git tag v${next}`, root, 30);
-    if (r.exit_code === 0) toast.success(`Committed and tagged v${next}`);
-    else toast.error("git failed", { description: (r.stderr || r.stdout).trim().slice(0, 300) });
+    // One git call at a time: Windows PowerShell 5.1 cannot chain commands with &&.
+    const steps = [`git add ${found.map((f) => f.file).join(" ")}`, `git commit -m "chore: release ${next}"`, `git tag v${next}`];
+    let failed: string | null = null;
+    for (const step of steps) {
+      const r = await native.runCommand(step, root, 30);
+      if (r.exit_code !== 0) {
+        failed = (r.stderr || r.stdout).trim().slice(0, 300);
+        break;
+      }
+    }
+    if (failed === null) toast.success(`Committed and tagged v${next}`);
+    else toast.error("git failed", { description: failed });
   } else toast.success(`Bumped to ${next}`);
 }
 

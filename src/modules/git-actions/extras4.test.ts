@@ -70,7 +70,7 @@ describe("rebase", () => {
     expect(splitCommitScript("feat: it's", ["src/a.ts", "b.md"], "posix")).toBe(
       "git reset --soft HEAD~1 && git reset -q && git add -A -- 'src/a.ts' && git commit -q -m 'feat: it'\\''s (a.ts)' && git add -A -- 'b.md' && git commit -q -m 'feat: it'\\''s (b.md)'",
     );
-    expect(splitCommitScript("x", ["a"], "powershell")).toBe("git reset --soft HEAD~1; git reset -q; git add -A -- 'a' && git commit -q -m 'x (a)'");
+    expect(splitCommitScript("x", ["a"], "powershell")).toBe("git reset --soft HEAD~1; git reset -q; git add -A -- 'a'; if ($?) { git commit -q -m 'x (a)' }");
   });
 });
 

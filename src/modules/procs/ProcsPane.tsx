@@ -92,7 +92,8 @@ export const ProcsPane = forwardRef<EditorPaneHandle, { path: string }>(function
       <div className="flex items-center gap-2 border-b border-border/60 px-3 py-1.5">
         <span className="font-medium">Ports & processes</span>
         <span className="text-[11px] text-muted-foreground">
-          {procs.length} processes · {ports.length} listening{sampledAt ? ` · ${new Date(sampledAt).toLocaleTimeString([], { hour12: false })}` : ""}
+          {sampledAt ? `${procs.length} processes · ${ports.length} listening` : error ? "" : "Reading processes…"}
+          {sampledAt ? ` · ${new Date(sampledAt).toLocaleTimeString([], { hour12: false })}` : ""}
         </span>
         {error && <span className="truncate text-[11px] text-destructive">{error}</span>}
         <span className="flex-1" />
@@ -137,7 +138,7 @@ export const ProcsPane = forwardRef<EditorPaneHandle, { path: string }>(function
             ))}
             {!ports.length && (
               <tr>
-                <td className="px-3 py-1 text-muted-foreground">Nothing is listening.</td>
+                <td className="px-3 py-1 text-muted-foreground">{sampledAt ? "Nothing is listening." : "…"}</td>
               </tr>
             )}
           </tbody>
