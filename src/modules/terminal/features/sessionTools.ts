@@ -404,7 +404,7 @@ export function parseEnvOutput(out: string): [string, string][] {
 
 export async function showEnvironment(): Promise<void> {
   const cwd = app().activeCwd();
-  const r = await native.runCommand(IS_WINDOWS ? "set" : "env", cwd, 10).catch(() => null);
+  const r = await native.runCommand(IS_WINDOWS ? "cmd /d /c set" : "env", cwd, 10).catch(() => null);
   if (!r || r.exit_code !== 0) {
     toast.error("Could not read the environment");
     return;

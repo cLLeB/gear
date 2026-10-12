@@ -296,28 +296,38 @@ export const LogPane = forwardRef<EditorPaneHandle, { path: string }>(function L
     else toast.info("Clear the filters to jump to a file line");
   };
 
+  // The tab host stores this handle in state, so it has to keep its identity between renders:
+  // a fresh object on every render makes the host re-render, which renders this pane again, without end.
+  // The methods read what they need through `live`, which always holds the latest render's values.
+  const live = useRef({ step, gotoLine, selected, rows, id, resetRows });
+  live.current = { step, gotoLine, selected, rows, id, resetRows };
   useImperativeHandle(
     ref,
     () =>
       ({
         setQuery: (q: string) => setFind(q),
-        findNext: () => step(1),
-        findPrevious: () => step(-1),
+        findNext: () => live.current.step(1),
+        findPrevious: () => live.current.step(-1),
         clearQuery: () => setFind(""),
         focus: () => scroller.current?.focus(),
-        getSelection: () => (selected !== null ? (rows.get(selected)?.text ?? null) : null),
+        getSelection: () => {
+          const { selected, rows } = live.current;
+          return selected !== null ? (rows.get(selected)?.text ?? null) : null;
+        },
         getPath: () => path,
         reload: () => {
+          const { id, resetRows } = live.current;
           if (id !== undefined) void invoke<LogInfo>("log_refresh", { id }).then((i) => (resetRows(), setInfo(i), setHist(null)));
           return true;
         },
-        gotoLine: () => void gotoLine(),
+        gotoLine: () => void live.current.gotoLine(),
         undo: () => {},
         redo: () => {},
         openFindReplace: () => {},
         toggleBlame: () => {},
         save: async () => {},
       }) as EditorPaneHandle,
+    [path],
   );
 
   const t = totals(hist);

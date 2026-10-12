@@ -3,7 +3,7 @@
 // file, else the active terminal's cwd, else the workspace root.
 
 import { app } from "@/app/appBridge";
-import { quoteShellArg } from "@/lib/shellQuote";
+import { shellWord } from "@/lib/shellQuote";
 import { native } from "@/modules/ai/lib/native";
 import { getActiveEditor } from "@/modules/editor/lib/activeEditor";
 import { toast } from "sonner";
@@ -37,7 +37,7 @@ export interface GitResult {
 }
 
 export async function git(root: string, args: string[], timeoutSecs = 30): Promise<GitResult> {
-  const cmd = ["git", ...args.map((a) => (/^[\w@%+=:,./-]+$/.test(a) ? a : quoteShellArg(a)))].join(" ");
+  const cmd = ["git", ...args.map((a) => shellWord(a))].join(" ");
   const out = await native.runCommand(cmd, root, timeoutSecs);
   return { ok: out.exit_code === 0, stdout: out.stdout, stderr: out.stderr };
 }
