@@ -27,7 +27,7 @@ const LIBRARY: Array<Omit<Workflow, "source">> = [
   { id: "git-file-history", name: "History of a file (follow renames)", command: "git log --follow -p -- {{path}}", tags: ["git"] },
   { id: "git-changed-files", name: "Files changed in a commit", command: "git show --stat --oneline {{commit:HEAD}}", tags: ["git"] },
   { id: "git-stash-msg", name: "Stash with a message (incl. untracked)", command: 'git stash push -u -m "{{message}}"', tags: ["git"] },
-  { id: "git-sync-fork", name: "Sync branch with upstream", command: "git fetch {{remote:upstream}} && git rebase {{remote:upstream}}/{{branch:main}}", tags: ["git"] },
+  { id: "git-sync-fork", name: "Sync branch with upstream", command: "git fetch {{remote:upstream}}; git rebase {{remote:upstream}}/{{branch:main}}", tags: ["git"] },
   { id: "git-blame-range", name: "Blame a line range", command: "git blame -L {{start}},{{end}} -- {{path}}", tags: ["git"] },
   { id: "git-contributors", name: "Contributors by commit count", command: "git shortlog -sne --all", tags: ["git", "stats"] },
   // processes & ports
