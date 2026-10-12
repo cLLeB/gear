@@ -11,6 +11,7 @@ pub mod history;
 pub mod hotkey;
 pub mod logview;
 pub mod lsp;
+pub mod mock;
 pub mod net;
 pub mod proc;
 pub mod pty;

@@ -1,6 +1,7 @@
 pub mod bytes;
 pub mod clipboard;
 pub mod clipboard_image;
+pub mod devtools;
 pub mod file;
 pub mod grep;
 pub mod mutate;
