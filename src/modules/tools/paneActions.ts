@@ -2,6 +2,16 @@
 // plus the list of every tool-pane command, registered in one place.
 
 import { BOARD_ACTIONS } from "@/modules/board/BoardPane";
+import { CHART_ACTIONS } from "@/modules/charts/ChartPane";
+import { CODEIMAGE_ACTIONS } from "@/modules/codeimage/CodeImagePane";
+import { CRON_ACTIONS } from "@/modules/cronlab/CronPane";
+import { ENV_ACTIONS } from "@/modules/envmatrix/EnvPane";
+import { I18N_ACTIONS } from "@/modules/i18nkeys/I18nPane";
+import { openImportGraph } from "@/modules/importgraph/ImportGraphPane";
+import { openLoadTest } from "@/modules/loadtest/LoadTestPane";
+import { QR_ACTIONS } from "@/modules/qrcode/QrPane";
+import { SLIDES_ACTIONS } from "@/modules/slides/SlidesPane";
+import { ZIP_ACTIONS } from "@/modules/ziparchive/ZipPane";
 import { openDirCompare } from "@/modules/dircompare/DirComparePane";
 import { openDiskUsage, openDiskUsageFor } from "@/modules/diskusage/DiskUsagePane";
 import { HEX_ACTIONS } from "@/modules/hexedit/HexPane";
@@ -26,4 +36,14 @@ export const TOOL_PANE_ACTIONS = [
   ...TABLE_ACTIONS,
   ...WS_ACTIONS,
   ...REGEX_ACTIONS,
+  { id: "loadtest.open", label: "Load test: Measure a local HTTP server under load", keywords: ["load", "test", "benchmark", "stress", "performance", "latency", "requests per second", "rps", "ab", "wrk", "hey"], run: openLoadTest },
+  { id: "imports.open", label: "Import graph: What imports what in this workspace", keywords: ["imports", "dependencies", "graph", "cycles", "circular", "unused files", "orphans", "modules", "madge"], run: openImportGraph },
+  ...SLIDES_ACTIONS,
+  ...CODEIMAGE_ACTIONS,
+  ...QR_ACTIONS,
+  ...ZIP_ACTIONS,
+  ...I18N_ACTIONS,
+  ...ENV_ACTIONS,
+  ...CRON_ACTIONS,
+  ...CHART_ACTIONS,
 ];

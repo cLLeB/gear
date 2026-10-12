@@ -1,6 +1,6 @@
 # Tool tabs
 
-Ten tools open as tabs from the command palette (`Ctrl/Cmd+Shift+P`). None of
+Twenty tools open as tabs from the command palette (`Ctrl/Cmd+Shift+P`). None of
 them needs anything installed.
 
 ## Compare two folders
@@ -152,3 +152,118 @@ sample text.
 
 Matching uses the JavaScript engine, so other languages can differ in details
 such as lookbehind and Unicode classes.
+
+## Load test
+
+**Load test: Measure a local HTTP server under load** sends a number of
+requests, a fixed number at a time, and reports requests per second, the
+median, 95th and 99th percentile, a latency histogram, completions per second,
+status codes and errors. **Copy report** gives the numbers as text.
+
+Only addresses on this machine or a private network can be tested; anything
+else is refused. A run is capped at 20,000 requests, 64 at a time.
+
+## Markdown slides
+
+**Slides: Present this Markdown file** shows the file in front as slides;
+**Slides: New slide deck…** creates a sample.
+
+- A line of three dashes with a blank line above it starts a new slide.
+- Text after a line starting with `Note:` (or `???`) is a speaker note, shown
+  only in the notes panel.
+- Front matter at the top is skipped; its `title:` names the deck.
+
+| Key | |
+|---|---|
+| `→` `↓` `Space` `Enter` / `←` `↑` `Backspace` | next / previous |
+| `Home`, `End` | first, last |
+| `O` | overview of all slides |
+| `S` | notes and the next slide |
+| `F` | full screen |
+| `T` | restart the clock |
+
+Long slides are scaled down to fit. **Edit slide** jumps to the slide's line in
+the Markdown file.
+
+## Import graph
+
+**Import graph: What imports what in this workspace** reads the imports of
+JavaScript, TypeScript and Python files (relative paths, the `@/` alias, Python
+packages).
+
+- **File** — what the selected file imports and what imports it, how many files
+  depend on it in total, and the chain of imports from it to another file.
+- **Cycles** — groups of files that import each other.
+- **Not imported** — files nothing imports (entry points, tests and config
+  files are left out).
+- **Most imported** and **Packages**.
+
+**Copy as DOT** gives the whole graph for Graphviz.
+
+## Code image
+
+Select code, then **Code image: Make a picture of the selected code**. Choose a
+theme, a backdrop, the size, and whether to show line numbers, a window frame
+and the file name. **Copy image** or **Save PNG** (into the workspace folder, at
+twice the shown size).
+
+## QR code
+
+**QR code: Make a QR code** for text or a link, Wi-Fi details, a contact or an
+e-mail. A selection in the editor becomes the text. Choose the error-correction
+level (H survives the most damage — use it for print) and the colours, then copy
+or save as SVG or PNG. One code holds up to 2,953 bytes at level L.
+
+## Archive browser
+
+**Archive: Look inside a zip file…** lists a zip — or a `.jar`, `.docx`,
+`.xlsx`, `.epub`, `.vsix`, `.whl`, `.apk` — as a tree with sizes. Click a text
+file to preview it; **Extract…** writes one entry, a folder or everything to a
+folder you name. Entries whose names point outside that folder are skipped.
+Password-protected entries and Zip64 archives are not supported.
+
+## Translations
+
+**Translations: Compare and edit translation files** finds JSON locale files in
+folders such as `locales`, `i18n`, `lang` or `messages` — either
+`locales/en.json`, `locales/fr.json` or `locales/en/common.json`,
+`locales/fr/common.json` — and shows every key next to its text in each language.
+
+| Marked | Means |
+|---|---|
+| red | the key is missing, or its text is empty |
+| amber | same text as the base language (probably not translated) |
+| violet | the placeholders (`{name}`, `{{count}}`, `%s`) differ from the base |
+
+Click a text to edit it. **+ Key** adds a key to every file. Files are written
+back with their own indentation and key order.
+
+## Environment files
+
+**Environment: Compare .env files side by side** lists every variable of the
+`.env*` files in the workspace's top folder. Values are masked until you tick
+**Show values** or reveal a single one.
+
+- Red: missing from a file, or empty. Amber: the files disagree.
+- `.env.example` and similar are treated as templates: their empty values are expected.
+- Editing rewrites only that line; comments, order and `export` are kept.
+- **+ File** creates a new file from the template; **+ Variable** adds a name to every file.
+
+## Cron workbench
+
+**Cron: Open the cron workbench** explains a five-field cron expression in
+words, lists the next twelve run times (local time or UTC) and says what is
+wrong when the expression does not parse. A selected expression in the editor is
+taken over. It warns about schedules that are valid but surprising, such as
+setting both day fields.
+
+## Charts
+
+**Chart: Plot this CSV / JSON file** draws a line, bar, scatter or histogram
+chart from a `.csv`, `.tsv` or `.json` file (an array of objects, or an object
+of arrays). The first chart is chosen from the columns: dates give a line chart,
+categories a bar chart.
+
+Bar charts group by a column and show the sum, mean, count, minimum or maximum.
+Line and scatter charts can show several columns and a trend line with its r².
+**Copy image** and **Save SVG** export the chart.
