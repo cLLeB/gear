@@ -1,5 +1,43 @@
 # Changelog
 
+## [0.1.7](https://github.com/cLLeB/gear/compare/v0.1.6...v0.1.7) (2026-10-12)
+
+
+### Features
+
+* **compare:** compare two folders — what exists on one side only, what differs and what is identical; open a file diff or copy a file across ([a3f37d5](https://github.com/cLLeB/gear/commit/a3f37d5caf9beb05050eb2021f0d6f19c6d4cef3))
+* **editor:** code image — the selected code as a themed PNG with optional line numbers, window frame and backdrop ([68efe06](https://github.com/cLLeB/gear/commit/68efe0679f77f6988e1dc2528453b3663a669029))
+* **editor:** hex editor — edit a file byte by byte in hex or text, insert and delete bytes, search, go to an offset, and read the bytes at the cursor as numbers ([bf4f04d](https://github.com/cLLeB/gear/commit/bf4f04de4c9d526b0e66f6084f29b4125e91467c))
+* **editor:** keyboard macros — record typing and command keys, play back once, N times or to the end of the file, and keep named macros ([8c150a6](https://github.com/cLLeB/gear/commit/8c150a6b5b0eaad751b22f80870f8209cff51c89))
+* **editor:** table view for CSV and TSV — sort, filter, edit cells, add and remove rows and columns, column statistics, saved in the file's own dialect ([67d75ef](https://github.com/cLLeB/gear/commit/67d75ef72ed2ef18d0473c789331e4cb72004b8b))
+* **http:** load test for local servers — N requests at a fixed concurrency with throughput, percentiles, a latency histogram and a per-second timeline; only local and private addresses can be targeted ([519b15e](https://github.com/cLLeB/gear/commit/519b15e509c39aa5520857fd8df040f464e16921))
+* **http:** mock API server — answer requests from a table of canned routes with path parameters, templated bodies and delays, and watch every request arrive ([a1083c2](https://github.com/cLLeB/gear/commit/a1083c2cac716db14ae89828bfad2741211c3804))
+* **http:** WebSocket client — connect, send and receive messages, reconnect, filter the log and keep saved messages ([285f77b](https://github.com/cLLeB/gear/commit/285f77b1190a87d6d6c4c9f2bff0efae90d2e0e1))
+* **markdown:** Kanban board over a Markdown file — headings are columns and list items are cards; drag, edit and tick cards and the file stays plain Markdown ([6ca4ab8](https://github.com/cLLeB/gear/commit/6ca4ab8530cd64adef6dcca4eb2c1da28f559948))
+* **markdown:** present a Markdown file as slides — speaker notes, overview, full screen, a clock, and long slides scaled to fit ([58822b9](https://github.com/cLLeB/gear/commit/58822b90b33f31f5b665a94d73b0264dbe2f95c7))
+* **palette:** commands and tabs for ten more tool panes, with documentation ([1117157](https://github.com/cLLeB/gear/commit/11171577ce835afefa77b5f47eb13d56fcadfd3f))
+* **palette:** commands and tabs for the new tool panes — also lets the app connect to WebSockets on this machine and to secure ones elsewhere ([e3949eb](https://github.com/cLLeB/gear/commit/e3949ebd84514cd36c5c9cff15e740584192e9bf))
+* ten more tools — load test, slides, import graph, code image, QR codes, archive browser, translations, .env files, cron, charts ([139e166](https://github.com/cLLeB/gear/commit/139e16636eada7c282eb66f813df9ce3ad645e1d))
+* ten new tools — folder compare, disk usage, mock API server, macros, Kanban board, time tracking, hex editor, table view, WebSocket client, regex workbench ([bba8e81](https://github.com/cLLeB/gear/commit/bba8e819b9137f5b786d34ef1fbb473e3a345ca3))
+* **tools:** backend for new tool panes — compare two folders by content, measure a folder as a size tree, write raw bytes, and a local mock HTTP server with route patterns and body templates ([a10d2c9](https://github.com/cLLeB/gear/commit/a10d2c9806b2d4537e8044b7e31430c29a0c6aeb))
+* **tools:** charts from CSV and JSON files — line, bar, scatter and histogram with grouping, a trend line and SVG / PNG export ([8731339](https://github.com/cLLeB/gear/commit/8731339f1b02a8dd3cbfe6570d597b6b73868764))
+* **tools:** cron workbench — a cron expression in plain words, its next run times, clear errors and warnings about surprising schedules ([7d34cf6](https://github.com/cLLeB/gear/commit/7d34cf6ea375dfecc176fbfb2bd3c8cb83729df1))
+* **tools:** QR code generator — text, links, Wi-Fi, contacts and e-mail, all versions and error-correction levels, as SVG or PNG ([acbaa2c](https://github.com/cLLeB/gear/commit/acbaa2cd78461d2c4210979fe03cf9a9cdbc25b9))
+* **tools:** regex workbench — live matches and groups, replacement preview, a plain-language explanation of the pattern and code for five languages ([048defb](https://github.com/cLLeB/gear/commit/048defb0ef00a571e78e9b735429f300daaf59ca))
+* **workspace:** .env files side by side — missing, empty and differing variables with masked values, editing only the changed line ([95a1f22](https://github.com/cLLeB/gear/commit/95a1f223651db85322b5f3ca768bb478a12f63ab))
+* **workspace:** archive browser — look inside zip-based files, preview text entries and extract safely ([a2d5e1a](https://github.com/cLLeB/gear/commit/a2d5e1aab303a0ab35bffde5fbf1be295863d918))
+* **workspace:** disk usage map — a treemap of what takes up the space in a folder, with drill-down and a sorted list ([f263f1e](https://github.com/cLLeB/gear/commit/f263f1e24e9a346f6a0da26112bf2b07241ac477))
+* **workspace:** import graph — what each file imports and what imports it, import cycles, files nothing imports, and the packages in use, for JavaScript, TypeScript and Python ([3ff82f6](https://github.com/cLLeB/gear/commit/3ff82f6154177007a8eb80caa8f1f2585a7b4211))
+* **workspace:** time tracking — opt-in, local-only record of active time per day, folder, language and file, with a CSV export ([020a851](https://github.com/cLLeB/gear/commit/020a8519af64d767aa1b1e25021be0944bf6cbc1))
+* **workspace:** translation files side by side — missing, empty and untranslated keys and placeholder mismatches, edited in place ([2df32e4](https://github.com/cLLeB/gear/commit/2df32e4fc1a68433bdb635bcb98380d9ffcd0a36))
+
+
+### Bug Fixes
+
+* **nix:** the Nix package installs Gear 0.1.6 — it pointed at a version and per-architecture macOS archives that were never published; it now uses the universal macOS build, and the update workflow writes the file name and hashes from the release ([#35](https://github.com/cLLeB/gear/issues/35)) ([bff2c49](https://github.com/cLLeB/gear/commit/bff2c4904e910d941dc987b2c1826d3efcfb951d))
+* **window:** a narrow window can be dragged again — the top bar was filled edge to edge, so the search box now folds into an icon below 900 px, a strip of the bar is always left free, and the logo and name drag the window too ([686aa1f](https://github.com/cLLeB/gear/commit/686aa1fa5ebac34dd63d5665b9f6c551a1458cbf))
+* **window:** the top bar's drag strip had no height — it sat in a centred row and asked for 100% of an undefined height, so the pointer never landed on it at any window width; it and the logo block now span the bar's full height ([84dedc3](https://github.com/cLLeB/gear/commit/84dedc3c2cd2a0516e57c4dae75b1bb3a32cb3d3))
+
 ## [0.1.6](https://github.com/cLLeB/gear/compare/v0.1.5...v0.1.6) (2026-10-12)
 
 
