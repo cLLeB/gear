@@ -234,7 +234,7 @@ export function Header({
       {IS_MAC && <span className="mr-1 h-full w-px shrink-0 bg-border" />}
 
       {!IS_MAC && (
-        <div className="flex shrink-0 items-center gap-1.5 pr-1" data-tauri-drag-region onDoubleClick={handleDragRegionDoubleClick}>
+        <div className="flex h-10 shrink-0 items-center gap-1.5 pr-1" data-tauri-drag-region onDoubleClick={handleDragRegionDoubleClick}>
           <img src="/logo.png" alt="Gear" className="size-4 select-none opacity-90" draggable={false} data-tauri-drag-region />
           <span className="text-[11px] font-semibold tracking-tight text-foreground/60 select-none" data-tauri-drag-region>Gear</span>
           <span className="ml-0.5 h-3.5 w-px shrink-0 bg-border/70" />
@@ -272,7 +272,8 @@ export function Header({
         />
         <div
           data-tauri-drag-region
-          className="h-full min-w-12 flex-1"
+          // An explicit height: "h-full" of this centred row is zero, which left nothing to grab.
+          className="h-10 min-w-12 flex-1"
           onDoubleClick={handleDragRegionDoubleClick}
         />
       </div>
