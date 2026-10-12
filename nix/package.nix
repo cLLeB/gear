@@ -12,14 +12,15 @@ let
       url = "https://github.com/cLLeB/gear/releases/download/v${version}/Gear_${version}_amd64.deb";
       hash = sources.hashes.x86_64-linux;
     };
-    x86_64-darwin = fetchurl {
-      url = "https://github.com/cLLeB/gear/releases/download/v${version}/Gear_x64.app.tar.gz";
-      hash = sources.hashes.x86_64-darwin;
-    };
-    aarch64-darwin = fetchurl {
-      url = "https://github.com/cLLeB/gear/releases/download/v${version}/Gear_aarch64.app.tar.gz";
-      hash = sources.hashes.aarch64-darwin;
-    };
+    x86_64-darwin = darwinSrc;
+    aarch64-darwin = darwinSrc;
+  };
+
+  # One universal macOS build serves both architectures. Its file name is read
+  # from sources.json because the release tooling decides it.
+  darwinSrc = fetchurl {
+    url = "https://github.com/cLLeB/gear/releases/download/v${version}/${sources.darwinAsset}";
+    hash = sources.hashes.darwin;
   };
 
   sys = stdenv.hostPlatform.system;
@@ -69,7 +70,7 @@ stdenv.mkDerivation {
 
   meta = with lib; {
     description = "Open-source lightweight cross-platform AI-native terminal (ADE)";
-    homepage = "https://gear.app";
+    homepage = "https://github.com/cLLeB/gear";
     license = licenses.asl20;
     platforms = [ "x86_64-linux" "x86_64-darwin" "aarch64-darwin" ];
   };
