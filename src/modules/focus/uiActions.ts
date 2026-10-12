@@ -1,6 +1,8 @@
 // Palette actions: focus timer, editor navigation history and visual aids,
 // accent-generated themes and scheduled light/dark switching.
 
+import { invoke } from "@tauri-apps/api/core";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { toast } from "sonner";
 import { inputBox, quickPick } from "@/modules/quick-pick";
 import { goBack, goForward, navHistoryList } from "@/modules/editor/lib/navHistory";
@@ -54,10 +56,42 @@ export async function navigationHistory(): Promise<void> {
   for (let i = 0; i < pick.n; i++) (pick.dir < 0 ? goBack : goForward)();
 }
 
-async function toggleFeature(key: "editor.stickyScroll" | "editor.rainbowBrackets" | "editor.indentRainbow", label: string) {
+async function toggleFeature(key: "editor.stickyScroll" | "editor.rainbowBrackets" | "editor.indentRainbow" | "editor.minimap", label: string) {
   const next = !getFeature(key);
   await setFeatureSetting(key, next);
   toast.info(`${label} ${next ? "on" : "off"}`);
+}
+
+async function toggleAlwaysOnTop(): Promise<void> {
+  const win = getCurrentWindow();
+  try {
+    const next = !(await win.isAlwaysOnTop());
+    await win.setAlwaysOnTop(next);
+    toast.info(next ? "Window stays on top of other windows" : "Window no longer stays on top");
+  } catch (e) {
+    toast.error("Could not change always on top", { description: String(e) });
+  }
+}
+
+async function setGlobalHotkey(): Promise<void> {
+  const current = getFeature("window.globalHotkey");
+  const next = await inputBox({
+    title: "Global show / hide hotkey",
+    placeholder: "Ctrl+` or Alt+Space — empty for none",
+    value: current,
+    prompt: "Works in any app: brings Gear forward, or hides it when it is already in front.",
+  });
+  if (next === undefined) return;
+  const shortcut = next.trim();
+  try {
+    await invoke("window_set_global_hotkey", { shortcut });
+  } catch (e) {
+    // Put the previous one back; the failed attempt cleared it.
+    await invoke("window_set_global_hotkey", { shortcut: current }).catch(() => {});
+    return void toast.error("Hotkey not set", { description: String(e) });
+  }
+  await setFeatureSetting("window.globalHotkey", shortcut);
+  toast.success(shortcut ? `${shortcut} now shows and hides Gear` : "Global hotkey removed");
 }
 
 export async function themeFromAccentAction(): Promise<void> {
@@ -113,8 +147,11 @@ export const UI_ACTIONS = [
   { id: "editor.goForward", label: "Go forward", keywords: ["navigate", "forward", "history", "next location"], run: () => void (goForward() || toast.info("Nothing to go forward to")) },
   { id: "editor.navHistory", label: "Navigation history…", keywords: ["navigate", "history", "locations", "jumps"], run: navigationHistory },
   { id: "editor.toggleSticky", label: "Toggle sticky scroll", keywords: ["sticky", "scope", "header", "breadcrumb", "context"], run: () => toggleFeature("editor.stickyScroll", "Sticky scroll") },
+  { id: "editor.toggleMinimap", label: "Toggle minimap", keywords: ["minimap", "overview", "map", "scroll", "outline"], run: () => toggleFeature("editor.minimap", "Minimap") },
   { id: "editor.toggleRainbow", label: "Toggle rainbow brackets", keywords: ["brackets", "rainbow", "colour", "pairs"], run: () => toggleFeature("editor.rainbowBrackets", "Rainbow brackets") },
   { id: "editor.toggleIndentRainbow", label: "Toggle indentation rainbow", keywords: ["indent", "rainbow", "yaml", "python", "whitespace"], run: () => toggleFeature("editor.indentRainbow", "Indentation rainbow") },
+  { id: "window.alwaysOnTop", label: "Window: Toggle always on top", keywords: ["pin", "float", "topmost", "above", "stay on top", "window"], run: toggleAlwaysOnTop },
+  { id: "window.globalHotkey", label: "Window: Set the global show / hide hotkey…", keywords: ["quake", "drop-down", "dropdown", "hotkey", "global", "summon", "visor", "show", "hide"], run: setGlobalHotkey },
   { id: "theme.fromAccent", label: "Theme: Generate from an accent colour…", keywords: ["theme", "accent", "colour", "brand", "generate", "palette"], run: themeFromAccentAction },
   { id: "theme.schedule", label: "Theme: Switch light/dark on a schedule…", keywords: ["theme", "schedule", "night", "day", "auto", "dark mode", "time"], run: setThemeSchedule },
 ];

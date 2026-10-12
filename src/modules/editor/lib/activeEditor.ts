@@ -68,3 +68,13 @@ export function getActiveEditor(): ActiveEditor | null {
   }
   return active;
 }
+
+/**
+ * The last-focused editor, but only while its tab is the one on screen. Background tabs stay
+ * mounted and are hidden with `invisible`; a command that edits text must not reach into one of
+ * those just because the tab in front (a preview, a terminal, a viewer) has no editor of its own.
+ */
+export function getVisibleEditor(): ActiveEditor | null {
+  const ed = getActiveEditor();
+  return ed && !ed.view.dom.closest(".invisible") ? ed : null;
+}

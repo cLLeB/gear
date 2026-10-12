@@ -37,7 +37,7 @@ collide with it as a second x64 installer entry.
 
 | Thing | Why |
 | --- | --- |
-| `WINGET_TOKEN` repo secret | GitHub PAT with `public_repo` scope, on an account that has a fork of `microsoft/winget-pkgs`. The job fails fast with a clear message if it is missing. |
+| `WINGET_TOKEN` repo secret | Classic GitHub PAT with the `public_repo` and `workflow` scopes, on an account that has a fork of `microsoft/winget-pkgs`. The job fails fast with a clear message if it is missing. |
 | A `.msi` asset on the release | The job polls for up to 5 minutes for it to appear before submitting. |
 | `cLLeB.Gear` already in winget-pkgs | `winget-releaser` updates existing packages; it cannot create the first version. |
 | A reasonably fresh `cLLeB/winget-pkgs` fork | The workflow syncs it automatically before submitting — see below. |
@@ -63,6 +63,15 @@ hand:
 ```bash
 gh api -X POST repos/cLLeB/winget-pkgs/merge-upstream -f branch=master
 ```
+
+### `does not have the correct permissions to execute UpdateRef`
+
+The same staleness problem, one step earlier: the fork sync itself was refused.
+`microsoft/winget-pkgs` carries workflow files, and GitHub will not let a token
+without the `workflow` scope bring them into the fork (`refusing to allow a
+Personal Access Token to create or update workflow … without workflow scope`).
+This failed the v0.1.5 submission. Tick `workflow` on the token and re-run the
+job; the `Validate WINGET_TOKEN` step now checks for it.
 
 Tracked upstream as [Komac#1142](https://github.com/russellbanks/Komac/issues/1142);
 note that `komac sync` reports success without actually syncing, so prefer the

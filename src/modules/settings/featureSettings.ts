@@ -49,6 +49,8 @@ export const FEATURE_DEFAULTS = {
   "terminal.commandGuard": true,
   "terminal.commandGuardCaution": false,
   "terminal.pasteImages": true,
+  "terminal.inlineImages": true,
+  "window.globalHotkey": "",
   "terminal.restoreScrollback": true,
   "terminal.copyOnSelect": false,
   "terminal.rightClick": "menu",
@@ -59,6 +61,7 @@ export const FEATURE_DEFAULTS = {
   "theme.schedule": "",
   "editor.indentRainbow": false,
   "editor.stickyScroll": true,
+  "editor.minimap": false,
   "editor.snippets": "[\n  { \"name\": \"Log JSON\", \"lang\": \"js\", \"body\": \"console.log(JSON.stringify(${1:value}, null, 2));\" }\n]",
   "editor.rulers": "",
   "editor.renderWhitespace": false,
@@ -97,6 +100,16 @@ export const FEATURE_META: Record<FeatureKey, Meta> = {
     label: "Restore terminal contents after restart",
     description:
       "Save each terminal's scrollback (compressed, on this machine) and show it again when Gear reopens, with an offer to re-run commands that were still running. Private terminals are never saved.",
+    section: "Terminal",
+  },
+  "terminal.inlineImages": {
+    label: "Inline images",
+    description: "Draw images that programs print with the Sixel or iTerm2 image protocols (img2sixel, chafa, imgcat, plotting libraries). Works on macOS and Linux; the Windows console layer currently removes image data before it reaches Gear. Applies to terminals opened afterwards.",
+    section: "Terminal",
+  },
+  "window.globalHotkey": {
+    label: "Global show / hide hotkey",
+    description: "A key combination that works in any app: it brings Gear to the front, or hides it when it is already in front (a drop-down terminal). For example Ctrl+` or Alt+Space. Leave empty for none.",
     section: "Terminal",
   },
   "terminal.pasteImages": {
@@ -196,6 +209,11 @@ export const FEATURE_META: Record<FeatureKey, Meta> = {
   "editor.stickyScroll": {
     label: "Sticky scroll",
     description: "Pin the enclosing function / class / heading lines to the top while scrolling; click one to jump to it.",
+    section: "Editor",
+  },
+  "editor.minimap": {
+    label: "Minimap",
+    description: "Show a zoomed-out strip of the file on the right edge of the editor; click or drag it to scroll.",
     section: "Editor",
   },
   "editor.snippets": {

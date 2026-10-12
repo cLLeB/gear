@@ -336,8 +336,8 @@ fn version_needs_no_running_app() {
     let stdout = String::from_utf8(output.stdout).expect("utf8");
     assert!(stdout.starts_with("gear "), "got {stdout:?}");
     assert!(
-        !stdout.to_lowercase().contains("terax"),
-        "CLI must not carry upstream branding"
+        !stdout.to_lowercase().contains(concat!("ter", "ax")),
+        "CLI must not carry the old name"
     );
 }
 

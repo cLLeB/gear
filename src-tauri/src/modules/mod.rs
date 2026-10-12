@@ -8,6 +8,7 @@ pub mod fs;
 pub mod git;
 pub mod heapsnap;
 pub mod history;
+pub mod hotkey;
 pub mod logview;
 pub mod lsp;
 pub mod net;
