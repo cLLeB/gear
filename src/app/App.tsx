@@ -180,6 +180,7 @@ import {
 import { appCloseMessage, useAppCloseGuard } from "./hooks/useAppCloseGuard";
 import { noteTabActivated } from "@/modules/tabs/tabActions";
 import { registerAppBridge } from "./appBridge";
+import { initTimeTracking } from "@/modules/timetrack/TimePane";
 import { QuickPickHost } from "@/modules/quick-pick";
 import { CompareDialog } from "@/modules/compare/CompareDialog";
 import { MergeEditorDialog } from "@/modules/merge/MergeEditorDialog";
@@ -413,6 +414,8 @@ export default function App() {
 	// Debugger: show the Debug view when a session starts, badge paused sessions,
 	// and open (creating if needed) .vscode/launch.json on request.
 	const debugPaused = useDebugStore((st) => st.sessions.filter((e) => e.state.status === "stopped").length);
+	useEffect(() => initTimeTracking(), []);
+
 	useEffect(() => {
 		const show = () => {
 			const panel = sidebarRef.current;
@@ -1255,7 +1258,7 @@ export default function App() {
 			// Markdown opens rendered by default; the preview has an "Edit raw"
 			// button that reopens it in the code editor.
 			const ext = path.split(".").pop()?.toLowerCase();
-			if (ext === "md" || ext === "markdown") {
+			if (!path.startsWith("gear-") && (ext === "md" || ext === "markdown")) {
 				return newMarkdownTab(path) ?? null;
 			}
 			// Explorer defaults to preview (pin=false); explicit actions like
