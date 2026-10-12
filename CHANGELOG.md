@@ -1,5 +1,39 @@
 # Changelog
 
+## [0.1.6](https://github.com/cLLeB/gear/compare/v0.1.5...v0.1.6) (2026-10-12)
+
+
+### Features
+
+* **editor:** minimap (Settings → Features, or 'Toggle minimap') — a zoomed-out strip of the file with a slider over the visible part; click or drag to scroll. Also 'Window: Toggle always on top' ([bb780d7](https://github.com/cLLeB/gear/commit/bb780d7721c17f6c318c3d52c8ea16230d139345))
+* **github:** pull requests, workflow runs and issues from the palette via the gh CLI — check out / diff / checks / merge a PR, read a failed run's log, re-run, watch or cancel it, start a branch for an issue ([3d721d5](https://github.com/cLLeB/gear/commit/3d721d570429f4d11899468100e289d40087b13f))
+* **terminal:** inline images — Sixel and the iTerm2 image protocol (img2sixel, chafa, imgcat, plotting libraries) via the xterm image addon; Settings → Features → Inline images ([a4f5c56](https://github.com/cLLeB/gear/commit/a4f5c5683c7829bf4443fab729ac8f7aecbba8e9))
+* **window:** global show / hide hotkey — a system-wide key combination brings Gear forward from any app, or hides it when it is already in front (drop-down terminal). Settings → Features, or 'Window: Set the global show / hide hotkey…' ([9260ab7](https://github.com/cLLeB/gear/commit/9260ab7583b501dc47455d72fd9dc741ec067ed5))
+
+
+### Bug Fixes
+
+* **editor:** opening a file at a line works when the file was not open yet — the jump ran before the editor view existed and was dropped; also py-spy follows child processes so a Windows virtualenv's launcher can be profiled ([c6afa69](https://github.com/cLLeB/gear/commit/c6afa69ec767c51bc5b8cf3bf89e4e265f6d0fab))
+* **editor:** sticky scroll works again and the rainbow toggles apply at once — sticky scroll read the layout during an editor update, which crashed its plugin; the bracket and indent colours waited for the next keystroke ([a9fc40c](https://github.com/cLLeB/gear/commit/a9fc40cf4e3b3edbfc891a6ccc76970b8dbf4dee))
+* **editor:** text commands no longer edit a hidden tab — with a Markdown preview or another non-editor tab in front they changed the last-used file out of sight; they now say to switch to the editor tab ([7d3d2b5](https://github.com/cLLeB/gear/commit/7d3d2b599a83be947df485b9b54dd4d5abd4e2d6))
+* **git:** 'Apply patch from clipboard' accepts clipboard text with Windows line endings ([9f05462](https://github.com/cLLeB/gear/commit/9f054623b1aa94406cfaa4e21acc7f1aa7f3e523))
+* **github:** strip the caret-notation colour codes gh writes into piped run logs ([5492d82](https://github.com/cLLeB/gear/commit/5492d82123ed9d8d8553264e819e6291834d6c6e))
+* **git:** quote arguments that contain a comma — PowerShell split 'log -L5,9:file' in two, so 'History of the selected lines' always failed on Windows ([2b692c5](https://github.com/cLLeB/gear/commit/2b692c5b24dfd211658cdced0f570426a03e6d24))
+* **git:** stage / unstage / discard selected lines on files with Windows line endings — the saved-file check compared \r\n text with the editor's \n text and always said 'Save the file first' ([898d749](https://github.com/cLLeB/gear/commit/898d74983ae26e9b6b2c66222a5ffdb7d33461ee))
+* **git:** the file diff shows changes for files with Windows line endings — the view was fed text with \r\n, kept replacing its own document and drew no change or hunk button ([f452383](https://github.com/cLLeB/gear/commit/f45238300363414eb641f205bfe7746cf887abcc))
+* **logview:** opening a log file crashed the editor area — the pane gave the tab host a new handle on every render, which re-rendered it without end; the handle now keeps its identity ([cf30086](https://github.com/cLLeB/gear/commit/cf300865835c7f46a6d28f6c3fbaec8e1f033f54))
+* **palette:** file search always said 'Could not search workspace' — read the hits out of the search result instead of treating the result as the list ([97b8bf8](https://github.com/cLLeB/gear/commit/97b8bf8a6ac21ab84a45b80473d656541ca6b89e))
+* **publish:** a Release started by hand never publishes packages on its own — a test build dispatched from main re-published the latest stable release ([b3aadda](https://github.com/cLLeB/gear/commit/b3aaddadf1ebdd2e5cbfc16a713a56b107cf431c))
+* **publish:** winget needs the workflow scope on WINGET_TOKEN — check for it up front and fail the fork sync with that message instead of komac's misleading UpdateRef error ([6f69ec5](https://github.com/cLLeB/gear/commit/6f69ec5d9be86b11b687eabe721c98196982b9fb))
+* **security:** the secret scan skips virtualenv and site-packages folders ([4b384d8](https://github.com/cLLeB/gear/commit/4b384d8a8f59c5cad8622f888176105791921423))
+* **terminal:** 'Activate project toolchain' finds .venv, .nvmrc, .node-version and .tool-versions — its folder listing left out names starting with a dot; task and .gitignore detection use the full listing too ([572502b](https://github.com/cLLeB/gear/commit/572502bbd8869558db041c82f1ed63d3bbc7a0f7))
+* **terminal:** 'Show environment variables' on Windows — 'set' is Set-Variable in PowerShell, so list the environment through cmd ([bd58ecf](https://github.com/cLLeB/gear/commit/bd58ecf0f796ed6784b9824ce993ee9f19f08461))
+* **terminal:** 'Tail the active file' follows the log in front instead of the last edited file, and 'Serve a folder' finds Python and Node on Windows ([06ba605](https://github.com/cLLeB/gear/commit/06ba605aed7961466795baffa18667a0d2dca762))
+* **terminal:** jumping to a problem lands on the reported column, not the start of the line — the column is carried through the open-file path and clamped to the line ([3133ef4](https://github.com/cLLeB/gear/commit/3133ef4c8c07470f1a259a8ae2ecbf8dd2b29b07))
+* **terminal:** report failed PowerShell commands as failed — an unknown command or failing cmdlet inherited the last program's exit code 0, so typo correction and failure marks never fired ([057acce](https://github.com/cLLeB/gear/commit/057acce92dfc41853971ccf5ef6335b36600ab85))
+* **ui:** Dependencies says when a folder has no manifest instead of 'Looking for…' forever, and Processes says it is reading instead of 'Nothing is listening' while the first sample loads ([36d06c7](https://github.com/cLLeB/gear/commit/36d06c7ca3d53021ce92823c18982891e59d9c44))
+* **windows:** commands that chained with && now run in Windows PowerShell 5.1 — version bump commit and tag, split last commit, and the sync-with-upstream workflow ([ab9382f](https://github.com/cLLeB/gear/commit/ab9382f31dc29e822688a3dfca4acaade2aa80d2))
+
 ## [0.1.5](https://github.com/cLLeB/gear/compare/v0.1.4...v0.1.5) (2026-10-11)
 
 
