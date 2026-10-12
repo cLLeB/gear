@@ -29,7 +29,7 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
-import { useRef, type RefObject } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import {
   SearchInline,
   type SearchInlineHandle,
@@ -75,6 +75,9 @@ type Props = {
 
 
 
+/** Header width in pixels under which the search box folds into an icon. */
+const COMPACT_BELOW = 900;
+
 export function Header({
   tabs,
   activeId,
@@ -106,7 +109,18 @@ export function Header({
   searchRef,
 }: Props) {
   const rootRef = useRef<HTMLDivElement>(null);
-  const compact = false;
+  // In a narrow window the search box folds into an icon, so there is always an
+  // empty stretch of the bar left to drag the window by.
+  const [compact, setCompact] = useState(false);
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!el) return;
+    const measure = () => setCompact(el.clientWidth < COMPACT_BELOW);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   const userShortcuts = usePreferencesStore((s) => s.shortcuts);
 
   const tokensFor = (id: ShortcutId): string => {
@@ -220,9 +234,9 @@ export function Header({
       {IS_MAC && <span className="mr-1 h-full w-px shrink-0 bg-border" />}
 
       {!IS_MAC && (
-        <div className="flex shrink-0 items-center gap-1.5 pr-1" data-tauri-drag-region>
-          <img src="/logo.png" alt="Gear" className="size-4 select-none opacity-90" draggable={false} />
-          <span className="text-[11px] font-semibold tracking-tight text-foreground/60 select-none">Gear</span>
+        <div className="flex shrink-0 items-center gap-1.5 pr-1" data-tauri-drag-region onDoubleClick={handleDragRegionDoubleClick}>
+          <img src="/logo.png" alt="Gear" className="size-4 select-none opacity-90" draggable={false} data-tauri-drag-region />
+          <span className="text-[11px] font-semibold tracking-tight text-foreground/60 select-none" data-tauri-drag-region>Gear</span>
           <span className="ml-0.5 h-3.5 w-px shrink-0 bg-border/70" />
         </div>
       )}
@@ -258,7 +272,7 @@ export function Header({
         />
         <div
           data-tauri-drag-region
-          className="h-full min-w-2 flex-1"
+          className="h-full min-w-12 flex-1"
           onDoubleClick={handleDragRegionDoubleClick}
         />
       </div>
