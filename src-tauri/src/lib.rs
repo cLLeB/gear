@@ -293,6 +293,8 @@ pub fn run() {
             fs::devtools::fs_write_bytes,
             fs::devtools::fs_disk_usage,
             fs::devtools::fs_compare_dirs,
+            modules::bench::http_bench,
+            modules::bench::http_bench_cancel,
             modules::mock::mock_start,
             modules::mock::mock_set_routes,
             modules::mock::mock_stop,
