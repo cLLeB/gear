@@ -151,6 +151,7 @@ function ProjectSection({ p, filter }: { p: Project; filter: Filter }) {
 export const DepsPane = forwardRef<EditorPaneHandle, { path: string }>(function DepsPane({ path }, ref) {
   const projects = useDepsStore((s) => s.projects);
   const root = useDepsStore((s) => s.root);
+  const discovered = useDepsStore((s) => s.discovered);
   const log = useDepsStore((s) => s.log);
   const [filter, setFilter] = useState<Filter>("attention");
   const [showLog, setShowLog] = useState(false);
@@ -199,7 +200,13 @@ export const DepsPane = forwardRef<EditorPaneHandle, { path: string }>(function 
       </div>
       <div className="min-h-0 flex-1 overflow-auto p-3">
         {!root && <div className="text-muted-foreground">Open a folder to see its dependencies.</div>}
-        {root && !projects.length && <div className="text-muted-foreground">Looking for package.json, Cargo.toml, pyproject.toml / requirements.txt and go.mod…</div>}
+        {root && !projects.length && (
+          <div className="text-muted-foreground">
+            {discovered
+              ? "No package.json, Cargo.toml, pyproject.toml, requirements.txt or go.mod in this folder."
+              : "Looking for package.json, Cargo.toml, pyproject.toml / requirements.txt and go.mod…"}
+          </div>
+        )}
         {projects.map((p) => (
           <ProjectSection key={`${p.eco}:${p.dir}`} p={p} filter={filter} />
         ))}
