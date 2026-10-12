@@ -27,7 +27,7 @@ import {
   uniqueLines,
 } from "./lineOps";
 
-import { getActiveEditor } from "./activeEditor";
+import { getActiveEditor, getVisibleEditor } from "./activeEditor";
 
 // --- selection helpers -----------------------------------------------------
 
@@ -288,9 +288,9 @@ export function codeActionsKeymap(getLanguageId: () => string): KeyBinding[] {
 
 /** Run a code action against the last-focused editor; toasts if none is active. */
 export function runCodeActionOnActiveEditor(descriptor: CodeActionDescriptor): void {
-  const active = getActiveEditor();
+  const active = getVisibleEditor();
   if (!active) {
-    toast.error("Open a file in the editor first");
+    toast.error(getActiveEditor() ? "The tab in front is not a text editor — switch to the file's editor tab first" : "Open a file in the editor first");
     return;
   }
   descriptor.run(active.view, active.languageId);
