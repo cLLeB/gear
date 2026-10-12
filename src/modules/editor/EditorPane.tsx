@@ -221,6 +221,10 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
     const pendingFocusRef = useRef(false);
     const statusRef = useRef(doc.status);
     statusRef.current = doc.status;
+    // What the editor should be showing once loaded; a jump waits for it to arrive in the view.
+    const loadedLengthRef = useRef(0);
+    loadedLengthRef.current = doc.status === "ready" ? doc.content.length : 0;
+    const gotoRetriesRef = useRef(0);
 
     // CodeMirror can still be laying out on the frame the doc becomes ready;
     // focusing then is dropped, so wait one frame and re-check the same view.
@@ -233,7 +237,17 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
     const applyPendingGoto = useCallback(() => {
       const view = cmRef.current?.view;
       const pending = pendingLineRef.current;
-      if (!view || pending == null || statusRef.current !== "ready") return;
+      if (pending == null || statusRef.current !== "ready") return;
+      // A file that was just opened is "ready" a moment before the view exists and its text reaches it.
+      // Jumping now would land on an empty document and be wiped when the text arrives, so try again shortly.
+      const waiting = !view || (view.state.doc.length === 0 && loadedLengthRef.current > 0);
+      if (waiting && gotoRetriesRef.current < 120) {
+        gotoRetriesRef.current += 1;
+        requestAnimationFrame(() => applyPendingGotoRef.current());
+        return;
+      }
+      gotoRetriesRef.current = 0;
+      if (!view) return;
       const target = Math.max(1, Math.min(pending.line, view.state.doc.lines));
       const at = offsetInLine(view.state.doc.line(target), pending.column);
       view.dispatch({
@@ -243,6 +257,8 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
       if (pending.focus) focusWhenRendered(view);
       pendingLineRef.current = null;
     }, [focusWhenRendered]);
+    const applyPendingGotoRef = useRef(applyPendingGoto);
+    applyPendingGotoRef.current = applyPendingGoto;
 
     // Restores the cursor/scroll offset a restored tab was last left at. An
     // explicit goto (opening a file at a line) is the stronger intent, so the
