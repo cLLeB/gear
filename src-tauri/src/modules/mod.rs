@@ -1,5 +1,6 @@
 pub mod agent;
 pub mod app_menu;
+pub mod bench;
 pub mod chronicle;
 pub mod control;
 pub mod dap;

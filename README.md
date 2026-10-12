@@ -19,7 +19,7 @@ Gear is a native desktop application built on [Tauri 2](https://tauri.app) (Rust
 - **Settings import/export** — JSON backup and restore of all preferences
 - **Per-workspace config** — `.gear/settings.json` overrides global preferences per project
 - **Keyboard shortcuts** — fully customisable; shown in the shortcuts dialog (Cmd/Ctrl+K)
-- **Tool tabs** — folder compare, disk usage map, mock API server, editor macros, Kanban board over Markdown, time tracking, hex editor, CSV table view, WebSocket client and regex workbench ([docs/tools.md](docs/tools.md))
+- **Tool tabs** — folder compare, disk usage map, mock API server, editor macros, Kanban board over Markdown, time tracking, hex editor, CSV table view, WebSocket client, regex workbench, load tester, Markdown slides, import graph, code images, QR codes, zip browser, translation and .env file comparison, cron workbench and charts
 
 ---
 
@@ -126,12 +126,6 @@ On Windows this runs `build.ps1` via PowerShell. The output is placed in `src-ta
 ```bash
 pnpm build
 ```
-
----
-
-## Distribution
-
-We track Windows Winget, macOS Homebrew Cask, and Linux APT/RPM options in `docs/distribution.md`.
 
 ---
 

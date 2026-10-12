@@ -15,6 +15,16 @@ import { DepsPane } from "@/modules/deps/DepsPane";
 import { SecretsPane } from "@/modules/security/SecretsPane";
 import { ProcsPane } from "@/modules/procs/ProcsPane";
 import { BoardPane } from "@/modules/board/BoardPane";
+import { ChartPane } from "@/modules/charts/ChartPane";
+import { CodeImagePane } from "@/modules/codeimage/CodeImagePane";
+import { CronPane } from "@/modules/cronlab/CronPane";
+import { EnvPane } from "@/modules/envmatrix/EnvPane";
+import { I18nPane } from "@/modules/i18nkeys/I18nPane";
+import { ImportGraphPane } from "@/modules/importgraph/ImportGraphPane";
+import { LoadTestPane } from "@/modules/loadtest/LoadTestPane";
+import { QrPane } from "@/modules/qrcode/QrPane";
+import { SlidesPane } from "@/modules/slides/SlidesPane";
+import { ZipPane } from "@/modules/ziparchive/ZipPane";
 import { DirComparePane } from "@/modules/dircompare/DirComparePane";
 import { DiskUsagePane } from "@/modules/diskusage/DiskUsagePane";
 import { HexPane } from "@/modules/hexedit/HexPane";
@@ -128,6 +138,26 @@ export function EditorStack({
                 <DockerPane ref={getRefCallback(t.id)} path={t.path} />
               ) : t.path.startsWith("gear-procs://") ? (
                 <ProcsPane ref={getRefCallback(t.id)} path={t.path} />
+              ) : t.path.startsWith("gear-loadtest://") ? (
+                <LoadTestPane ref={getRefCallback(t.id)} path={t.path} />
+              ) : t.path.startsWith("gear-slides://") ? (
+                <SlidesPane ref={getRefCallback(t.id)} path={t.path} />
+              ) : t.path.startsWith("gear-imports://") ? (
+                <ImportGraphPane ref={getRefCallback(t.id)} path={t.path} />
+              ) : t.path.startsWith("gear-codeimage://") ? (
+                <CodeImagePane ref={getRefCallback(t.id)} path={t.path} />
+              ) : t.path.startsWith("gear-qr://") ? (
+                <QrPane ref={getRefCallback(t.id)} path={t.path} />
+              ) : t.path.startsWith("gear-zip://") ? (
+                <ZipPane ref={getRefCallback(t.id)} path={t.path} />
+              ) : t.path.startsWith("gear-i18n://") ? (
+                <I18nPane ref={getRefCallback(t.id)} path={t.path} />
+              ) : t.path.startsWith("gear-env://") ? (
+                <EnvPane ref={getRefCallback(t.id)} path={t.path} />
+              ) : t.path.startsWith("gear-cron://") ? (
+                <CronPane ref={getRefCallback(t.id)} path={t.path} />
+              ) : t.path.startsWith("gear-chart://") ? (
+                <ChartPane ref={getRefCallback(t.id)} path={t.path} />
               ) : t.path.startsWith("gear-dircmp://") ? (
                 <DirComparePane ref={getRefCallback(t.id)} path={t.path} />
               ) : t.path.startsWith("gear-disk://") ? (

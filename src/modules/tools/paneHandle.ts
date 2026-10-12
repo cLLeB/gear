@@ -101,3 +101,17 @@ export const toolsNative = {
   mockStatus: (since: number) => invoke<{ port: number | null; requests: MockRequest[] }>("mock_status", { since }),
   mockClearLog: () => invoke<void>("mock_clear_log"),
 };
+
+export interface BenchSample {
+  ms: number;
+  status: number;
+  bytes: number;
+  error: string | null;
+  at_ms: number;
+}
+
+export const benchNative = {
+  run: (args: { url: string; method: string; headers: Record<string, string>; body: string | null; total: number; concurrency: number; timeoutMs: number }) =>
+    invoke<{ samples: BenchSample[]; elapsed_ms: number; cancelled: boolean }>("http_bench", args),
+  cancel: () => invoke<void>("http_bench_cancel"),
+};
