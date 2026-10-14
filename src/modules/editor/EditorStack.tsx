@@ -24,6 +24,7 @@ import { ColorPane } from "@/modules/colors/ColorPane";
 import { CodeStatsPane } from "@/modules/codestats/CodeStatsPane";
 import { ImagePane } from "@/modules/imagetools/ImagePane";
 import { LicensePane } from "@/modules/licenses/LicensePane";
+import { TlsPane } from "@/modules/tlscheck/TlsPane";
 import { EnvPane } from "@/modules/envmatrix/EnvPane";
 import { I18nPane } from "@/modules/i18nkeys/I18nPane";
 import { ImportGraphPane } from "@/modules/importgraph/ImportGraphPane";
@@ -164,6 +165,8 @@ export function EditorStack({
                 <HarPane ref={getRefCallback(t.id)} path={t.path} />
               ) : t.path.startsWith("gear-licenses://") ? (
                 <LicensePane ref={getRefCallback(t.id)} path={t.path} />
+              ) : t.path.startsWith("gear-tls://") ? (
+                <TlsPane ref={getRefCallback(t.id)} path={t.path} />
               ) : t.path.startsWith("gear-image://") ? (
                 <ImagePane ref={getRefCallback(t.id)} path={t.path} />
               ) : t.path.startsWith("gear-codestats://") ? (
