@@ -18,6 +18,7 @@ import { BoardPane } from "@/modules/board/BoardPane";
 import { ChartPane } from "@/modules/charts/ChartPane";
 import { CodeImagePane } from "@/modules/codeimage/CodeImagePane";
 import { CronPane } from "@/modules/cronlab/CronPane";
+import { HarPane } from "@/modules/harview/HarPane";
 import { EnvPane } from "@/modules/envmatrix/EnvPane";
 import { I18nPane } from "@/modules/i18nkeys/I18nPane";
 import { ImportGraphPane } from "@/modules/importgraph/ImportGraphPane";
@@ -154,6 +155,8 @@ export function EditorStack({
                 <I18nPane ref={getRefCallback(t.id)} path={t.path} />
               ) : t.path.startsWith("gear-env://") ? (
                 <EnvPane ref={getRefCallback(t.id)} path={t.path} />
+              ) : t.path.startsWith("gear-har://") || (/\.har$/i.test(t.path) && !t.languageOverride) ? (
+                <HarPane ref={getRefCallback(t.id)} path={t.path} />
               ) : t.path.startsWith("gear-cron://") ? (
                 <CronPane ref={getRefCallback(t.id)} path={t.path} />
               ) : t.path.startsWith("gear-chart://") ? (
