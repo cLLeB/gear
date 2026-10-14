@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { assess, categoryOf, evaluate, licenseFromPackageJson, noticesText, normalizeId, parseCargoMetadata, parseExpression, parsePackageLock, parsePnpmLock, pnpmDir, summarize, toCsv, type Package } from "./model";
+import { assess, categoryOf, evaluate, licenseFromPackageJson, noticesText, normalizeId, parseCargoMetadata, parseExpression, parsePackageLock, parsePnpmLock, pnpmDir, pnpmFolders, summarize, toCsv, type Package } from "./model";
 
 const ev = (s: string) => evaluate(parseExpression(s));
 
@@ -48,6 +48,9 @@ describe("license audit", () => {
       { name: "old-style", version: "1.2.3", dev: false },
     ]);
     expect(pnpmDir("@babel/core", "7.24.0")).toBe("node_modules/.pnpm/@babel+core@7.24.0/node_modules/@babel/core");
+    const folders = pnpmFolders(["@ai-sdk+anthropic@3.0.71_zod@4.3.6", "react@19.2.5", "react-dom@19.2.5_react@19.2.5", "x@1.0.0_a@1", "x@1.0.0", "node_modules", "lock.yaml"]);
+    expect(Object.fromEntries(folders)).toEqual({ "@ai-sdk/anthropic@3.0.71": "@ai-sdk+anthropic@3.0.71_zod@4.3.6", "react@19.2.5": "react@19.2.5", "react-dom@19.2.5": "react-dom@19.2.5_react@19.2.5", "x@1.0.0": "x@1.0.0" });
+    expect(pnpmDir("@ai-sdk/anthropic", "3.0.71", folders.get("@ai-sdk/anthropic@3.0.71"))).toBe("node_modules/.pnpm/@ai-sdk+anthropic@3.0.71_zod@4.3.6/node_modules/@ai-sdk/anthropic");
     const npm = JSON.stringify({ packages: { "": { name: "me", version: "1.0.0" }, "node_modules/a": { version: "1.0.0", license: "MIT" }, "node_modules/b/node_modules/a": { version: "1.0.0", license: "MIT" }, "node_modules/@s/c": { version: "2.0.0", license: "GPL-3.0", dev: true }, "node_modules/linked": { link: true } } });
     expect(parsePackageLock(npm).map((p) => [p.name, p.version, p.license, p.dev])).toEqual([
       ["a", "1.0.0", "MIT", false],

@@ -200,9 +200,26 @@ export function parsePackageLock(json: string): Package[] {
   return out.filter((p) => (seen.has(`${p.name}@${p.version}`) ? false : (seen.add(`${p.name}@${p.version}`), true)));
 }
 
-/** The folder pnpm stores a package in, relative to the project. */
-export function pnpmDir(name: string, version: string): string {
-  return `node_modules/.pnpm/${name.replace("/", "+")}@${version}/node_modules/${name}`;
+/** The folder pnpm stores a package in, relative to the project (`folder` from {@link pnpmFolders} when known). */
+export function pnpmDir(name: string, version: string, folder?: string): string {
+  return `node_modules/.pnpm/${folder ?? `${name.replace("/", "+")}@${version}`}/node_modules/${name}`;
+}
+
+/**
+ * Folder names in node_modules/.pnpm by `name@version`. pnpm appends the
+ * peer dependencies it resolved (`ai@4.0.0_zod@3.23.8`), so the folder
+ * cannot be derived from the lockfile entry alone.
+ */
+export function pnpmFolders(folders: string[]): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const f of folders) {
+    const m = /^((?:@[^+@]+\+)?[^@+]+)@([^_]+)(?:_.*)?$/.exec(f);
+    if (!m) continue;
+    const key = `${m[1].replace("+", "/")}@${m[2]}`;
+    // Prefer the folder without peer suffix when there are several.
+    if (!out.has(key) || f.length < (out.get(key) as string).length) out.set(key, f);
+  }
+  return out;
 }
 
 /** Packages from `cargo metadata --format-version 1`, without the workspace's own crates. */

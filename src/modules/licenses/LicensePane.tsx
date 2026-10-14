@@ -6,12 +6,13 @@ import { invoke } from "@tauri-apps/api/core";
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { app } from "@/app/appBridge";
+import { IS_WINDOWS } from "@/lib/platform";
 import { cn } from "@/lib/utils";
 import { native } from "@/modules/ai/lib/native";
 import type { EditorPaneHandle } from "@/modules/editor/EditorPane";
 import { copyToClipboard, toolPaneHandle } from "@/modules/tools/paneHandle";
 import { currentWorkspaceEnv } from "@/modules/workspace";
-import { assess, CATEGORY_LABEL, licenseFromPackageJson, noticesText, parseCargoMetadata, parsePackageLock, parsePnpmLock, pnpmDir, RANK, summarize, toCsv, type Assessed, type Category, type Distribution, type Package } from "./model";
+import { assess, CATEGORY_LABEL, licenseFromPackageJson, noticesText, parseCargoMetadata, parsePackageLock, parsePnpmLock, pnpmDir, pnpmFolders, RANK, summarize, toCsv, type Assessed, type Category, type Distribution, type Package } from "./model";
 
 export const LICENSES_PATH = "gear-licenses://Licenses";
 const KEY = "gear.licenses";
@@ -123,12 +124,14 @@ export const LicensePane = forwardRef<EditorPaneHandle, { path: string }>(functi
           const t = await readText(join(root, rel));
           if (!t) continue;
           const list = parsePnpmLock(t);
+          const store = ((await native.readDir(join(projectDir, "node_modules/.pnpm")).catch(() => null)) as { name: string }[] | null) ?? [];
+          const folders = pnpmFolders(store.map((e) => e.name));
           let missing = 0;
           for (let i = 0; i < list.length; i += 32) {
             setProgress(`Reading npm packages… ${i} / ${list.length}`);
             const batch = await Promise.all(
               list.slice(i, i + 32).map(async (p) => {
-                const dir = join(projectDir, pnpmDir(p.name, p.version));
+                const dir = join(projectDir, pnpmDir(p.name, p.version, folders.get(`${p.name}@${p.version}`)));
                 const j = await readText(join(dir, "package.json"));
                 let license = "";
                 if (j) {
@@ -153,10 +156,17 @@ export const LicensePane = forwardRef<EditorPaneHandle, { path: string }>(functi
           if (lockfiles.some((o) => o !== rel && o.endsWith("Cargo.toml") && rel.startsWith(dirOf(o) + "/"))) continue;
           setProgress(`Reading Cargo metadata for ${rel}…`);
           const out = join(projectDir, ".gear-cargo-metadata.json");
-          const r = await native.runCommand(`cargo metadata --format-version 1 --offline --locked > ".gear-cargo-metadata.json"`, projectDir, 120);
+          const args = `metadata --format-version 1 --offline --locked > ".gear-cargo-metadata.json"`;
+          let r = await native.runCommand(`cargo ${args}`, projectDir, 120);
+          const notFound = (x: typeof r) => x.exit_code !== 0 && /not recognized|CommandNotFound|command not found|No such file/i.test(x.stderr);
+          // rustup installs into ~/.cargo/bin, which GUI apps do not always have on PATH.
+          if (notFound(r)) r = await native.runCommand(IS_WINDOWS ? `& "$env:USERPROFILE\\.cargo\\bin\\cargo.exe" ${args}` : `"$HOME/.cargo/bin/cargo" ${args}`, projectDir, 120);
           const json = r.exit_code === 0 ? await readText(out) : null;
           await invoke("fs_delete", { path: out, workspace: currentWorkspaceEnv() }).catch(() => {});
-          if (!json) msgs.push(`${rel}: cargo metadata failed${r.stderr ? ` — ${r.stderr.trim().split("\n").pop()}` : ""}. Build the project once so its crates are downloaded.`);
+          if (!json) {
+            const why = notFound(r) ? "cargo is not installed, or not on PATH" : (r.stderr.trim().split("\n").filter((l) => /error/i.test(l)).pop() ?? r.stderr.trim().split("\n").pop() ?? "cargo metadata failed").trim();
+            msgs.push(`${rel}: the Rust dependencies could not be read — ${why}.${notFound(r) ? "" : " Build the project once so its crates are downloaded."}`);
+          }
           else {
             try {
               found.push(...parseCargoMetadata(json));
