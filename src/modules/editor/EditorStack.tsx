@@ -22,6 +22,7 @@ import { HarPane } from "@/modules/harview/HarPane";
 import { UnicodePane } from "@/modules/unicode/UnicodePane";
 import { ColorPane } from "@/modules/colors/ColorPane";
 import { CodeStatsPane } from "@/modules/codestats/CodeStatsPane";
+import { ImagePane } from "@/modules/imagetools/ImagePane";
 import { EnvPane } from "@/modules/envmatrix/EnvPane";
 import { I18nPane } from "@/modules/i18nkeys/I18nPane";
 import { ImportGraphPane } from "@/modules/importgraph/ImportGraphPane";
@@ -160,6 +161,8 @@ export function EditorStack({
                 <EnvPane ref={getRefCallback(t.id)} path={t.path} />
               ) : t.path.startsWith("gear-har://") || (/\.har$/i.test(t.path) && !t.languageOverride) ? (
                 <HarPane ref={getRefCallback(t.id)} path={t.path} />
+              ) : t.path.startsWith("gear-image://") ? (
+                <ImagePane ref={getRefCallback(t.id)} path={t.path} />
               ) : t.path.startsWith("gear-codestats://") ? (
                 <CodeStatsPane ref={getRefCallback(t.id)} path={t.path} />
               ) : t.path.startsWith("gear-color://") ? (
