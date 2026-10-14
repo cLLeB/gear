@@ -367,7 +367,7 @@ export const ColorPane = forwardRef<EditorPaneHandle, { path: string }>(function
               {scan && (
                 <span className="text-muted-foreground" data-color-scan-summary>
                   {scan.colors.length} distinct colours in {scan.files} files
-                  {scan.groups.length > 0 && ` · ${scan.groups.length} sets of near-duplicates`}
+                  {scan.groups.length > 0 && ` · ${scan.groups.length} ${scan.groups.length === 1 ? "set" : "sets"} of near-duplicates`}
                 </span>
               )}
             </div>
