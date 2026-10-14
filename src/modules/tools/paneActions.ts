@@ -8,6 +8,7 @@ import { CRON_ACTIONS } from "@/modules/cronlab/CronPane";
 import { ENV_ACTIONS } from "@/modules/envmatrix/EnvPane";
 import { HAR_ACTIONS } from "@/modules/harview/HarPane";
 import { UNICODE_ACTIONS } from "@/modules/unicode/UnicodePane";
+import { COLOR_ACTIONS } from "@/modules/colors/ColorPane";
 import { I18N_ACTIONS } from "@/modules/i18nkeys/I18nPane";
 import { openImportGraph } from "@/modules/importgraph/ImportGraphPane";
 import { openLoadTest } from "@/modules/loadtest/LoadTestPane";
@@ -50,4 +51,5 @@ export const TOOL_PANE_ACTIONS = [
   ...CHART_ACTIONS,
   ...HAR_ACTIONS,
   ...UNICODE_ACTIONS,
+  ...COLOR_ACTIONS,
 ];
