@@ -8,7 +8,7 @@ import { app } from "@/app/appBridge";
 import { cn } from "@/lib/utils";
 import type { EditorPaneHandle } from "@/modules/editor/EditorPane";
 import { getActiveEditor } from "@/modules/editor/lib/activeEditor";
-import { toolPaneHandle } from "@/modules/tools/paneHandle";
+import { copyToClipboard, toolPaneHandle } from "@/modules/tools/paneHandle";
 import { clean, codePoints, escapeText, normalizations, stats, unescapeText, type EscapeStyle, type IssueKind } from "./model";
 
 export const UNICODE_PATH = "gear-unicode://Unicode";
@@ -166,7 +166,7 @@ export const UnicodePane = forwardRef<EditorPaneHandle, { path: string }>(functi
     }
   };
 
-  const copy = (v: string, what: string) => void navigator.clipboard.writeText(v).then(() => toast.success(`${what} copied`));
+  const copy = (v: string, what: string) => void copyToClipboard(v).then(() => toast.success(`${what} copied`));
 
   return (
     <div className="flex h-full flex-col text-[12.5px]">

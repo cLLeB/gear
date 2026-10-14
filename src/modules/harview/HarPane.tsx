@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import type { EditorPaneHandle } from "@/modules/editor/EditorPane";
 import { getActiveEditor } from "@/modules/editor/lib/activeEditor";
 import { inputBox } from "@/modules/quick-pick";
-import { base64ToBytes, bytesToBase64, formatBytes, toolPaneHandle, toolsNative } from "@/modules/tools/paneHandle";
+import { copyToClipboard, base64ToBytes, bytesToBase64, formatBytes, toolPaneHandle, toolsNative } from "@/modules/tools/paneHandle";
 import { filterRequests, formatMs, parseHar, phases, redactHar, statusClass, summarize, toCurl, toFetch, type Har, type Kind, type Request, type StatusFilter, type Timings } from "./model";
 
 const SCHEME = "gear-har://";
@@ -156,7 +156,7 @@ export const HarPane = forwardRef<EditorPaneHandle, { path: string }>(function H
     if (el && (i * ROW_H < el.scrollTop || (i + 1) * ROW_H > el.scrollTop + el.clientHeight)) el.scrollTop = i * ROW_H - el.clientHeight / 2;
   };
 
-  const copy = (value: string, what: string) => void navigator.clipboard.writeText(value).then(() => toast.success(`${what} copied`));
+  const copy = (value: string, what: string) => void copyToClipboard(value).then(() => toast.success(`${what} copied`));
 
   const saveRedacted = async () => {
     try {

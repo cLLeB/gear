@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 import type { EditorPaneHandle } from "@/modules/editor/EditorPane";
 import { getActiveEditor } from "@/modules/editor/lib/activeEditor";
 import { inputBox } from "@/modules/quick-pick";
-import { base64ToBytes, bytesToBase64, formatBytes, toolPaneHandle, toolsNative } from "@/modules/tools/paneHandle";
+import { copyToClipboard, base64ToBytes, bytesToBase64, formatBytes, toolPaneHandle, toolsNative } from "@/modules/tools/paneHandle";
 import { buildIco, dominantColors, FAVICON_SET, faviconSnippet, fitSize, imageInfo, MIME, readExif, stripJpegMetadata, type Exif, type ImageInfo } from "./model";
 
 const SCHEME = "gear-image://";
@@ -230,7 +230,7 @@ export const ImagePane = forwardRef<EditorPaneHandle, { path: string }>(function
     if (!px) return;
     const hex = `#${[px[0], px[1], px[2]].map((v) => v.toString(16).padStart(2, "0")).join("")}${px[3] < 255 ? px[3].toString(16).padStart(2, "0") : ""}`;
     setPicked(hex);
-    void navigator.clipboard.writeText(hex).then(() => toast.success(`Copied ${hex}`));
+    void copyToClipboard(hex).then(() => toast.success(`Copied ${hex}`));
   };
 
   if (error) return <div className="p-6 text-[12.5px] text-red-500" data-image-error>{error}</div>;
@@ -341,7 +341,7 @@ export const ImagePane = forwardRef<EditorPaneHandle, { path: string }>(function
           <div className="font-medium">Colours</div>
           <div className="flex flex-wrap gap-1" data-image-palette>
             {palette.map((c) => (
-              <button key={c.hex} type="button" className="flex items-center gap-1 rounded px-1 hover:bg-muted/50" onClick={() => void navigator.clipboard.writeText(c.hex).then(() => toast.success(`Copied ${c.hex}`))} title={`${Math.round(c.share * 100)}% of the image`}>
+              <button key={c.hex} type="button" className="flex items-center gap-1 rounded px-1 hover:bg-muted/50" onClick={() => void copyToClipboard(c.hex).then(() => toast.success(`Copied ${c.hex}`))} title={`${Math.round(c.share * 100)}% of the image`}>
                 <span className="h-4 w-4 rounded border border-border/60" style={{ background: c.hex }} />
                 <span className="font-mono text-[11.5px]">{c.hex}</span>
               </button>
@@ -370,7 +370,7 @@ export const ImagePane = forwardRef<EditorPaneHandle, { path: string }>(function
             <div className="space-y-1">
               <div className="text-muted-foreground">Add this to the page &lt;head&gt;:</div>
               <pre className="overflow-auto rounded bg-muted/40 p-2 font-mono text-[11px]">{favDone.html}</pre>
-              <button type="button" className={btn} onClick={() => void navigator.clipboard.writeText(favDone.html).then(() => toast.success("Copied"))}>
+              <button type="button" className={btn} onClick={() => void copyToClipboard(favDone.html).then(() => toast.success("Copied"))}>
                 Copy HTML
               </button>
             </div>

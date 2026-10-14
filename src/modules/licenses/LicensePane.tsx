@@ -9,7 +9,7 @@ import { app } from "@/app/appBridge";
 import { cn } from "@/lib/utils";
 import { native } from "@/modules/ai/lib/native";
 import type { EditorPaneHandle } from "@/modules/editor/EditorPane";
-import { toolPaneHandle } from "@/modules/tools/paneHandle";
+import { copyToClipboard, toolPaneHandle } from "@/modules/tools/paneHandle";
 import { currentWorkspaceEnv } from "@/modules/workspace";
 import { assess, CATEGORY_LABEL, licenseFromPackageJson, noticesText, parseCargoMetadata, parsePackageLock, parsePnpmLock, pnpmDir, RANK, summarize, toCsv, type Assessed, type Category, type Distribution, type Package } from "./model";
 
@@ -254,7 +254,7 @@ export const LicensePane = forwardRef<EditorPaneHandle, { path: string }>(functi
         <button type="button" className={btn} disabled={busy} onClick={() => void scan()}>
           {busy ? progress || "Scanning…" : "Rescan"}
         </button>
-        <button type="button" className={btn} disabled={busy || !assessed.length} onClick={() => void navigator.clipboard.writeText(toCsv(assessed)).then(() => toast.success("CSV copied"))}>
+        <button type="button" className={btn} disabled={busy || !assessed.length} onClick={() => void copyToClipboard(toCsv(assessed)).then(() => toast.success("CSV copied"))}>
           Copy CSV
         </button>
         <button type="button" className={btn} data-licenses-notices disabled={busy || !assessed.length} onClick={() => void writeNotices()}>

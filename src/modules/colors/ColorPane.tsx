@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 import { native } from "@/modules/ai/lib/native";
 import type { EditorPaneHandle } from "@/modules/editor/EditorPane";
 import { getActiveEditor } from "@/modules/editor/lib/activeEditor";
-import { toolPaneHandle } from "@/modules/tools/paneHandle";
+import { copyToClipboard, toolPaneHandle } from "@/modules/tools/paneHandle";
 import { currentWorkspaceEnv } from "@/modules/workspace";
 import { apca, apcaUse, collectColors, exportScale, FORMATS, fixContrast, format, harmony, nameOf, parseColor, scale, simulate, toHex, wcagGrades, wcagRatio, type ExportStyle, type Format, type Harmony, type Rgb, type UsedColor, type Vision } from "./model";
 
@@ -121,7 +121,7 @@ export const ColorPane = forwardRef<EditorPaneHandle, { path: string }>(function
   };
   const pick = (c: Rgb) => setFg(toHex(c));
 
-  const copy = (v: string, what = v) => void navigator.clipboard.writeText(v).then(() => toast.success(`Copied ${what}`));
+  const copy = (v: string, what = v) => void copyToClipboard(v).then(() => toast.success(`Copied ${what}`));
   const insert = (v: string) => {
     const view = getActiveEditor()?.view;
     if (!view) return void toast.info("Open a file first.");

@@ -9,7 +9,7 @@ import { app, frontFilePath } from "@/app/appBridge";
 import { cn } from "@/lib/utils";
 import type { EditorPaneHandle } from "@/modules/editor/EditorPane";
 import { getActiveEditor } from "@/modules/editor/lib/activeEditor";
-import { base64ToBytes, toolPaneHandle, toolsNative } from "@/modules/tools/paneHandle";
+import { copyToClipboard, base64ToBytes, toolPaneHandle, toolsNative } from "@/modules/tools/paneHandle";
 import { checkChain, daysLeft, derToPem, explainTrustError, fingerprint, parseCertificate, pemToDer, type Certificate, type Finding } from "./model";
 
 export const TLS_PATH = "gear-tls://Certificates";
@@ -124,11 +124,11 @@ function CertCard({ cert, index, total }: { cert: Certificate; index: number; to
             </tbody>
           </table>
           <div className="mt-2 flex gap-1.5">
-            <button type="button" className={btn} onClick={() => void navigator.clipboard.writeText(derToPem(cert.der)).then(() => toast.success("PEM copied"))}>
+            <button type="button" className={btn} onClick={() => void copyToClipboard(derToPem(cert.der)).then(() => toast.success("PEM copied"))}>
               Copy PEM
             </button>
             {fp && (
-              <button type="button" className={btn} onClick={() => void navigator.clipboard.writeText(fp).then(() => toast.success("Fingerprint copied"))}>
+              <button type="button" className={btn} onClick={() => void copyToClipboard(fp).then(() => toast.success("Fingerprint copied"))}>
                 Copy fingerprint
               </button>
             )}
@@ -262,7 +262,7 @@ export const TlsPane = forwardRef<EditorPaneHandle, { path: string }>(function T
           <CertCard key={`${source?.kind}-${i}-${c.serial}`} cert={c} index={i} total={chain.length} />
         ))}
         {chain.length > 0 && (
-          <button type="button" className={btn} onClick={() => void navigator.clipboard.writeText(chain.map((c) => derToPem(c.der)).join("")).then(() => toast.success("Chain copied as PEM"))}>
+          <button type="button" className={btn} onClick={() => void copyToClipboard(chain.map((c) => derToPem(c.der)).join("")).then(() => toast.success("Chain copied as PEM"))}>
             Copy the whole chain as PEM
           </button>
         )}
