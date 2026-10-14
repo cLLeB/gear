@@ -95,7 +95,7 @@ function decodeBase64Text(b64: string): string | null {
 export function parseHar(text: string): Har {
   let doc: unknown;
   try {
-    doc = JSON.parse(text.replace(/^﻿/, ""));
+    doc = JSON.parse(text.replace(/^\ufeff/, ""));
   } catch (e) {
     throw new Error(`This file is not valid JSON (${e instanceof Error ? e.message : String(e)}).`);
   }
@@ -352,7 +352,7 @@ export interface RedactOptions {
  * Returns the new JSON and how many values were masked.
  */
 export function redactHar(text: string, opts: RedactOptions): { json: string; masked: number } {
-  const doc = JSON.parse(text.replace(/^﻿/, ""));
+  const doc = JSON.parse(text.replace(/^\ufeff/, ""));
   let masked = 0;
   const maskHeaders = (list: unknown) => {
     if (!Array.isArray(list)) return;

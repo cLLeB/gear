@@ -45,7 +45,7 @@ describe("HAR viewer", () => {
   it("explains what is wrong with other files", () => {
     expect(() => parseHar("{nope")).toThrow(/not valid JSON/);
     expect(() => parseHar('{"log":{}}')).toThrow(/not a HAR/);
-    expect(parseHar('﻿{"log":{"entries":[]}}').requests).toEqual([]);
+    expect(parseHar('\ufeff{"log":{"entries":[]}}').requests).toEqual([]);
   });
 
   it("guesses the resource kind", () => {
