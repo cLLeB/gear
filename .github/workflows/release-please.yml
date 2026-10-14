@@ -108,6 +108,18 @@ jobs:
           git commit -m "chore: sync Cargo.lock with ${{ needs.release-please.outputs.tag_name }}"
           git push origin main
 
+  # Point the Nix package at the new release once its assets exist. Called for
+  # the same GITHUB_TOKEN reason as `build`. Pre-release tags (v1.2.3-rc.1) are
+  # draft prereleases and never reach Nix.
+  nix:
+    needs: [release-please, build]
+    if: needs.release-please.outputs.release_created == 'true' && !contains(needs.release-please.outputs.tag_name, '-')
+    uses: ./.github/workflows/update-nix-sources.yml
+    with:
+      tag: ${{ needs.release-please.outputs.tag_name }}
+    permissions:
+      contents: write
+
   publish:
     needs: [release-please, build]
     if: needs.release-please.outputs.release_created == 'true'
