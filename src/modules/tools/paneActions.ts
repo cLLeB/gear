@@ -11,6 +11,7 @@ import { UNICODE_ACTIONS } from "@/modules/unicode/UnicodePane";
 import { COLOR_ACTIONS } from "@/modules/colors/ColorPane";
 import { CODESTATS_ACTIONS } from "@/modules/codestats/CodeStatsPane";
 import { IMAGE_ACTIONS } from "@/modules/imagetools/ImagePane";
+import { LICENSE_ACTIONS } from "@/modules/licenses/LicensePane";
 import { I18N_ACTIONS } from "@/modules/i18nkeys/I18nPane";
 import { openImportGraph } from "@/modules/importgraph/ImportGraphPane";
 import { openLoadTest } from "@/modules/loadtest/LoadTestPane";
@@ -56,4 +57,5 @@ export const TOOL_PANE_ACTIONS = [
   ...COLOR_ACTIONS,
   ...CODESTATS_ACTIONS,
   ...IMAGE_ACTIONS,
+  ...LICENSE_ACTIONS,
 ];
