@@ -17,6 +17,7 @@ import { LINKCHECK_ACTIONS } from "@/modules/linkcheck/LinkCheckPane";
 import { BUNDLE_ACTIONS } from "@/modules/bundle/BundlePane";
 import { SARIF_ACTIONS } from "@/modules/sarif/SarifPane";
 import { TFPLAN_ACTIONS } from "@/modules/tfplan/PlanPane";
+import { APIDIFF_ACTIONS } from "@/modules/apidiff/ApiDiffPane";
 import { DATAGEN_ACTIONS } from "@/modules/datagen/DataGenPane";
 import { I18N_ACTIONS } from "@/modules/i18nkeys/I18nPane";
 import { openImportGraph } from "@/modules/importgraph/ImportGraphPane";
@@ -69,5 +70,6 @@ export const TOOL_PANE_ACTIONS = [
   ...BUNDLE_ACTIONS,
   ...SARIF_ACTIONS,
   ...TFPLAN_ACTIONS,
+  ...APIDIFF_ACTIONS,
   ...DATAGEN_ACTIONS,
 ];

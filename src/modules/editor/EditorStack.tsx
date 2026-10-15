@@ -29,6 +29,7 @@ import { LinkCheckPane } from "@/modules/linkcheck/LinkCheckPane";
 import { BundlePane } from "@/modules/bundle/BundlePane";
 import { SarifPane } from "@/modules/sarif/SarifPane";
 import { PlanPane } from "@/modules/tfplan/PlanPane";
+import { ApiDiffPane } from "@/modules/apidiff/ApiDiffPane";
 import { DataGenPane } from "@/modules/datagen/DataGenPane";
 import { EnvPane } from "@/modules/envmatrix/EnvPane";
 import { I18nPane } from "@/modules/i18nkeys/I18nPane";
@@ -174,6 +175,8 @@ export function EditorStack({
                 <DataGenPane ref={getRefCallback(t.id)} path={t.path} />
               ) : t.path.startsWith("gear-sarif://") || (/\.sarif$/i.test(t.path) && !t.languageOverride) ? (
                 <SarifPane ref={getRefCallback(t.id)} path={t.path} />
+              ) : t.path.startsWith("gear-apidiff://") ? (
+                <ApiDiffPane ref={getRefCallback(t.id)} path={t.path} />
               ) : t.path.startsWith("gear-tfplan://") ? (
                 <PlanPane ref={getRefCallback(t.id)} path={t.path} />
               ) : t.path.startsWith("gear-bundle://") ? (
