@@ -14,6 +14,7 @@ import { IMAGE_ACTIONS } from "@/modules/imagetools/ImagePane";
 import { LICENSE_ACTIONS } from "@/modules/licenses/LicensePane";
 import { TLS_ACTIONS } from "@/modules/tlscheck/TlsPane";
 import { LINKCHECK_ACTIONS } from "@/modules/linkcheck/LinkCheckPane";
+import { BUNDLE_ACTIONS } from "@/modules/bundle/BundlePane";
 import { DATAGEN_ACTIONS } from "@/modules/datagen/DataGenPane";
 import { I18N_ACTIONS } from "@/modules/i18nkeys/I18nPane";
 import { openImportGraph } from "@/modules/importgraph/ImportGraphPane";
@@ -63,5 +64,6 @@ export const TOOL_PANE_ACTIONS = [
   ...LICENSE_ACTIONS,
   ...TLS_ACTIONS,
   ...LINKCHECK_ACTIONS,
+  ...BUNDLE_ACTIONS,
   ...DATAGEN_ACTIONS,
 ];
