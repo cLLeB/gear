@@ -279,7 +279,7 @@ function FamilyView({ f, prev, seconds }: { f: Family; prev: Map<string, Series>
                 <td className="whitespace-nowrap px-2 text-right tabular-nums" title={String(s.value)}>
                   {isHist || f.type === "summary" ? formatNumber(s.value) : show(s.value)}
                 </td>
-                {counts && prev && <td className="whitespace-nowrap px-2 text-right tabular-nums">{Number.isNaN(r) ? "—" : `${formatNumber(r)}/s`}</td>}
+                {counts && prev && <td className="whitespace-nowrap px-2 text-right tabular-nums">{Number.isNaN(r) ? "—" : `${formatNumber(Math.abs(r) >= 100 ? Math.round(r) : Number(r.toPrecision(3)))}/s`}</td>}
                 {(isHist || f.type === "summary") && <td className="whitespace-nowrap px-2 text-right tabular-nums">{s.sum !== null && s.value > 0 ? show(s.sum / s.value) : "—"}</td>}
                 {isHist &&
                   [0.5, 0.9, 0.99].map((q) => {
