@@ -158,7 +158,8 @@ export function packageOf(path: string): PackageInfo | null {
 export interface Group {
   name: string;
   bytes: number;
-  files: { path: string; bytes: number }[];
+  /** `path` is cleaned for display; `source` is the path as the map wrote it. */
+  files: { path: string; source: string; bytes: number }[];
   versions: string[];
 }
 
@@ -171,7 +172,7 @@ export function groupByPackage(a: Attribution): Group[] {
     const key = pkg ? pkg.name : `(your code) ${clean.includes("/") ? clean.slice(0, clean.indexOf("/")) : "."}`;
     const g = groups.get(key) ?? { name: key, bytes: 0, files: [], versions: [] };
     g.bytes += bytes;
-    g.files.push({ path: clean, bytes });
+    g.files.push({ path: clean, source: src, bytes });
     if (pkg?.version && !g.versions.includes(pkg.version)) g.versions.push(pkg.version);
     groups.set(key, g);
   }

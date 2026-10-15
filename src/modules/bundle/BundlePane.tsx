@@ -11,10 +11,11 @@ import { cn } from "@/lib/utils";
 import { hueFor, squarify } from "@/modules/diskusage/model";
 import type { EditorPaneHandle } from "@/modules/editor/EditorPane";
 import { getActiveEditor } from "@/modules/editor/lib/activeEditor";
+import { native } from "@/modules/ai/lib/native";
 import { inputBox, quickPick } from "@/modules/quick-pick";
 import { base64ToBytes, copyToClipboard, formatBytes, toolPaneHandle, toolsNative } from "@/modules/tools/paneHandle";
 import { currentWorkspaceEnv } from "@/modules/workspace";
-import { attribute, duplicates, groupByPackage, mapUrlOf, type Attribution, type Group, type SourceMap } from "./model";
+import { attribute, duplicates, groupByPackage, mapUrlOf, packageOf, type Attribution, type Group, type SourceMap } from "./model";
 
 const SCHEME = "gear-bundle://";
 const READ_CAP = 64 * 1024 * 1024;
@@ -32,15 +33,43 @@ export async function openBundleAnalyzer(): Promise<void> {
   const items: { label: string; description?: string; value: string }[] = [];
   if (BUNDLE.test(current)) items.push({ label: current.split(/[\\/]/).pop() ?? current, description: "Current file", value: current });
   if (root) {
-    const listed = await invoke<{ files: string[] }>("fs_list_files", { root, limit: 30000, maxDepth: 12, workspace: currentWorkspaceEnv() }).catch(() => ({ files: [] as string[] }));
-    const files = new Set(listed.files.map((f) => f.replace(/\\/g, "/")));
-    for (const f of files) if (BUNDLE.test(f) && files.has(`${f}.map`) && !/(^|\/)node_modules\//.test(f)) items.push({ label: f, description: "has a source map", value: `${root.replace(/[\\/]+$/, "")}/${f}` });
+    const base = root.replace(/[\\/]+$/, "");
+    for (const f of await findBundles(base)) items.push({ label: f, description: "has a source map", value: `${base}/${f}` });
   }
   items.push({ label: "Other file…", value: "" });
   const pick = items.length > 1 ? await quickPick(items, { title: "Analyze a JavaScript bundle", placeholder: "Built .js files with a source map next to them" }) : "";
   if (pick === undefined) return;
   const file = pick || (await inputBox({ title: "Analyze a JavaScript bundle", value: BUNDLE.test(current) ? current : "", placeholder: "Path to a built .js file with a source map" }))?.trim();
   if (file) openBundleFor(file);
+}
+
+const OUTPUT_DIRS = ["dist", "build", "out", ".next/static", "public/build", ".output/public"];
+
+/**
+ * Built .js files with a `.map` beside them. The workspace listing skips
+ * dist/ and build/, so each project's output folders (the workspace root and
+ * every folder with a package.json) are walked directly.
+ */
+async function findBundles(root: string): Promise<string[]> {
+  const listed = await invoke<{ files: string[] }>("fs_list_files", { root, limit: 30000, maxDepth: 12, workspace: currentWorkspaceEnv() }).catch(() => ({ files: [] as string[] }));
+  const rel = listed.files.map((f) => f.replace(/\\/g, "/")).filter((f) => !/(^|\/)node_modules\//.test(f));
+  const found = new Set<string>();
+  const all = new Set(rel);
+  for (const f of rel) if (BUNDLE.test(f) && all.has(`${f}.map`)) found.add(f);
+  const projects = ["", ...rel.filter((f) => /(^|\/)package\.json$/.test(f)).map((f) => f.slice(0, -"package.json".length))].slice(0, 30);
+  let budget = 600;
+  const walk = async (dir: string, depth: number) => {
+    if (depth > 4 || budget <= 0) return;
+    const entries = await native.readDirAll(`${root}/${dir}`).catch(() => []);
+    budget -= entries.length;
+    const names = new Set(entries.map((e) => e.name));
+    for (const e of entries) {
+      if (e.kind === "file" && BUNDLE.test(e.name) && names.has(`${e.name}.map`)) found.add(`${dir}/${e.name}`);
+      else if (e.kind === "dir" && e.name !== "node_modules") await walk(`${dir}/${e.name}`, depth + 1);
+    }
+  };
+  for (const p of projects) for (const out of OUTPUT_DIRS) await walk(`${p}${out}`, 0);
+  return [...found].sort();
 }
 
 interface Loaded {
@@ -63,6 +92,16 @@ async function readText(path: string): Promise<string> {
   const r = await toolsNative.readBytes(path, READ_CAP);
   if (r.truncated) throw new Error(`${path.split(/[\\/]/).pop()} is ${formatBytes(r.size)}; files over ${formatBytes(READ_CAP)} are not read.`);
   return new TextDecoder().decode(base64ToBytes(r.data));
+}
+
+/** `dir` joined with a relative path, `..` and `.` resolved. */
+function joinPath(dir: string, rel: string): string {
+  const parts = dir.replace(/\\/g, "/").split("/");
+  for (const seg of rel.replace(/\\/g, "/").split("/")) {
+    if (seg === "..") parts.length > 1 && parts.pop();
+    else if (seg && seg !== ".") parts.push(seg);
+  }
+  return parts.join("/");
 }
 
 const pct = (n: number, total: number) => (total ? `${((n / total) * 100).toFixed(n / total < 0.01 ? 2 : 1)}%` : "—");
@@ -126,7 +165,7 @@ export const BundlePane = forwardRef<EditorPaneHandle, { path: string }>(functio
   const current = useMemo(() => data?.groups.find((g) => g.name === group) ?? null, [data, group]);
   const items = useMemo(() => {
     if (!data) return [];
-    const base = current ? current.files.map((f) => ({ name: f.path, bytes: f.bytes, files: 1 })) : [...data.groups.map((g) => ({ name: g.name, bytes: g.bytes, files: g.files.length })), ...(data.attribution.unmapped ? [{ name: "(unmapped)", bytes: data.attribution.unmapped, files: 0 }] : [])];
+    const base = current ? current.files.map((f) => ({ name: f.path, label: packageOf(f.path)?.inner || f.path, bytes: f.bytes, files: 1 })) : [...data.groups.map((g) => ({ name: g.name, label: g.name, bytes: g.bytes, files: g.files.length })), ...(data.attribution.unmapped ? [{ name: "(unmapped)", label: "(unmapped)", bytes: data.attribution.unmapped, files: 0 }] : [])];
     return base;
   }, [data, current]);
   const tiles = useMemo(() => squarify(items, (i) => i.bytes, { x: 0, y: 0, w: box.w, h: box.h }), [items, box]);
@@ -140,7 +179,11 @@ export const BundlePane = forwardRef<EditorPaneHandle, { path: string }>(functio
   const openSource = async (p: string) => {
     const root = app().workspaceRoot();
     const dir = file.replace(/[\\/][^\\/]*$/, "");
-    const candidates = [root && `${root.replace(/[\\/]+$/, "")}/${p}`, `${dir}/${p}`].filter(Boolean) as string[];
+    // Relative sources are relative to the map file; bundler URLs (webpack://…) to the project.
+    const mapDir = data && data.mapFrom !== "inline source map" ? data.mapFrom.replace(/[\\/][^\\/]*$/, "") : dir;
+    const raw = current?.files.find((f) => f.path === p)?.source ?? p;
+    const relative = !/^[a-z][a-z0-9+.-]*:/i.test(raw) && !/^([a-z]:)?[\\/]/i.test(raw);
+    const candidates = [relative ? joinPath(mapDir, raw) : null, /^([a-z]:)?[\\/]/i.test(raw) ? raw : null, root && `${root.replace(/[\\/]+$/, "")}/${p}`, `${dir}/${p}`].filter(Boolean) as string[];
     for (const c of candidates) {
       const ok = await toolsNative.readBytes(c, 1).then(
         () => true,
@@ -227,7 +270,7 @@ export const BundlePane = forwardRef<EditorPaneHandle, { path: string }>(functio
         <div ref={mapRef} className="relative min-w-0 flex-[3] overflow-hidden bg-muted/20">
           {tiles.map((tile) => {
             const isGroup = !current && tile.item.name !== "(unmapped)";
-            const label = current ? tile.item.name.split("/").pop() : tile.item.name.replace(/^\(your code\) /, "▸ ");
+            const label = current ? tile.item.label.split("/").pop() : tile.item.name.replace(/^\(your code\) /, "▸ ");
             return (
               <button
                 key={tile.item.name}
@@ -265,7 +308,7 @@ export const BundlePane = forwardRef<EditorPaneHandle, { path: string }>(functio
                   onClick={() => (current ? void openSource(i.name) : i.name !== "(unmapped)" && setGroup(i.name))}
                 >
                   <td className="max-w-0 truncate px-2 py-0.5 font-mono text-[11.5px]" title={i.name}>
-                    {i.name}
+                    {i.label}
                     {!current && (data.groups.find((g) => g.name === i.name)?.versions.length ?? 0) > 1 && <span className="ml-1 rounded bg-amber-500/15 px-1 text-[10px] text-amber-700">×{data.groups.find((g) => g.name === i.name)?.versions.length}</span>}
                   </td>
                   <td className="w-20 whitespace-nowrap px-2 text-right tabular-nums">{formatBytes(i.bytes)}</td>
