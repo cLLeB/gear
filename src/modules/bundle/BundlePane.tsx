@@ -56,7 +56,14 @@ async function findBundles(root: string): Promise<string[]> {
   const found = new Set<string>();
   const all = new Set(rel);
   for (const f of rel) if (BUNDLE.test(f) && all.has(`${f}.map`)) found.add(f);
-  const projects = ["", ...rel.filter((f) => /(^|\/)package\.json$/.test(f)).map((f) => f.slice(0, -"package.json".length))].slice(0, 30);
+  // Output folders sit beside a project's sources: try every folder up to two levels deep, and every package.json folder.
+  const dirs = new Set<string>([""]);
+  for (const f of rel) {
+    const parts = f.split("/").slice(0, -1);
+    for (let d = 1; d <= Math.min(2, parts.length); d++) dirs.add(`${parts.slice(0, d).join("/")}/`);
+    if (/(^|\/)package\.json$/.test(f)) dirs.add(f.slice(0, -"package.json".length));
+  }
+  const projects = [...dirs].filter((d) => !OUTPUT_DIRS.some((o) => d === `${o}/` || d.endsWith(`/${o}/`))).slice(0, 80);
   let budget = 600;
   const walk = async (dir: string, depth: number) => {
     if (depth > 4 || budget <= 0) return;
@@ -68,7 +75,7 @@ async function findBundles(root: string): Promise<string[]> {
       else if (e.kind === "dir" && e.name !== "node_modules") await walk(`${dir}/${e.name}`, depth + 1);
     }
   };
-  for (const p of projects) for (const out of OUTPUT_DIRS) await walk(`${p}${out}`, 0);
+  await Promise.all(projects.flatMap((p) => OUTPUT_DIRS.map((out) => walk(`${p}${out}`, 0))));
   return [...found].sort();
 }
 
