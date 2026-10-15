@@ -55,23 +55,36 @@ async function readSpec(path: string): Promise<unknown> {
 /** The file as it was at `ref`, through git. */
 async function readAtRef(path: string, ref: string): Promise<unknown> {
   const r = await native.runCommand(`git show ${quoteShellArg(`${ref}:./${nameOf(path)}`)}`, dirOf(path), 60);
-  if (r.exit_code !== 0) throw new Error((r.stderr || r.stdout).trim() || `git show failed for ${ref}.`);
+  if (r.exit_code !== 0) {
+    const msg = (r.stderr || r.stdout).trim();
+    if (/exists on disk, but not in|does not exist in/.test(msg)) throw new Error(`${nameOf(path)} did not exist at ${ref}. Compare with a later branch, tag or commit.`);
+    if (/invalid object name|unknown revision|bad revision|not a valid object name/i.test(msg)) throw new Error(`${ref} is not a branch, tag or commit in this repository.`);
+    if (/not a git repository/i.test(msg)) throw new Error("This file is not in a git repository; compare with another file instead.");
+    throw new Error(msg || `git show failed for ${ref}.`);
+  }
   if (r.truncated) throw new Error("The spec at that ref is larger than 256 KB, more than git output can carry here. Save it to a file (git show ref:path > old.yaml) and compare with that file.");
   return parseSpec(r.stdout, `${nameOf(path)} at ${ref}`);
 }
 
-/** The ref most worth comparing with: the default branch when on another branch, else the last tag, else HEAD. */
-async function defaultRef(dir: string): Promise<string> {
+/**
+ * The ref most worth comparing with, among those where the file exists: the
+ * default branch when on another branch, HEAD when the file has uncommitted
+ * changes, else the last tag, else HEAD.
+ */
+async function defaultRef(file: string): Promise<string> {
+  const dir = dirOf(file);
   const run = async (cmd: string) => {
     const r = await native.runCommand(cmd, dir, 20).catch(() => null);
-    return r && r.exit_code === 0 ? r.stdout.trim() : "";
+    return r && r.exit_code === 0 ? r.stdout.trim() || "ok" : "";
   };
   const branch = await run("git rev-parse --abbrev-ref HEAD");
   const head = (await run("git symbolic-ref --short refs/remotes/origin/HEAD")).replace(/^origin\//, "");
-  const main = head || ((await run("git rev-parse --verify --quiet main")) ? "main" : (await run("git rev-parse --verify --quiet master")) ? "master" : "");
-  if (main && branch && branch !== main) return main;
+  const main = head && head !== "ok" ? head : (await run("git rev-parse --verify --quiet main")) ? "main" : (await run("git rev-parse --verify --quiet master")) ? "master" : "";
+  const changed = !(await run(`git diff --quiet HEAD -- ${quoteShellArg(nameOf(file))}`));
   const tag = await run("git describe --tags --abbrev=0");
-  return tag || "HEAD";
+  const candidates = [main && branch && branch !== main ? main : "", changed ? "HEAD" : "", tag && tag !== "ok" ? tag : "", "HEAD"].filter(Boolean);
+  for (const ref of candidates) if (await run(`git cat-file -e ${quoteShellArg(`${ref}:./${nameOf(file)}`)}`)) return ref;
+  return "HEAD";
 }
 
 function bump(changes: ApiChange[]): { level: "major" | "minor" | "patch" | "none"; why: string } {
@@ -98,7 +111,7 @@ export const ApiDiffPane = forwardRef<EditorPaneHandle, { path: string }>(functi
       setBusy(true);
       setError(null);
       try {
-        const chosen = b ?? { kind: "ref" as const, ref: await defaultRef(dirOf(file)) };
+        const chosen = b ?? { kind: "ref" as const, ref: await defaultRef(file) };
         if (!b) {
           setBase(chosen);
           if (chosen.kind === "ref") setRefText(chosen.ref);
