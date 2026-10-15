@@ -75,7 +75,7 @@ async function findCli(cwd: string): Promise<string> {
     const r = await native.runCommand(`${cli} version`, cwd, 30).catch(() => null);
     if (r && r.exit_code === 0) return cli;
   }
-  throw new Error("Neither terraform nor tofu was found on PATH.");
+  throw new Error("Neither terraform nor tofu was found on PATH. Install one, or open the plan as JSON: terraform show -json plan.tfplan > plan.json");
 }
 
 const dirOf = (p: string) => p.replace(/[\\/][^\\/]*$/, "");
