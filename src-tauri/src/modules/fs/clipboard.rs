@@ -123,11 +123,27 @@ fn read_files() -> Result<Vec<String>, String> {
     // No portable API here: read the freedesktop `text/uri-list` target through
     // whichever helper is installed. Missing helpers are not an error — the
     // caller just falls back to pasting text.
-    const CANDIDATES: [(&str, &[&str]); 2] = [
+    // GNOME's file managers may offer only `x-special/gnome-copied-files`
+    // ("copy" or "cut", then one URI per line), so it is the fallback target.
+    const CANDIDATES: [(&str, &[&str]); 4] = [
         ("wl-paste", &["--no-newline", "--type", "text/uri-list"]),
         (
             "xclip",
             &["-selection", "clipboard", "-t", "text/uri-list", "-o"],
+        ),
+        (
+            "wl-paste",
+            &["--no-newline", "--type", "x-special/gnome-copied-files"],
+        ),
+        (
+            "xclip",
+            &[
+                "-selection",
+                "clipboard",
+                "-t",
+                "x-special/gnome-copied-files",
+                "-o",
+            ],
         ),
     ];
 
@@ -202,6 +218,16 @@ mod tests {
             parse_uri_list("file:///home/a/x.txt\nfile:///home/a/y.txt"),
             vec!["/home/a/x.txt", "/home/a/y.txt"]
         );
+    }
+
+    #[test]
+    fn reads_gnome_copied_files_payloads() {
+        // The leading verb says copy or cut; the paths are what matter.
+        assert_eq!(
+            parse_uri_list("copy\nfile:///home/a/x.txt\nfile:///home/a/My%20Dir"),
+            vec!["/home/a/x.txt", "/home/a/My Dir"]
+        );
+        assert_eq!(parse_uri_list("cut\r\nfile:///tmp/a\r\n"), vec!["/tmp/a"]);
     }
 
     #[test]
