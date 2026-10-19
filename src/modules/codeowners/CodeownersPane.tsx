@@ -95,7 +95,8 @@ export const CodeownersPane = forwardRef<EditorPaneHandle, { path: string }>(fun
     const head = (await git(data.root, "git symbolic-ref --short refs/remotes/origin/HEAD"))?.trim().replace(/^origin\//, "");
     const base = head || ((await git(data.root, "git rev-parse --verify --quiet main")) !== null ? "main" : "master");
     const changed = new Set<string>();
-    for (const cmd of [`git diff --name-only ${base}...HEAD`, "git diff --name-only HEAD", "git ls-files --others --exclude-standard"]) (await git(data.root, cmd))?.split(/\r?\n/).forEach((f) => f.trim() && changed.add(f.trim()));
+    // Untracked files are not part of a pull request, so they decide no reviewers.
+    for (const cmd of [`git diff --name-only ${base}...HEAD`, "git diff --name-only HEAD"]) (await git(data.root, cmd))?.split(/\r?\n/).forEach((f) => f.trim() && changed.add(f.trim()));
     setBranch({ base, changed: [...changed].sort() });
     setBusy(false);
   }, [data]);
@@ -305,7 +306,7 @@ export const CodeownersPane = forwardRef<EditorPaneHandle, { path: string }>(fun
             ) : (
               <>
                 <div className="text-muted-foreground">
-                  {branch?.changed.length} file{branch?.changed.length === 1 ? "" : "s"} changed against {branch?.base} (including uncommitted).
+                  {branch?.changed.length} file{branch?.changed.length === 1 ? "" : "s"} changed against {branch?.base} (commits plus uncommitted edits to tracked files).
                   <button type="button" className="ml-2 underline" onClick={() => (setBranch(null), void loadBranch())}>
                     refresh
                   </button>
