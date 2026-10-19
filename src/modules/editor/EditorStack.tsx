@@ -35,6 +35,7 @@ import { MigrationPane } from "@/modules/migrationlint/MigrationPane";
 import { CodeownersPane } from "@/modules/codeowners/CodeownersPane";
 import { ActionsPane } from "@/modules/actionsgraph/ActionsPane";
 import { NginxPane } from "@/modules/nginx/NginxPane";
+import { CspPane } from "@/modules/csp/CspPane";
 import { DataGenPane } from "@/modules/datagen/DataGenPane";
 import { EnvPane } from "@/modules/envmatrix/EnvPane";
 import { I18nPane } from "@/modules/i18nkeys/I18nPane";
@@ -180,6 +181,8 @@ export function EditorStack({
                 <DataGenPane ref={getRefCallback(t.id)} path={t.path} />
               ) : t.path.startsWith("gear-sarif://") || (/\.sarif$/i.test(t.path) && !t.languageOverride) ? (
                 <SarifPane ref={getRefCallback(t.id)} path={t.path} />
+              ) : t.path.startsWith("gear-csp://") ? (
+                <CspPane ref={getRefCallback(t.id)} path={t.path} />
               ) : t.path.startsWith("gear-nginx://") ? (
                 <NginxPane ref={getRefCallback(t.id)} path={t.path} />
               ) : t.path.startsWith("gear-actions://") ? (
