@@ -21,6 +21,14 @@ const GAP_Y = 16;
 const EVENTS = ["push", "pull_request", "pull_request_target", "workflow_dispatch", "schedule", "release", "merge_group", "workflow_call"];
 const VERDICT_STYLE: Record<Verdict, string> = { runs: "text-emerald-600", skipped: "text-muted-foreground line-through", maybe: "text-amber-600" };
 
+/** runs-on with `${{ matrix.x }}` filled in from the expanded matrix ("ubuntu-latest, windows-latest"). */
+function runnerOf(job: Job): string {
+  const m = /^\$\{\{\s*matrix\.([\w-]+)\s*\}\}$/.exec(job.runsOn.trim());
+  if (!m || !job.matrix?.length) return job.runsOn;
+  const values = [...new Set(job.matrix.map((c) => c[m[1]]).filter((v) => v !== undefined).map(String))];
+  return values.length ? values.join(", ") : job.runsOn;
+}
+
 export function openActionsGraph(): void {
   app().openFile(PATH);
 }
@@ -180,7 +188,7 @@ function Graph({ wf, selected, onSelect, verdicts }: { wf: Workflow; selected: s
           >
             <div className="truncate font-medium">{j.name}</div>
             <div className="truncate text-[11px] text-muted-foreground">
-              {j.uses ? `calls ${j.uses}` : j.runsOn}
+              {j.uses ? `calls ${j.uses}` : runnerOf(j)}
               {j.matrix === null ? " · dynamic matrix" : j.matrix.length ? ` · ×${j.matrix.length}` : ""}
             </div>
             <div className="truncate text-[10.5px]">
@@ -206,7 +214,7 @@ function JobDetail({ job, onOpen }: { job: Job; onOpen: () => void }) {
         </button>
       </div>
       <div className="text-muted-foreground">
-        {job.uses ? `Calls ${job.uses}` : `Runs on ${job.runsOn}`}
+        {job.uses ? `Calls ${job.uses}` : `Runs on ${runnerOf(job)}`}
         {job.needs.length > 0 && ` · needs ${job.needs.join(", ")}`}
         {job.timeout !== null && ` · times out after ${job.timeout} min`}
         {job.if && ` · if: ${job.if}`}
