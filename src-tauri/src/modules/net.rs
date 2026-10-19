@@ -9,6 +9,9 @@ use reqwest::Method;
 use serde::{Deserialize, Serialize};
 use tauri::ipc::Channel;
 
+mod ip;
+use ip::{ip_kind, IpKind};
+
 const HEADER_BLOCKLIST: &[&str] = &[
     "host",
     "content-length",
@@ -28,58 +31,6 @@ fn is_blocked_host_name(host: &str) -> bool {
         host.as_str(),
         "metadata.google.internal" | "metadata" | "metadata.azure.com"
     )
-}
-
-fn ip_kind(ip: IpAddr) -> IpKind {
-    match ip {
-        IpAddr::V4(v) => {
-            let o = v.octets();
-            // Cloud metadata IPv4: 169.254.169.254
-            if v.is_link_local() {
-                return IpKind::BlockedMetadata;
-            }
-            if v.is_loopback() || v.is_unspecified() || v.is_broadcast() || v.is_multicast() {
-                return IpKind::Loopback;
-            }
-            // RFC1918 + CGNAT + benchmarking + IETF
-            if o[0] == 10
-                || (o[0] == 172 && (16..=31).contains(&o[1]))
-                || (o[0] == 192 && o[1] == 168)
-                || (o[0] == 100 && (64..=127).contains(&o[1]))
-                || (o[0] == 198 && (o[1] == 18 || o[1] == 19))
-            {
-                return IpKind::Private;
-            }
-            IpKind::Public
-        }
-        IpAddr::V6(v) => {
-            if v.is_loopback() || v.is_unspecified() || v.is_multicast() {
-                return IpKind::Loopback;
-            }
-            // Cloud metadata IPv6 (AWS): fd00:ec2::254
-            let segs = v.segments();
-            if segs[0] == 0xfd00 && segs[1] == 0xec2 {
-                return IpKind::BlockedMetadata;
-            }
-            // fe80::/10 link-local
-            if segs[0] & 0xffc0 == 0xfe80 {
-                return IpKind::BlockedMetadata;
-            }
-            // fc00::/7 unique-local (private)
-            if segs[0] & 0xfe00 == 0xfc00 {
-                return IpKind::Private;
-            }
-            IpKind::Public
-        }
-    }
-}
-
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-enum IpKind {
-    Public,
-    Private,
-    Loopback,
-    BlockedMetadata,
 }
 
 /// Resolve `host` once and return both its safety classification and the
