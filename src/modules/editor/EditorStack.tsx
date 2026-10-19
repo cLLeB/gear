@@ -54,6 +54,7 @@ import { TimePane } from "@/modules/timetrack/TimePane";
 import { WsPane } from "@/modules/wsclient/WsPane";
 import { isLogFile } from "@/modules/logview/model";
 import { EditorPane, type EditorPaneHandle } from "./EditorPane";
+import { useDocumentHidden } from "./MediaPreview";
 
 type Props = {
   tabs: Tab[];
@@ -133,6 +134,8 @@ export function EditorStack({
       if (!live.has(id)) closeCallbacks.current.delete(id);
     }
   }, [editors]);
+
+  const documentHidden = useDocumentHidden();
 
   if (editors.length === 0) return null;
   return (
@@ -266,6 +269,7 @@ export function EditorStack({
                   languageOverride={t.languageOverride}
                   onDirtyChange={getDirtyCallback(t.id)}
                   onClose={getCloseCallback(t.id)}
+                  mediaActive={visible && !documentHidden}
                 />
               )}
             </div>
