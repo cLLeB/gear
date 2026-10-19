@@ -22,6 +22,7 @@ import { METRICS_ACTIONS } from "@/modules/metrics/MetricsPane";
 import { MIGRATION_ACTIONS } from "@/modules/migrationlint/MigrationPane";
 import { CODEOWNERS_ACTIONS } from "@/modules/codeowners/CodeownersPane";
 import { ACTIONS_GRAPH_ACTIONS } from "@/modules/actionsgraph/ActionsPane";
+import { NGINX_ACTIONS } from "@/modules/nginx/NginxPane";
 import { DATAGEN_ACTIONS } from "@/modules/datagen/DataGenPane";
 import { I18N_ACTIONS } from "@/modules/i18nkeys/I18nPane";
 import { openImportGraph } from "@/modules/importgraph/ImportGraphPane";
@@ -79,5 +80,6 @@ export const TOOL_PANE_ACTIONS = [
   ...MIGRATION_ACTIONS,
   ...CODEOWNERS_ACTIONS,
   ...ACTIONS_GRAPH_ACTIONS,
+  ...NGINX_ACTIONS,
   ...DATAGEN_ACTIONS,
 ];
