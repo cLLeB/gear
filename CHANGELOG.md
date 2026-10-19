@@ -1,5 +1,60 @@
 # Changelog
 
+## [0.1.8](https://github.com/cLLeB/gear/compare/v0.1.7...v0.1.8) (2026-10-19)
+
+
+### Features
+
+* **actionsgraph:** GitHub Actions workflow model and trigger simulator ([89f2fb2](https://github.com/cLLeB/gear/commit/89f2fb2529e01eb062c27e7f1f70da4c6eefcbb9))
+* **actionsgraph:** open gear-actions:// tabs and add the GitHub Actions command ([0458ba3](https://github.com/cLLeB/gear/commit/0458ba304396dd330c7106bf6cfb6acd2765b875))
+* **actionsgraph:** workflow graph and simulator pane ([3b23455](https://github.com/cLLeB/gear/commit/3b234554848e6151cfa753c6ac7097f91b916f64))
+* **apidiff:** OpenAPI breaking-change checker ([dc2a63e](https://github.com/cLLeB/gear/commit/dc2a63ed1140ee147495fbfedb05c540012c1612))
+* **bundle:** bundle analyzer — what a built JavaScript file is made of ([e95e3bf](https://github.com/cLLeB/gear/commit/e95e3bf935b33bf31c7bc04c92dc8584db8d2cc1))
+* **codeowners:** CODEOWNERS matching and analysis ([0e2ab11](https://github.com/cLLeB/gear/commit/0e2ab118abf0730aeaf62af63476598e967c8cdb))
+* **codeowners:** CODEOWNERS pane ([a04e184](https://github.com/cLLeB/gear/commit/a04e184dddf8598f682e2d182e221fc4970050bf))
+* **codeowners:** open gear-codeowners:// tabs and add the CODEOWNERS command ([3e09c44](https://github.com/cLLeB/gear/commit/3e09c44849521d78abdbed41f668f0378efe3760))
+* **codestats:** code stats — lines of code by language, hotspots, files that change together, contributors ([88f7d2e](https://github.com/cLLeB/gear/commit/88f7d2e96b4236abdf7cd1cf7ff7e3fab6e2ef33))
+* **colors:** colour workbench — every notation, WCAG and APCA contrast, OKLCH scales, colour-blind preview, workspace audit ([1c78cf7](https://github.com/cLLeB/gear/commit/1c78cf71ba785a2296bb4ab560c68ae0e2a2311e))
+* **csp:** Content-Security-Policy pane ([c4bc143](https://github.com/cLLeB/gear/commit/c4bc143b524722eec8f01387287421e356b5d178))
+* **csp:** Content-Security-Policy parser, evaluator and matcher ([1ed72be](https://github.com/cLLeB/gear/commit/1ed72be8290ebb3a17f59fe9e360f9dbf5156a15))
+* **csp:** open gear-csp:// tabs and add the Content-Security-Policy command ([51ea4ce](https://github.com/cLLeB/gear/commit/51ea4ce31e0346726258a7f43cb4dd72821f3ee4))
+* **datagen:** test data generator — related tables of realistic rows as JSON, NDJSON, CSV or SQL ([d3b2571](https://github.com/cLLeB/gear/commit/d3b25718a7aa19e5ef76aa6b416caf8b46213758))
+* **editor:** media preview that pauses and hides while inactive ([9f0e5e5](https://github.com/cLLeB/gear/commit/9f0e5e5dd88639341584c706781b450739aec9d1))
+* **har:** HAR viewer — request waterfall, filters, details, summary and a redacted copy ([e795a7b](https://github.com/cLLeB/gear/commit/e795a7be5f4c44ebfe3d07cd40baab144fac7061))
+* **image:** image tools — metadata and what it gives away, resize and convert, strip metadata, colours, favicon set ([2a93a0a](https://github.com/cLLeB/gear/commit/2a93a0a7acb722c216b7c114d1eec2c5e750d3ad))
+* **licenses:** license audit — every dependency's license, what it means for this project, and a notices file ([5998995](https://github.com/cLLeB/gear/commit/59989952b72afad06c67129deec49df246b4cb0a))
+* **links:** broken link finder for the workspace's Markdown ([e307159](https://github.com/cLLeB/gear/commit/e307159f235233b03fd01f1a8494f3b285451ebd))
+* **metrics:** Prometheus / OpenMetrics endpoint explorer ([6af51ee](https://github.com/cLLeB/gear/commit/6af51ee8a7570dfbf37ea7fea47be2710c8a051c))
+* **migrationlint:** migration check pane ([23afc07](https://github.com/cLLeB/gear/commit/23afc073bd9404855b9432ce6582bdca7ade45aa))
+* **migrationlint:** open gear-migrations:// tabs and add the three Migrations commands ([e7ed636](https://github.com/cLLeB/gear/commit/e7ed6367457ece837a5f404e1df86292b02de551))
+* **migrationlint:** PostgreSQL migration safety rules ([ca14b5a](https://github.com/cLLeB/gear/commit/ca14b5a274af37ceb3dd8651a55076c2697dff19))
+* **nginx:** nginx configuration parser, request router and checks ([f3620f6](https://github.com/cLLeB/gear/commit/f3620f63eeb1b8bac95365d7c71b9ffc36ab8dcf))
+* **nginx:** nginx explorer pane ([6f2a639](https://github.com/cLLeB/gear/commit/6f2a639aaceefe946b9c6e6f63cb71d3c65a797d))
+* **nginx:** open gear-nginx:// tabs and add the nginx command ([cd34bcb](https://github.com/cLLeB/gear/commit/cd34bcbd09b17261ae4aeaedcd26491d484eacf3))
+* nineteen new tools, and security, terminal, media and clipboard fixes ([700782c](https://github.com/cLLeB/gear/commit/700782ceb1b2e4ec4516e6328a9f6ce05002db36))
+* **sarif:** viewer for static analysis results (CodeQL, Semgrep, ESLint, Trivy…) ([c1141cb](https://github.com/cLLeB/gear/commit/c1141cb55deb63d5b5f01cbabb171a1b8554efb1))
+* **tfplan:** Terraform / OpenTofu plan reviewer ([3ea395b](https://github.com/cLLeB/gear/commit/3ea395be3b5f010f933c3e52388b97c9d8eb8c32))
+* **tls:** certificate inspector — a server's TLS chain, expiry, names, key and what a browser would reject ([805439c](https://github.com/cLLeB/gear/commit/805439ca501c8fc3c7a17f2d1ca64abcc7f2f1ef))
+* **unicode:** Unicode inspector — hidden, bidi and look-alike characters, normalization and escapes ([1627939](https://github.com/cLLeB/gear/commit/162793932908d428184239d7b67bf26b99d50f8d))
+
+
+### Bug Fixes
+
+* **actionsgraph:** show matrix runners instead of the raw runs-on expression ([e224117](https://github.com/cLLeB/gear/commit/e22411711c045dbde0b2b3280a68c0cc85a6e0f4))
+* **apidiff:** compare with a ref where the spec exists, and explain git errors ([f82f0f4](https://github.com/cLLeB/gear/commit/f82f0f411ecf30964b3e3a28763e30eae4e630c5))
+* **bundle:** find bundles in dist/ and build/, open sources the map points to ([2514925](https://github.com/cLLeB/gear/commit/25149252d7c1aff77b643b9fab94cd2f21ca0337))
+* **bundle:** look for output folders beside any source folder, not only package.json folders ([a6f9e09](https://github.com/cLLeB/gear/commit/a6f9e09aba7e262c218ea4766477499cba2bdbf7))
+* **codeowners:** leave untracked files out of the reviewers a branch needs ([e6a5e75](https://github.com/cLLeB/gear/commit/e6a5e75bb6c15a331d7c559fbf22b2292b224b35))
+* **colors:** "1 set of near-duplicates", not "1 sets" ([67aa9b5](https://github.com/cLLeB/gear/commit/67aa9b5a1825f8e411f3ddda312237bf4fac9bb7))
+* **editor:** pause video and audio previews in background tabs and minimised windows ([3ec9add](https://github.com/cLLeB/gear/commit/3ec9add289779827ff8d94f57be2d88193f711a7))
+* **fs:** paste files copied in GNOME file managers on Linux ([880f006](https://github.com/cLLeB/gear/commit/880f0066b75767f1f7177b182137dca46ea4948a))
+* **licenses:** read pnpm packages stored with a peer suffix, and find cargo outside PATH ([fc558be](https://github.com/cLLeB/gear/commit/fc558be0e9bed3168bfb48ec8c4c2d47f4274ec9))
+* **metrics:** show per-second rates to three significant digits ([81f6c77](https://github.com/cLLeB/gear/commit/81f6c77d014727e37c91322b25555c5a9a466c6b))
+* **net:** classify IPv4 addresses embedded in IPv6 by their IPv4 part ([a4a5338](https://github.com/cLLeB/gear/commit/a4a53386b7cd74e7c3855086601052797f5e7595))
+* **pty:** keep opening terminals after a panic during a pseudoconsole lifecycle call ([794b68b](https://github.com/cLLeB/gear/commit/794b68b515917ffcde024e6e722befee66684e48))
+* **tfplan:** say how to get plan JSON when neither terraform nor tofu is installed ([f78ab73](https://github.com/cLLeB/gear/commit/f78ab732f7ab64bea90aeb7b6215045a31bd6854))
+* **tools:** say so when copying to the clipboard fails instead of leaving an unhandled error ([b5d5e63](https://github.com/cLLeB/gear/commit/b5d5e63eaca3d4f97b750add40956307b2584a55))
+
 ## [0.1.7](https://github.com/cLLeB/gear/compare/v0.1.6...v0.1.7) (2026-10-12)
 
 
