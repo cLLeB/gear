@@ -3,8 +3,21 @@
 // that mean something for them; this fills in the rest.
 
 import { invoke } from "@tauri-apps/api/core";
+import { toast } from "sonner";
 import type { EditorPaneHandle } from "@/modules/editor/EditorPane";
 import { currentWorkspaceEnv } from "@/modules/workspace";
+
+/**
+ * Writes text to the clipboard. On failure (the window lost focus, the
+ * clipboard is locked) it says so, and the returned promise never settles,
+ * so a `.then(() => toast.success(…))` after it only runs on success.
+ */
+export function copyToClipboard(text: string): Promise<void> {
+  return navigator.clipboard.writeText(text).catch(() => {
+    toast.error("Could not copy to the clipboard");
+    return new Promise<void>(() => {});
+  });
+}
 
 export function toolPaneHandle(path: string, impl: Partial<EditorPaneHandle> = {}): EditorPaneHandle {
   return {

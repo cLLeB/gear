@@ -295,6 +295,7 @@ pub fn run() {
             fs::devtools::fs_compare_dirs,
             modules::bench::http_bench,
             modules::bench::http_bench_cancel,
+            modules::tlscheck::tls_inspect,
             modules::mock::mock_start,
             modules::mock::mock_set_routes,
             modules::mock::mock_stop,

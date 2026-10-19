@@ -18,6 +18,25 @@ import { BoardPane } from "@/modules/board/BoardPane";
 import { ChartPane } from "@/modules/charts/ChartPane";
 import { CodeImagePane } from "@/modules/codeimage/CodeImagePane";
 import { CronPane } from "@/modules/cronlab/CronPane";
+import { HarPane } from "@/modules/harview/HarPane";
+import { UnicodePane } from "@/modules/unicode/UnicodePane";
+import { ColorPane } from "@/modules/colors/ColorPane";
+import { CodeStatsPane } from "@/modules/codestats/CodeStatsPane";
+import { ImagePane } from "@/modules/imagetools/ImagePane";
+import { LicensePane } from "@/modules/licenses/LicensePane";
+import { TlsPane } from "@/modules/tlscheck/TlsPane";
+import { LinkCheckPane } from "@/modules/linkcheck/LinkCheckPane";
+import { BundlePane } from "@/modules/bundle/BundlePane";
+import { SarifPane } from "@/modules/sarif/SarifPane";
+import { PlanPane } from "@/modules/tfplan/PlanPane";
+import { ApiDiffPane } from "@/modules/apidiff/ApiDiffPane";
+import { MetricsPane } from "@/modules/metrics/MetricsPane";
+import { MigrationPane } from "@/modules/migrationlint/MigrationPane";
+import { CodeownersPane } from "@/modules/codeowners/CodeownersPane";
+import { ActionsPane } from "@/modules/actionsgraph/ActionsPane";
+import { NginxPane } from "@/modules/nginx/NginxPane";
+import { CspPane } from "@/modules/csp/CspPane";
+import { DataGenPane } from "@/modules/datagen/DataGenPane";
 import { EnvPane } from "@/modules/envmatrix/EnvPane";
 import { I18nPane } from "@/modules/i18nkeys/I18nPane";
 import { ImportGraphPane } from "@/modules/importgraph/ImportGraphPane";
@@ -35,6 +54,7 @@ import { TimePane } from "@/modules/timetrack/TimePane";
 import { WsPane } from "@/modules/wsclient/WsPane";
 import { isLogFile } from "@/modules/logview/model";
 import { EditorPane, type EditorPaneHandle } from "./EditorPane";
+import { useDocumentHidden } from "./MediaPreview";
 
 type Props = {
   tabs: Tab[];
@@ -115,6 +135,8 @@ export function EditorStack({
     }
   }, [editors]);
 
+  const documentHidden = useDocumentHidden();
+
   if (editors.length === 0) return null;
   return (
     <div className="relative h-full w-full">
@@ -154,6 +176,44 @@ export function EditorStack({
                 <I18nPane ref={getRefCallback(t.id)} path={t.path} />
               ) : t.path.startsWith("gear-env://") ? (
                 <EnvPane ref={getRefCallback(t.id)} path={t.path} />
+              ) : t.path.startsWith("gear-har://") || (/\.har$/i.test(t.path) && !t.languageOverride) ? (
+                <HarPane ref={getRefCallback(t.id)} path={t.path} />
+              ) : t.path.startsWith("gear-licenses://") ? (
+                <LicensePane ref={getRefCallback(t.id)} path={t.path} />
+              ) : t.path.startsWith("gear-datagen://") ? (
+                <DataGenPane ref={getRefCallback(t.id)} path={t.path} />
+              ) : t.path.startsWith("gear-sarif://") || (/\.sarif$/i.test(t.path) && !t.languageOverride) ? (
+                <SarifPane ref={getRefCallback(t.id)} path={t.path} />
+              ) : t.path.startsWith("gear-csp://") ? (
+                <CspPane ref={getRefCallback(t.id)} path={t.path} />
+              ) : t.path.startsWith("gear-nginx://") ? (
+                <NginxPane ref={getRefCallback(t.id)} path={t.path} />
+              ) : t.path.startsWith("gear-actions://") ? (
+                <ActionsPane ref={getRefCallback(t.id)} path={t.path} />
+              ) : t.path.startsWith("gear-codeowners://") ? (
+                <CodeownersPane ref={getRefCallback(t.id)} path={t.path} />
+              ) : t.path.startsWith("gear-migrations://") ? (
+                <MigrationPane ref={getRefCallback(t.id)} path={t.path} />
+              ) : t.path.startsWith("gear-metrics://") ? (
+                <MetricsPane ref={getRefCallback(t.id)} path={t.path} />
+              ) : t.path.startsWith("gear-apidiff://") ? (
+                <ApiDiffPane ref={getRefCallback(t.id)} path={t.path} />
+              ) : t.path.startsWith("gear-tfplan://") ? (
+                <PlanPane ref={getRefCallback(t.id)} path={t.path} />
+              ) : t.path.startsWith("gear-bundle://") ? (
+                <BundlePane ref={getRefCallback(t.id)} path={t.path} />
+              ) : t.path.startsWith("gear-links://") ? (
+                <LinkCheckPane ref={getRefCallback(t.id)} path={t.path} />
+              ) : t.path.startsWith("gear-tls://") ? (
+                <TlsPane ref={getRefCallback(t.id)} path={t.path} />
+              ) : t.path.startsWith("gear-image://") ? (
+                <ImagePane ref={getRefCallback(t.id)} path={t.path} />
+              ) : t.path.startsWith("gear-codestats://") ? (
+                <CodeStatsPane ref={getRefCallback(t.id)} path={t.path} />
+              ) : t.path.startsWith("gear-color://") ? (
+                <ColorPane ref={getRefCallback(t.id)} path={t.path} />
+              ) : t.path.startsWith("gear-unicode://") ? (
+                <UnicodePane ref={getRefCallback(t.id)} path={t.path} />
               ) : t.path.startsWith("gear-cron://") ? (
                 <CronPane ref={getRefCallback(t.id)} path={t.path} />
               ) : t.path.startsWith("gear-chart://") ? (
@@ -209,6 +269,7 @@ export function EditorStack({
                   languageOverride={t.languageOverride}
                   onDirtyChange={getDirtyCallback(t.id)}
                   onClose={getCloseCallback(t.id)}
+                  mediaActive={visible && !documentHidden}
                 />
               )}
             </div>

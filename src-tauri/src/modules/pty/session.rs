@@ -75,9 +75,17 @@ impl Drop for Session {
 #[cfg(windows)]
 static CONPTY_LIFECYCLE_LOCK: Mutex<()> = Mutex::new(());
 
+/// A panic inside a lifecycle call must not make every later terminal panic:
+/// a poisoned lock still serializes, so take it anyway.
+#[cfg(any(windows, test))]
+fn lock_lifecycle(lock: &Mutex<()>) -> std::sync::MutexGuard<'_, ()> {
+    lock.lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+}
+
 pub(super) fn drop_session(session: Arc<Session>) {
     #[cfg(windows)]
-    let _guard = CONPTY_LIFECYCLE_LOCK.lock().unwrap();
+    let _guard = lock_lifecycle(&CONPTY_LIFECYCLE_LOCK);
     drop(session);
 }
 
@@ -120,7 +128,7 @@ pub fn spawn(
     on_exit: Channel<i32>,
 ) -> Result<(Arc<Session>, PtySize), String> {
     #[cfg(windows)]
-    let _spawn_guard = CONPTY_LIFECYCLE_LOCK.lock().unwrap();
+    let _spawn_guard = lock_lifecycle(&CONPTY_LIFECYCLE_LOCK);
 
     let pty_system = native_pty_system();
     let size = PtySize {
@@ -353,4 +361,28 @@ pub fn spawn(
         .expect("spawn pty waiter thread");
 
     Ok((session, size))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_poisoned_lifecycle_lock_still_serializes_later_terminals() {
+        let lock = Arc::new(Mutex::new(()));
+        let poisoner = Arc::clone(&lock);
+        let _ = std::thread::spawn(move || {
+            let _guard = poisoner.lock().unwrap();
+            panic!("a lifecycle call panicked while holding the lock");
+        })
+        .join();
+        assert!(lock.is_poisoned());
+        // The next terminal still gets the lock instead of panicking.
+        let guard = lock_lifecycle(&lock);
+        assert!(
+            lock.try_lock().is_err(),
+            "the lock is held while the guard lives"
+        );
+        drop(guard);
+    }
 }

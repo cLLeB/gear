@@ -6,6 +6,25 @@ import { CHART_ACTIONS } from "@/modules/charts/ChartPane";
 import { CODEIMAGE_ACTIONS } from "@/modules/codeimage/CodeImagePane";
 import { CRON_ACTIONS } from "@/modules/cronlab/CronPane";
 import { ENV_ACTIONS } from "@/modules/envmatrix/EnvPane";
+import { HAR_ACTIONS } from "@/modules/harview/HarPane";
+import { UNICODE_ACTIONS } from "@/modules/unicode/UnicodePane";
+import { COLOR_ACTIONS } from "@/modules/colors/ColorPane";
+import { CODESTATS_ACTIONS } from "@/modules/codestats/CodeStatsPane";
+import { IMAGE_ACTIONS } from "@/modules/imagetools/ImagePane";
+import { LICENSE_ACTIONS } from "@/modules/licenses/LicensePane";
+import { TLS_ACTIONS } from "@/modules/tlscheck/TlsPane";
+import { LINKCHECK_ACTIONS } from "@/modules/linkcheck/LinkCheckPane";
+import { BUNDLE_ACTIONS } from "@/modules/bundle/BundlePane";
+import { SARIF_ACTIONS } from "@/modules/sarif/SarifPane";
+import { TFPLAN_ACTIONS } from "@/modules/tfplan/PlanPane";
+import { APIDIFF_ACTIONS } from "@/modules/apidiff/ApiDiffPane";
+import { METRICS_ACTIONS } from "@/modules/metrics/MetricsPane";
+import { MIGRATION_ACTIONS } from "@/modules/migrationlint/MigrationPane";
+import { CODEOWNERS_ACTIONS } from "@/modules/codeowners/CodeownersPane";
+import { ACTIONS_GRAPH_ACTIONS } from "@/modules/actionsgraph/ActionsPane";
+import { NGINX_ACTIONS } from "@/modules/nginx/NginxPane";
+import { CSP_ACTIONS } from "@/modules/csp/CspPane";
+import { DATAGEN_ACTIONS } from "@/modules/datagen/DataGenPane";
 import { I18N_ACTIONS } from "@/modules/i18nkeys/I18nPane";
 import { openImportGraph } from "@/modules/importgraph/ImportGraphPane";
 import { openLoadTest } from "@/modules/loadtest/LoadTestPane";
@@ -46,4 +65,23 @@ export const TOOL_PANE_ACTIONS = [
   ...ENV_ACTIONS,
   ...CRON_ACTIONS,
   ...CHART_ACTIONS,
+  ...HAR_ACTIONS,
+  ...UNICODE_ACTIONS,
+  ...COLOR_ACTIONS,
+  ...CODESTATS_ACTIONS,
+  ...IMAGE_ACTIONS,
+  ...LICENSE_ACTIONS,
+  ...TLS_ACTIONS,
+  ...LINKCHECK_ACTIONS,
+  ...BUNDLE_ACTIONS,
+  ...SARIF_ACTIONS,
+  ...TFPLAN_ACTIONS,
+  ...APIDIFF_ACTIONS,
+  ...METRICS_ACTIONS,
+  ...MIGRATION_ACTIONS,
+  ...CODEOWNERS_ACTIONS,
+  ...ACTIONS_GRAPH_ACTIONS,
+  ...NGINX_ACTIONS,
+  ...CSP_ACTIONS,
+  ...DATAGEN_ACTIONS,
 ];

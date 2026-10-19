@@ -74,6 +74,7 @@ import { conflictLens } from "./lib/conflictLens";
 import { gitGutter } from "./lib/gitGutter";
 import { bookmarks, bookmarksKeymap, restoredBookmarks, setBookmarksEffect } from "./lib/bookmarks";
 import { FORCE_READ_LIMIT, useDocument } from "./lib/useDocument";
+import { MediaPreview } from "./MediaPreview";
 import {
   inlineCompletion,
   triggerInlineCompletion,
@@ -116,6 +117,8 @@ type Props = {
   onDirtyChange?: (dirty: boolean) => void;
   onSaved?: () => void;
   onClose?: () => void;
+  /** False while the tab is in the background or the window is hidden; video and audio pause and hide. */
+  mediaActive?: boolean;
 };
 
 // Only formats the WebView2 (Chromium) engine can actually decode — so we never
@@ -138,7 +141,7 @@ function formatBytes(n: number): string {
 
 export const EditorPane = forwardRef<EditorPaneHandle, Props>(
   function EditorPane(
-    { path, languageOverride, onDirtyChange, onSaved, onClose },
+    { path, languageOverride, onDirtyChange, onSaved, onClose, mediaActive = true },
     ref,
   ) {
     const { doc, onChange, save, reload, openAnyway, adoptDiskText } =
@@ -689,14 +692,8 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
               alt={name}
             />
           )}
-          {isVideo && (
-            // biome-ignore lint/a11y/useMediaCaption: local media preview, no caption track
-            <video controls preload="metadata" className="max-h-full max-w-full" src={assetUrl} />
-          )}
-          {isAudio && (
-            // biome-ignore lint/a11y/useMediaCaption: local media preview, no caption track
-            <audio controls preload="metadata" className="w-full max-w-md" src={assetUrl} />
-          )}
+          {isVideo && <MediaPreview kind="video" src={assetUrl} active={mediaActive} />}
+          {isAudio && <MediaPreview kind="audio" src={assetUrl} active={mediaActive} />}
           {isPdf && (
             <iframe src={assetUrl} className="h-full w-full border-none" title={name} />
           )}
