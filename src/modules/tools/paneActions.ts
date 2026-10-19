@@ -19,6 +19,7 @@ import { SARIF_ACTIONS } from "@/modules/sarif/SarifPane";
 import { TFPLAN_ACTIONS } from "@/modules/tfplan/PlanPane";
 import { APIDIFF_ACTIONS } from "@/modules/apidiff/ApiDiffPane";
 import { METRICS_ACTIONS } from "@/modules/metrics/MetricsPane";
+import { MIGRATION_ACTIONS } from "@/modules/migrationlint/MigrationPane";
 import { DATAGEN_ACTIONS } from "@/modules/datagen/DataGenPane";
 import { I18N_ACTIONS } from "@/modules/i18nkeys/I18nPane";
 import { openImportGraph } from "@/modules/importgraph/ImportGraphPane";
@@ -73,5 +74,6 @@ export const TOOL_PANE_ACTIONS = [
   ...TFPLAN_ACTIONS,
   ...APIDIFF_ACTIONS,
   ...METRICS_ACTIONS,
+  ...MIGRATION_ACTIONS,
   ...DATAGEN_ACTIONS,
 ];
