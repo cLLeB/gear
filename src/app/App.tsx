@@ -2458,7 +2458,6 @@ export default function App() {
 							runLabel={activeRunLabel}
 							onActivateAgent={onActivateAgent}
 							onActivateLocalAgent={onActivateLocalAgent}
-							onOpenSettings={() => openSettingsTab()}
 							searchTarget={searchTarget}
 							searchRef={searchInlineRef}
 						/>

@@ -23,7 +23,6 @@ import {
   GridViewIcon,
   LayoutTwoColumnIcon,
   LayoutTwoRowIcon,
-  Settings01Icon,
   SidebarLeftIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -68,7 +67,6 @@ type Props = {
   runLabel: string | null;
   onActivateAgent: (tabId: number, leafId: number) => void;
   onActivateLocalAgent: () => void;
-  onOpenSettings: () => void;
   searchTarget: SearchTarget;
   searchRef: RefObject<SearchInlineHandle | null>;
 };
@@ -104,7 +102,6 @@ export function Header({
   runLabel,
   onActivateAgent,
   onActivateLocalAgent,
-  onOpenSettings,
   searchTarget,
   searchRef,
 }: Props) {
@@ -139,17 +136,6 @@ export function Header({
   const handleDragRegionDoubleClick = () => {
     void getCurrentWindow().toggleMaximize();
   };
-  const settingsButton = (
-    <Button
-      variant="ghost"
-      size="icon"
-      className="size-7 shrink-0 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
-      onClick={onOpenSettings}
-      title="Settings"
-    >
-      <HugeiconsIcon icon={Settings01Icon} size={15} strokeWidth={1.75} />
-    </Button>
-  );
 
   return (
     <div
@@ -169,64 +155,6 @@ export function Header({
           <HugeiconsIcon icon={SidebarLeftIcon} size={18} strokeWidth={1.75} />
         </Button>
 
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              className="shrink-0 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50"
-              title="Split terminal"
-              disabled={!canSplit}
-            >
-              <HugeiconsIcon icon={GridViewIcon} size={16} strokeWidth={1.75} />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="min-w-44">
-            <DropdownMenuItem onSelect={() => onSplit("row")}>
-              <HugeiconsIcon
-                icon={LayoutTwoColumnIcon}
-                size={14}
-                strokeWidth={1.75}
-              />
-              <span className="flex-1">Split right</span>
-              {splitRightTokens && (
-                <span className="text-xs text-muted-foreground">
-                  {splitRightTokens}
-                </span>
-              )}
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => onSplit("col")}>
-              <HugeiconsIcon
-                icon={LayoutTwoRowIcon}
-                size={14}
-                strokeWidth={1.75}
-              />
-              <span className="flex-1">Split down</span>
-              {splitDownTokens && (
-                <span className="text-xs text-muted-foreground">
-                  {splitDownTokens}
-                </span>
-              )}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-
-        {canClosePane && (
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            className="shrink-0 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
-            title={`Close pane (${tokensFor("pane.close")})`}
-            onClick={onClosePane}
-          >
-            <HugeiconsIcon icon={Cancel01Icon} size={16} strokeWidth={1.75} />
-          </Button>
-        )}
-
-        {!IS_MAC && <NotificationBell
-            onActivate={onActivateAgent}
-            onActivateLocal={onActivateLocalAgent}
-          />}
       </div>
 
       {!IS_MAC && <span className="mx-1 h-5 w-px shrink-0 bg-border" />}
@@ -270,6 +198,33 @@ export function Header({
           onRun={onRun}
           runLabel={runLabel}
         />
+        {/* Pane actions sit with the tabs they act on, and only for terminal tabs. */}
+        {canSplit && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon-sm" className="shrink-0 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground" title="Split terminal" data-header-split>
+                <HugeiconsIcon icon={GridViewIcon} size={15} strokeWidth={1.75} />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="min-w-44">
+              <DropdownMenuItem onSelect={() => onSplit("row")}>
+                <HugeiconsIcon icon={LayoutTwoColumnIcon} size={14} strokeWidth={1.75} />
+                <span className="flex-1">Split right</span>
+                {splitRightTokens && <span className="text-xs text-muted-foreground">{splitRightTokens}</span>}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => onSplit("col")}>
+                <HugeiconsIcon icon={LayoutTwoRowIcon} size={14} strokeWidth={1.75} />
+                <span className="flex-1">Split down</span>
+                {splitDownTokens && <span className="text-xs text-muted-foreground">{splitDownTokens}</span>}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+        {canClosePane && (
+          <Button variant="ghost" size="icon-sm" className="shrink-0 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground" title={`Close pane (${tokensFor("pane.close")})`} onClick={onClosePane} data-header-close-pane>
+            <HugeiconsIcon icon={Cancel01Icon} size={15} strokeWidth={1.75} />
+          </Button>
+        )}
         <div
           data-tauri-drag-region
           // An explicit height: "h-full" of this centred row is zero, which left nothing to grab.
@@ -280,17 +235,8 @@ export function Header({
 
       <SearchInline ref={searchRef} target={searchTarget} compact={compact} />
 
-      {IS_MAC && (
-        <>
-          <NotificationBell
-            onActivate={onActivateAgent}
-            onActivateLocal={onActivateLocalAgent}
-          />
-          {settingsButton}
-        </>
-      )}
-
-      {!IS_MAC && settingsButton}
+      {/* Notifications on the right on every platform; Settings lives at the foot of the activity rail. */}
+      <NotificationBell onActivate={onActivateAgent} onActivateLocal={onActivateLocalAgent} />
 
       {USE_CUSTOM_WINDOW_CONTROLS && (
         <>
