@@ -85,11 +85,8 @@ export function CwdBreadcrumb({ cwd, filePath, home, onCd }: Props) {
     );
   }
 
-  if (!cwd) {
-    return (
-      <span className="text-xs text-muted-foreground/70">no directory</span>
-    );
-  }
+  // Tabs without a folder (settings, pages, tool panes) show nothing rather than "no directory".
+  if (!cwd) return null;
 
   const segments = segmentsFromCwd(cwd, home);
   const current = segments[segments.length - 1];

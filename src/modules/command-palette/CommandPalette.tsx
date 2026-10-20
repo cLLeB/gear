@@ -40,6 +40,8 @@ type Props = {
   onOpenFile: (path: string) => void;
   /** Typing "@" or ":" as the first character hands off to these modes. */
   onPrefixMode?: (mode: "symbol" | "line") => void;
+  /** Open as Go to file (Ctrl/Cmd+P): files only; ">" switches to commands. */
+  filesMode?: boolean;
 };
 
 const SHORTCUTS_BY_ID = new Map(SHORTCUTS.map((s) => [s.id, s]));
@@ -51,8 +53,12 @@ export function CommandPalette({
   workspaceRoot,
   onOpenFile,
   onPrefixMode,
+  filesMode: startInFiles = false,
 }: Props) {
   const [query, setQuery] = useState("");
+  // Typing ">" in Go to file switches to commands for the rest of this opening.
+  const [commandsChosen, setCommandsChosen] = useState(false);
+  const filesOnly = startInFiles && !commandsChosen;
   const [selectedValue, setSelectedValue] = useState("");
   const [recent, setRecent] = useState<string[]>(() => loadRecent());
   const userShortcuts = usePreferencesStore((s) => s.shortcuts);
@@ -65,6 +71,7 @@ export function CommandPalette({
   const resetPalette = useCallback(() => {
     setQuery("");
     setSelectedValue("");
+    setCommandsChosen(false);
     reset();
   }, [reset]);
 
@@ -92,17 +99,18 @@ export function CommandPalette({
     if (open) setRecent(loadRecent());
   }, [open]);
 
+  const commandActions = useMemo(() => (filesOnly ? [] : actions), [actions, filesOnly]);
   const ranked = useMemo(
-    () => (trimmedQuery ? rankActions(actions, trimmedQuery, recent) : null),
-    [actions, trimmedQuery, recent],
+    () => (trimmedQuery ? rankActions(commandActions, trimmedQuery, recent) : null),
+    [commandActions, trimmedQuery, recent],
   );
   const visibleActions = useMemo(
-    () => (ranked ? ranked.map((r) => r.action) : actions),
-    [actions, ranked],
+    () => (ranked ? ranked.map((r) => r.action) : commandActions),
+    [commandActions, ranked],
   );
   const recentList = useMemo(
-    () => (trimmedQuery ? [] : recentActions(actions, recent)),
-    [actions, recent, trimmedQuery],
+    () => (trimmedQuery ? [] : recentActions(commandActions, recent)),
+    [commandActions, recent, trimmedQuery],
   );
 
   const selectableValues = useMemo(() => {
@@ -230,9 +238,18 @@ export function CommandPalette({
               window.setTimeout(() => onPrefixMode(mode), 0);
               return;
             }
+            if (filesOnly && v.startsWith(">")) {
+              setCommandsChosen(true);
+              setQuery(v.slice(1).trimStart());
+              return;
+            }
             setQuery(v);
           }}
-          placeholder="Run a command or open a file…  (@ symbol, : line)"
+          placeholder={
+            filesOnly
+              ? "Go to file…  (> commands, @ symbol, : line)"
+              : "Run a command or open a file…  (@ symbol, : line)"
+          }
           autoFocus
         />
         <ScrollArea className="max-h-[420px]">
@@ -338,8 +355,8 @@ export function CommandPalette({
             ) : null}
 
             {!hasAnyVisibleContent ? (
-              <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-                No commands found.
+              <div className="px-4 py-8 text-center text-sm text-muted-foreground" data-palette-empty>
+                {filesOnly ? "Type a file name to open it." : "No commands found."}
               </div>
             ) : null}
           </CommandList>

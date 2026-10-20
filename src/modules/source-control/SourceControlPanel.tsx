@@ -32,7 +32,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { IS_MAC } from "@/lib/platform";
+import { IS_MAC, REVEAL_LABEL } from "@/lib/platform";
 import { cn } from "@/lib/utils";
 import {
   copyToClipboard,
@@ -1234,7 +1234,7 @@ const EntryRow = memo(function EntryRow({
     ? joinPath(repoRoot.replace(/\\/g, "/"), entry.path.replace(/\\/g, "/"))
     : null;
   const isDeleted = entry.statusCode === "D";
-  const revealLabel = IS_MAC ? "Reveal in Finder" : "Reveal in File Manager";
+  const revealLabel = REVEAL_LABEL;
 
   return (
     <ContextMenu>
@@ -1394,7 +1394,7 @@ const EntryRow = memo(function EntryRow({
           </ContextMenuItem>
         ) : null}
 
-        {/* Reveal in Finder — only for existing files */}
+        {/* Reveal in the file manager — only for existing files */}
         {!isDeleted && absolutePath ? (
           <>
             <ContextMenuSeparator />

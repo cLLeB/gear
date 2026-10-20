@@ -70,6 +70,7 @@ enum BrowserEvent {
 const FORWARDED_SHORTCUTS: &[&str] = &[
     "mod+shift+p",
     "mod+p",
+    "mod+shift+b",
     "mod+,",
     "mod+k",
     "mod+t",

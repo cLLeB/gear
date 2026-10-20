@@ -51,10 +51,14 @@ type Props = {
   target: SearchTarget;
   /** When true, collapse to an icon-only button until the user opens it. */
   compact?: boolean;
+  /** Find bar floating over the pane: nothing at all until opened (Ctrl/Cmd+F), closed by Escape. */
+  overlay?: boolean;
 };
 
 export const SearchInline = forwardRef<SearchInlineHandle, Props>(
-  function SearchInline({ target, compact }, ref) {
+  function SearchInline({ target, compact: compactProp, overlay }, ref) {
+    // An overlay behaves like compact mode, without the resting icon.
+    const compact = compactProp || overlay;
     const [q, setQ] = useState("");
     const [flags, setFlags] = useState<SearchFlags>(DEFAULT_SEARCH_FLAGS);
     const [results, setResults] = useState<SearchResults>(null);
@@ -94,10 +98,15 @@ export const SearchInline = forwardRef<SearchInlineHandle, Props>(
     const expanded = !compact || openInCompact;
 
     const focus = useCallback(() => {
-      pendingFocusRef.current = true;
       if (compact) setOpenInCompact(true);
-      else inputRef.current?.focus();
-      if (inputRef.current) pendingFocusRef.current = false;
+      // Already showing (or always shown): focus it now and select the query,
+      // as Ctrl/Cmd+F does in editors. Otherwise focus once it mounts.
+      const el = inputRef.current;
+      if (el) {
+        el.focus();
+        el.select();
+        pendingFocusRef.current = false;
+      } else pendingFocusRef.current = true;
     }, [compact]);
 
     useImperativeHandle(ref, () => ({ focus }), [focus]);
@@ -170,13 +179,16 @@ export const SearchInline = forwardRef<SearchInlineHandle, Props>(
     const supportsFlags = target?.kind !== "git-history";
     const resultLabel = formatSearchResults(results, { query: q, valid });
 
+    if (overlay && (!expanded || !target)) return null;
+
     return (
       <motion.div
         layout
         initial={false}
         animate={{ width: expanded ? 288 : 28 }}
         transition={{ type: "spring", stiffness: 380, damping: 34 }}
-        className="relative h-7 shrink-0"
+        className={cn("relative h-7 shrink-0", overlay && "rounded-md shadow-lg ring-1 ring-border/60")}
+        data-find-bar={overlay ? "overlay" : undefined}
       >
         <AnimatePresence initial={false} mode="wait">
           {expanded ? (
@@ -199,7 +211,8 @@ export const SearchInline = forwardRef<SearchInlineHandle, Props>(
                 value={q}
                 placeholder={placeholder}
                 className={cn(
-                  "h-7 w-full bg-muted/80 pl-7 text-[13px]! placeholder:text-muted-foreground/70 focus-visible:ring-0",
+                  "h-7 w-full pl-7 text-[13px]! placeholder:text-muted-foreground/70 focus-visible:ring-0",
+                  overlay ? "bg-popover" : "bg-muted/80",
                   supportsFlags ? "pr-[92px]" : "pr-7",
                   !valid && "text-destructive",
                 )}

@@ -30,6 +30,7 @@ import { DATA2_ACTIONS } from "@/modules/tools/dataToolActions";
 import { CODE_TOOL_ACTIONS, FILE_TOOL_ACTIONS } from "@/modules/editor/lib/textTools/codeCommands";
 import { TOOL_ACTIONS } from "@/modules/tools/toolActions";
 import { NET_ACTIONS } from "@/modules/tools/netActions";
+import { SIDEBAR_ACTIONS } from "@/modules/sidebar/actions";
 import { copyPermalink, copyReference, openPermalink } from "@/modules/editor/lib/textTools/permalinkAction";
 import { PANE_ACTIONS, TERMINAL_ACTIONS, toggleBroadcast } from "@/modules/terminal";
 import { TERMINAL_FEATURE_ACTIONS } from "@/modules/terminal/features";
@@ -134,6 +135,7 @@ export type CommandPaletteActionContext = {
   focusPreviousPane: () => void;
   focusSearch: () => void;
   focusExplorerSearch: () => void;
+  findInFiles: () => void;
   toggleSidebar: () => void;
   toggleAi: () => void;
   askAiSelection: () => void;
@@ -401,8 +403,19 @@ export function createCommandPaletteActions(
       run: () => void setShowHidden(!usePreferencesStore.getState().showHidden),
     },
     {
+      id: "search.inFiles",
+      label: "Find in files",
+      group: "Search",
+      keywords: ["grep", "search", "text", "workspace", "project"],
+      icon: Search01Icon,
+      shortcutId: "search.inFiles",
+      disabledReason: ctx.explorerRoot ? undefined : "No workspace root",
+      run: ctx.findInFiles,
+      deferRun: true,
+    },
+    {
       id: "explorer.search",
-      label: "Search files",
+      label: "Filter file names in the explorer",
       group: "Search",
       keywords: ["explorer", "workspace", "file search"],
       icon: Search01Icon,
@@ -486,7 +499,7 @@ export function createCommandPaletteActions(
       run: () => void action.run(),
       deferRun: true,
     })),
-    ...[...TOOL_ACTIONS, ...NET_ACTIONS].map((action): CommandPaletteAction => ({
+    ...[...TOOL_ACTIONS, ...NET_ACTIONS, ...SIDEBAR_ACTIONS].map((action): CommandPaletteAction => ({
       id: action.id,
       label: action.label,
       group: "Tools",

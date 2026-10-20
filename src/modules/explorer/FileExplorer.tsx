@@ -7,6 +7,7 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import {
+  CollapseIcon,
   FileAddIcon,
   Folder01Icon,
   FolderAddIcon,
@@ -34,7 +35,7 @@ import { pasteInto } from "./lib/pasteRunner";
 import { baseName, type MoveOps, parentDir, planDragMove, runDragMove, undoGroups } from "./lib/dragMove";
 import { dragHasFsPaths, readFsPaths } from "@/lib/pathDrag";
 import { invoke } from "@tauri-apps/api/core";
-import { IS_MAC, IS_WINDOWS } from "@/lib/platform";
+import { IS_MAC, IS_WINDOWS, REVEAL_LABEL } from "@/lib/platform";
 import { quickPick } from "@/modules/quick-pick";
 import { currentWorkspaceEnv } from "@/modules/workspace";
 import { fileIconUrl, folderIconUrl } from "./lib/iconResolver";
@@ -612,6 +613,12 @@ export const FileExplorer = forwardRef<FileExplorerHandle, Props>(
           }
           break;
         }
+        case "F2": {
+          if (currentIdx < 0) return;
+          e.preventDefault();
+          tree.beginRename(entryPaths[currentIdx]);
+          break;
+        }
         case "Enter": {
           if (currentIdx < 0) return;
           e.preventDefault();
@@ -746,6 +753,18 @@ export const FileExplorer = forwardRef<FileExplorerHandle, Props>(
           >
             <HugeiconsIcon icon={Refresh01Icon} size={12} strokeWidth={2} />
           </Button>
+          {tree.expanded.size > 0 && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-6 text-muted-foreground hover:text-foreground"
+              onClick={tree.collapseAll}
+              title="Collapse folders"
+              data-explorer-collapse-all
+            >
+              <HugeiconsIcon icon={CollapseIcon} size={12} strokeWidth={2} />
+            </Button>
+          )}
         </div>
 
         <ExplorerSearch
@@ -885,7 +904,7 @@ export const FileExplorer = forwardRef<FileExplorerHandle, Props>(
                 className={COMPACT_ITEM}
                 onSelect={() => void revealInFinder(rootPath)}
               >
-                Reveal in Finder
+                {REVEAL_LABEL}
               </ContextMenuItem>
               <ContextMenuSeparator />
               <ContextMenuItem

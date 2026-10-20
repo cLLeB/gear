@@ -355,9 +355,22 @@ export function useFileTree(rootPath: string | null, options?: Options) {
     [fetchChildren, options],
   );
 
+  // Fold every folder back to the root, as the explorer header button does.
+  const collapseAll = useCallback(() => {
+    setExpanded((curr) => {
+      const unwatch = [...curr].filter((p) => p !== rootPath && watchedRef.current.has(p));
+      if (unwatch.length) {
+        watchRemove(unwatch);
+        for (const p of unwatch) watchedRef.current.delete(p);
+      }
+      return new Set();
+    });
+  }, [rootPath]);
+
   return {
     nodes,
     expanded,
+    collapseAll,
     pendingCreate,
     renaming,
     toggle,

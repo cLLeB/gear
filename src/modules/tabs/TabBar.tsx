@@ -297,14 +297,6 @@ export function TabBar({
                     </TabsTrigger>
                   </ContextMenuTrigger>
                   <ContextMenuContent className="min-w-44">
-                    {t.kind === "terminal" && (
-                      <>
-                        <ContextMenuItem onSelect={() => setEditingId(t.id)}>
-                          Rename
-                        </ContextMenuItem>
-                        <ContextMenuSeparator />
-                      </>
-                    )}
                     <ContextMenuItem
                       onSelect={() => onClose(t.id)}
                       disabled={tabs.length <= 1}
@@ -323,6 +315,14 @@ export function TabBar({
                     >
                       Close tabs to the right
                     </ContextMenuItem>
+                    {t.kind === "terminal" && (
+                      <>
+                        <ContextMenuSeparator />
+                        <ContextMenuItem onSelect={() => setEditingId(t.id)}>
+                          Rename
+                        </ContextMenuItem>
+                      </>
+                    )}
                   </ContextMenuContent>
                 </ContextMenu>
               );

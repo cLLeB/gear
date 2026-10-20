@@ -79,6 +79,7 @@ import {
 } from "@/modules/git-history";
 import {
 	Header,
+	SearchInline,
 	type SearchInlineHandle,
 	type SearchTarget,
 } from "@/modules/header";
@@ -108,6 +109,7 @@ import {
 	useShortcutLabel,
 } from "@/modules/shortcuts";
 import { SidebarRail, type SidebarViewId } from "@/modules/sidebar";
+import { SearchPanel, type SearchPanelHandle } from "@/modules/search/SearchPanel";
 import {
 	activeRepositoryContextPath,
 	gitGraphRepositoryPath,
@@ -265,7 +267,7 @@ function readSidebarWidth(): number {
 function readSidebarView(): SidebarViewId {
 	try {
 		const stored = window.localStorage.getItem(SIDEBAR_VIEW_STORAGE_KEY);
-		if (stored === "explorer" || stored === "source-control" || stored === "debug" || stored === "tests" || stored === "database" || stored === "containers" || stored === "extensions" || stored === "remote" || stored === "k8s") return stored;
+		if (stored === "explorer" || stored === "search" || stored === "source-control" || stored === "debug" || stored === "tests" || stored === "database" || stored === "containers" || stored === "extensions" || stored === "remote" || stored === "k8s") return stored;
 	} catch {
 		// ignore
 	}
@@ -346,6 +348,7 @@ export default function App() {
 	const [activeSearchAddon, setActiveSearchAddon] =
 		useState<SearchAddon | null>(null);
 	const searchInlineRef = useRef<SearchInlineHandle | null>(null);
+	const searchPanelRef = useRef<SearchPanelHandle | null>(null);
 	const terminalRefs = useRef<Map<number, TerminalPaneHandle>>(new Map());
 	const editorRefs = useRef<Map<number, EditorPaneHandle>>(new Map());
 	const previewRefs = useRef<Map<number, PreviewPaneHandle>>(new Map());
@@ -366,7 +369,7 @@ export default function App() {
 		useState<SidebarViewId>(readSidebarView);
 	// Reactive expanded/collapsed state for the sidebar content panel, so the
 	// activity rail can reflect which view (if any) is currently visible.
-	const [sidebarOpen] = useState(true);
+	const [sidebarOpen, setSidebarOpen] = useState(() => !readSidebarCollapsed());
 	const persistSidebarView = useCallback((view: SidebarViewId) => {
 		setSidebarViewState(view);
 		try {
@@ -378,6 +381,7 @@ export default function App() {
 	const [initialSidebarCollapsed] = useState(readSidebarCollapsed);
 	const collapsedRef = useRef(initialSidebarCollapsed);
 	const persistSidebarCollapsed = useCallback((collapsed: boolean) => {
+		setSidebarOpen(!collapsed);
 		if (collapsedRef.current === collapsed) return;
 		collapsedRef.current = collapsed;
 		try {
@@ -402,6 +406,7 @@ export default function App() {
 			if (collapsed) {
 				if (panel) panel.resize(`${sidebarWidthRef.current}px`);
 				if (view !== sidebarView) persistSidebarView(view);
+				if (view === "search") requestAnimationFrame(() => searchPanelRef.current?.focus());
 				return;
 			}
 			if (view === sidebarView) {
@@ -409,6 +414,7 @@ export default function App() {
 				return;
 			}
 			persistSidebarView(view);
+			if (view === "search") requestAnimationFrame(() => searchPanelRef.current?.focus());
 		},
 		[persistSidebarView, sidebarView],
 	);
@@ -498,6 +504,14 @@ export default function App() {
 			}
 		};
 	}, []);
+
+	// Ctrl/Cmd+Shift+F: show the Search view and focus its box.
+	const findInFiles = useCallback(() => {
+		const panel = sidebarRef.current;
+		if (panel && panel.getSize().asPercentage <= 0) panel.resize(`${sidebarWidthRef.current}px`);
+		if (sidebarView !== "search") persistSidebarView("search");
+		requestAnimationFrame(() => searchPanelRef.current?.focus());
+	}, [persistSidebarView, sidebarView]);
 
 	const toggleExplorerFocus = useCallback(() => {
 		const explorer = explorerRef.current;
@@ -768,6 +782,11 @@ export default function App() {
 	);
 	const [newEditorOpen, setNewEditorOpen] = useState(false);
 	const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+	// Ctrl/Cmd+P opens the palette as Go to file; every other opening shows commands.
+	const [paletteFiles, setPaletteFiles] = useState(false);
+	useEffect(() => {
+		if (!commandPaletteOpen) setPaletteFiles(false);
+	}, [commandPaletteOpen]);
 	const miniOpen = useChatStore((s) => s.mini.open);
 	const openMini = useChatStore((s) => s.openMini);
 	const toggleMini = useChatStore((s) => s.toggleMini);
@@ -1378,7 +1397,9 @@ export default function App() {
 			: null;
 
 	const activeFilePath = (() => {
-		if (activeTab?.kind === "editor") return activeTab.path;
+		// Tool panes use internal paths (gear-har://…); those are not files to show.
+		if (activeTab?.kind === "editor" || activeTab?.kind === "markdown")
+			return /^[a-z][a-z0-9+.-]*:\/\//i.test(activeTab.path) ? null : activeTab.path;
 		if (activeTab?.kind === "git-diff") {
 			if (/^([A-Za-z]:|\/|\\)/.test(activeTab.path)) return activeTab.path;
 			const root = activeTab.repoRoot.replace(/[\\/]+$/, "");
@@ -1618,7 +1639,14 @@ export default function App() {
 
 	const shortcutHandlers = useMemo<ShortcutHandlers>(
 		() => ({
-			"commandPalette.open": () => setCommandPaletteOpen(true),
+			"commandPalette.open": () => {
+				setPaletteFiles(false);
+				setCommandPaletteOpen(true);
+			},
+			quickOpen: () => {
+				setPaletteFiles(true);
+				setCommandPaletteOpen(true);
+			},
 			"tab.new": () => openNewTab(),
 			"tab.newPrivate": openNewPrivateTab,
 			"tab.newBlocks": () => openBlockTab(),
@@ -1673,6 +1701,7 @@ export default function App() {
 			"debug.stepOut": () => void debugCommand.stepOut(),
 			"debug.stop": () => void stopDebugging(),
 			"explorer.focus": toggleExplorerFocus,
+			"search.inFiles": findInFiles,
 			"explorer.toggleHidden": () => {
 				persistSidebarView("explorer");
 				void setShowHidden(!usePreferencesStore.getState().showHidden);
@@ -1982,6 +2011,7 @@ export default function App() {
 				focusPreviousPane: () => focusNextPaneInTab(activeId, -1),
 				focusSearch: () => searchInlineRef.current?.focus(),
 				focusExplorerSearch: () => explorerRef.current?.focusSearch(),
+				findInFiles,
 				toggleSidebar,
 				toggleAi: togglePanelAndFocus,
 				askAiSelection: askFromSelection,
@@ -2380,6 +2410,40 @@ export default function App() {
 		</div>
 	);
 
+	const spaceSwitcher = (
+		<SpaceSwitcher
+			open={switcherOpen}
+			onOpenChange={setSwitcherOpen}
+			tabs={tabs}
+			onNewSpace={handleNewSpace}
+			onDeleteSpace={handleDeleteSpace}
+			onNewTabInSpace={handleNewTabInSpace}
+			onJumpTab={handleJumpTab}
+			onCloseTab={handleClose}
+			onMoveTabToSpace={handleMoveTabToSpace}
+			onReorderTab={(tabId, targetTabId) => handleReorderTabAcrossSpaces(tabId, targetTabId)}
+			onReorderSpaces={(ids) => useSpaces.getState().reorder(ids)}
+		/>
+	);
+
+	// The activity rail sits on the window's outer edge, beside the sidebar.
+	const activityRail = (
+		<SidebarRail
+			activeView={sidebarView}
+			sidebarOpen={sidebarOpen}
+			onSelectView={cycleSidebarView}
+			changedCount={sourceControl.changedCount}
+			debugBadge={debugPaused}
+			aiActive={panelOpen}
+			onToggleAi={togglePanelAndFocus}
+			onToggleRewind={() => useRewindStore.getState().toggle()}
+			onOpenSettings={() => openSettingsTab()}
+			sidebarPosition={sidebarPosition}
+			onToggleSidebarPosition={toggleSidebarPosition}
+			onHideSidebar={toggleSidebar}
+		/>
+	);
+
 	const shell = (
 		<ThemeProvider>
 			<TooltipProvider>
@@ -2423,16 +2487,18 @@ export default function App() {
 							runLabel={activeRunLabel}
 							onActivateAgent={onActivateAgent}
 							onActivateLocalAgent={onActivateLocalAgent}
-							onOpenSettings={() => openSettingsTab()}
-							searchTarget={searchTarget}
-							searchRef={searchInlineRef}
+							onOpenPalette={() => {
+								setPaletteFiles(false);
+								setCommandPaletteOpen(true);
+							}}
 						/>
 					)}
 
-					<main className="gear-frame-clear zoom-content flex flex-col min-h-0 flex-1 relative bg-background">
+					<main className="gear-frame-clear zoom-content flex flex-row min-h-0 flex-1 relative bg-background">
+						{!zenMode && sidebarPosition === "left" && activityRail}
 						<ResizablePanelGroup
 							orientation="horizontal"
-							className="min-h-0 flex-1"
+							className="min-h-0 min-w-0 flex-1"
 							onLayoutChanged={(_, { isUserInteraction }) => {
 								const width = sidebarRef.current?.getSize().inPixels ?? 0;
 								persistSidebarWidth(width, isUserInteraction);
@@ -2475,6 +2541,8 @@ export default function App() {
 																		onRunFile={(p) => void runFile(p)}
 																		canRunPath={canRunPath}
 														/>
+													) : sidebarView === "search" ? (
+														<SearchPanel ref={searchPanelRef} rootPath={explorerRoot} />
 													) : sidebarView === "debug" ? (
 														<DebugPanel />
 													) : sidebarView === "tests" ? (
@@ -2512,6 +2580,10 @@ export default function App() {
 								<div className="flex h-full min-h-0 flex-col p-2 pl-1 pr-1">
 									<div className="gear-pane-solid relative min-h-0 flex-1 rounded-xl border border-border/40 bg-background/90 backdrop-blur shadow-sm overflow-hidden">
 										{workspaceSurface}
+											{/* Find (Ctrl/Cmd+F) floats over the pane it searches, as in most editors. */}
+											<div className="absolute top-2 right-3 z-30">
+												<SearchInline ref={searchInlineRef} target={searchTarget} overlay />
+											</div>
 									</div>
 									{isBlockTab && blockLeafId != null ? (
 										<WorkspaceInputBar
@@ -2545,25 +2617,6 @@ export default function App() {
 											)}
 										</motion.div>
 									) : null}
-									{!zenMode && (
-										<div className="flex justify-center pb-1 pt-2 shrink-0">
-											<SidebarRail
-												activeView={sidebarView}
-												sidebarOpen={sidebarOpen}
-												onSelectView={cycleSidebarView}
-												changedCount={sourceControl.changedCount}
-												debugBadge={debugPaused}
-												aiActive={panelOpen}
-												onToggleAi={togglePanelAndFocus}
-												onToggleRewind={() =>
-													useRewindStore.getState().toggle()
-												}
-												onOpenSettings={() => openSettingsTab()}
-												sidebarPosition={sidebarPosition}
-												onToggleSidebarPosition={toggleSidebarPosition}
-											/>
-										</div>
-									)}
 								</div>
 							</ResizablePanel>
 							{!zenMode && sidebarPosition === "right" && (
@@ -2604,6 +2657,8 @@ export default function App() {
 																		onRunFile={(p) => void runFile(p)}
 																		canRunPath={canRunPath}
 														/>
+													) : sidebarView === "search" ? (
+														<SearchPanel ref={searchPanelRef} rootPath={explorerRoot} />
 													) : sidebarView === "debug" ? (
 														<DebugPanel />
 													) : sidebarView === "tests" ? (
@@ -2637,10 +2692,12 @@ export default function App() {
 								</>
 							)}
 						</ResizablePanelGroup>
+						{!zenMode && sidebarPosition === "right" && activityRail}
 					</main>
 
 					{!zenMode && (
 						<StatusBar
+							leading={spaceSwitcher}
 							cwd={activeCwd}
 							filePath={activeFilePath}
 							home={home}
@@ -2697,21 +2754,8 @@ export default function App() {
 						</AlertDialogContent>
 					</AlertDialog>
 
-					<SpaceSwitcher
-						open={switcherOpen}
-						onOpenChange={setSwitcherOpen}
-						tabs={tabs}
-						onNewSpace={handleNewSpace}
-						onDeleteSpace={handleDeleteSpace}
-						onNewTabInSpace={handleNewTabInSpace}
-						onJumpTab={handleJumpTab}
-						onCloseTab={handleClose}
-						onMoveTabToSpace={handleMoveTabToSpace}
-						onReorderTab={(tabId, targetTabId) =>
-							handleReorderTabAcrossSpaces(tabId, targetTabId)
-						}
-						onReorderSpaces={(ids) => useSpaces.getState().reorder(ids)}
-					/>
+					{/* The status bar hosts the space switcher; zen mode hides that bar, so keep the switcher (and its shortcut) here. */}
+					{zenMode && spaceSwitcher}
 
 					<CommandPalette
 						open={commandPaletteOpen}
@@ -2719,6 +2763,7 @@ export default function App() {
 						actions={extActions.length ? [...commandPaletteActions, ...extActions] : commandPaletteActions}
 						workspaceRoot={explorerRoot}
 						onOpenFile={handleOpenFile}
+						filesMode={paletteFiles}
 						onPrefixMode={(mode) => {
 							if (mode === "line") {
 								void goToLinePrompt();
