@@ -7,6 +7,8 @@ type Props = {
   tabs: Tab[];
   activeId: number;
   onUrlChange: (id: number, url: string) => void;
+  /** The page's own title, for the tab label. */
+  onTitleChange?: (id: number, title: string) => void;
   registerHandle: (id: number, handle: PreviewPaneHandle | null) => void;
 };
 
@@ -14,12 +16,15 @@ export function PreviewStack({
   tabs,
   activeId,
   onUrlChange,
+  onTitleChange,
   registerHandle,
 }: Props) {
   const previews = tabs.filter((t): t is PreviewTab => t.kind === "preview");
 
   const registerRef = useRef(registerHandle);
   const urlChangeRef = useRef(onUrlChange);
+  const titleChangeRef = useRef(onTitleChange);
+  titleChangeRef.current = onTitleChange;
   useEffect(() => {
     registerRef.current = registerHandle;
   }, [registerHandle]);
@@ -75,9 +80,11 @@ export function PreviewStack({
           >
             <PreviewPane
               ref={getRefCallback(t.id)}
+              tabId={t.id}
               url={t.url}
               visible={visible}
               onUrlChange={getUrlCallback(t.id)}
+              onTitleChange={(title) => titleChangeRef.current?.(t.id, title)}
             />
           </div>
         );
