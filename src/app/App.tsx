@@ -366,7 +366,7 @@ export default function App() {
 		useState<SidebarViewId>(readSidebarView);
 	// Reactive expanded/collapsed state for the sidebar content panel, so the
 	// activity rail can reflect which view (if any) is currently visible.
-	const [sidebarOpen] = useState(true);
+	const [sidebarOpen, setSidebarOpen] = useState(() => !readSidebarCollapsed());
 	const persistSidebarView = useCallback((view: SidebarViewId) => {
 		setSidebarViewState(view);
 		try {
@@ -378,6 +378,7 @@ export default function App() {
 	const [initialSidebarCollapsed] = useState(readSidebarCollapsed);
 	const collapsedRef = useRef(initialSidebarCollapsed);
 	const persistSidebarCollapsed = useCallback((collapsed: boolean) => {
+		setSidebarOpen(!collapsed);
 		if (collapsedRef.current === collapsed) return;
 		collapsedRef.current = collapsed;
 		try {
