@@ -94,10 +94,15 @@ export const SearchInline = forwardRef<SearchInlineHandle, Props>(
     const expanded = !compact || openInCompact;
 
     const focus = useCallback(() => {
-      pendingFocusRef.current = true;
       if (compact) setOpenInCompact(true);
-      else inputRef.current?.focus();
-      if (inputRef.current) pendingFocusRef.current = false;
+      // Already showing (or always shown): focus it now and select the query,
+      // as Ctrl/Cmd+F does in editors. Otherwise focus once it mounts.
+      const el = inputRef.current;
+      if (el) {
+        el.focus();
+        el.select();
+        pendingFocusRef.current = false;
+      } else pendingFocusRef.current = true;
     }, [compact]);
 
     useImperativeHandle(ref, () => ({ focus }), [focus]);
