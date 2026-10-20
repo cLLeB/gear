@@ -10,18 +10,17 @@ import {
   FolderGitTwoIcon,
   FolderTreeIcon,
   Settings01Icon,
-  SidebarLeft01Icon,
-  SidebarRight01Icon,
   SparklesIcon,
   TestTube01Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from "@/components/ui/context-menu";
 import type { SidebarViewId } from "./types";
 
-/** Height of the horizontal activity rail (px). */
-export const SIDEBAR_RAIL_HEIGHT = 48;
-/** @deprecated kept for back-compat with older imports. */
-export const SIDEBAR_RAIL_WIDTH = SIDEBAR_RAIL_HEIGHT;
+/** Width of the vertical activity rail beside the sidebar (px). */
+export const SIDEBAR_RAIL_WIDTH = 44;
+/** @deprecated the rail is vertical now; kept for older imports. */
+export const SIDEBAR_RAIL_HEIGHT = SIDEBAR_RAIL_WIDTH;
 
 type Props = {
   activeView: SidebarViewId;
@@ -37,6 +36,7 @@ type Props = {
   onOpenSettings: () => void;
   sidebarPosition: "left" | "right";
   onToggleSidebarPosition: () => void;
+  onHideSidebar?: () => void;
 };
 
 type RailButtonProps = {
@@ -44,10 +44,12 @@ type RailButtonProps = {
   icon: Parameters<typeof HugeiconsIcon>[0]["icon"];
   active?: boolean;
   badge?: number;
+  /** Which edge the active marker sits on: the window's outer edge. */
+  edge: "left" | "right";
   onClick: () => void;
 };
 
-function RailButton({ label, icon, active, badge, onClick }: RailButtonProps) {
+function RailButton({ label, icon, active, badge, edge, onClick }: RailButtonProps) {
   const showBadge = !!badge && badge > 0;
   return (
     <button
@@ -56,35 +58,24 @@ function RailButton({ label, icon, active, badge, onClick }: RailButtonProps) {
       title={label}
       aria-pressed={active}
       onClick={onClick}
+      data-rail-button={label}
       className={cn(
-        "group relative flex w-9 h-8 cursor-pointer items-center justify-center outline-none transition-all duration-200 rounded-lg",
-        active
-          ? "text-primary bg-primary/10 shadow-sm"
-          : "text-muted-foreground hover:text-foreground hover:bg-foreground/[0.05]",
+        "group relative flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-lg outline-none transition-colors duration-150",
+        active ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground",
       )}
     >
-      {/* Active accent dot (Bottom Dock style). */}
+      {/* Active marker on the outer edge, like the activity bars people know. */}
       <span
-        className={cn(
-          "pointer-events-none absolute bottom-[1px] left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-primary transition-all",
-          active ? "opacity-100 scale-100" : "opacity-0 scale-50",
-        )}
         aria-hidden
-      />
-      <span
         className={cn(
-          "flex size-8 items-center justify-center transition-colors",
+          "pointer-events-none absolute top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-full bg-primary transition-all",
+          edge === "left" ? "-left-[4px]" : "-right-[4px]",
+          active ? "opacity-100" : "opacity-0",
         )}
-      >
-        <HugeiconsIcon
-          icon={icon}
-          size={15}
-          strokeWidth={active ? 2.5 : 1.75}
-          className="shrink-0"
-        />
-      </span>
+      />
+      <HugeiconsIcon icon={icon} size={17} strokeWidth={active ? 2.25 : 1.75} className="shrink-0" />
       {showBadge ? (
-        <span className="absolute right-1 top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[9px] font-bold leading-none tabular-nums text-destructive-foreground shadow-sm">
+        <span className="absolute -right-0.5 -top-0.5 inline-flex h-[15px] min-w-[15px] items-center justify-center rounded-full bg-primary px-1 text-[8.5px] font-semibold leading-none tabular-nums text-primary-foreground shadow-sm">
           {badge > 99 ? "99+" : badge}
         </span>
       ) : null}
@@ -93,7 +84,9 @@ function RailButton({ label, icon, active, badge, onClick }: RailButtonProps) {
 }
 
 /**
- * Horizontal activity rail pinned to the bottom of the workspace.
+ * Vertical activity rail on the window's outer edge beside the sidebar:
+ * views at the top, AI, Rewind and Settings at the bottom. It stays visible
+ * when the sidebar is collapsed, so a view is always one click away.
  */
 export function SidebarRail({
   activeView,
@@ -107,89 +100,35 @@ export function SidebarRail({
   onOpenSettings,
   sidebarPosition,
   onToggleSidebarPosition,
+  onHideSidebar,
 }: Props) {
+  const edge = sidebarPosition;
+  const view = (id: SidebarViewId, label: string, icon: RailButtonProps["icon"], badge?: number) => (
+    <RailButton key={id} label={label} icon={icon} edge={edge} badge={badge} active={sidebarOpen && activeView === id} onClick={() => onSelectView(id)} />
+  );
   return (
-    <div className="z-50 flex h-10 shrink-0 flex-row items-center gap-1 rounded-2xl border border-border/40 bg-background/70 px-2 shadow-2xl backdrop-blur-xl transition-all hover:bg-background/90">
-      <RailButton
-        label="Files"
-        icon={FolderTreeIcon}
-        active={sidebarOpen && activeView === "explorer"}
-        onClick={() => onSelectView("explorer")}
-      />
-      <RailButton
-        label="Source Control"
-        icon={FolderGitTwoIcon}
-        active={sidebarOpen && activeView === "source-control"}
-        badge={changedCount}
-        onClick={() => onSelectView("source-control")}
-      />
-      <RailButton
-        label="Run and Debug"
-        icon={Bug01Icon}
-        active={sidebarOpen && activeView === "debug"}
-        badge={debugBadge}
-        onClick={() => onSelectView("debug")}
-      />
-      <RailButton
-        label="Testing"
-        icon={TestTube01Icon}
-        active={sidebarOpen && activeView === "tests"}
-        onClick={() => onSelectView("tests")}
-      />
-      <RailButton
-        label="Database"
-        icon={Database01Icon}
-        active={sidebarOpen && activeView === "database"}
-        onClick={() => onSelectView("database")}
-      />
-      <RailButton
-        label="Containers"
-        icon={ContainerIcon}
-        active={sidebarOpen && activeView === "containers"}
-        onClick={() => onSelectView("containers")}
-      />
-      <RailButton
-        label="Remote (SSH)"
-        icon={CloudServerIcon}
-        active={sidebarOpen && activeView === "remote"}
-        onClick={() => onSelectView("remote")}
-      />
-      <RailButton
-        label="Kubernetes"
-        icon={CubeIcon}
-        active={sidebarOpen && activeView === "k8s"}
-        onClick={() => onSelectView("k8s")}
-      />
-      <RailButton
-        label="Extensions"
-        icon={PuzzleIcon}
-        active={sidebarOpen && activeView === "extensions"}
-        onClick={() => onSelectView("extensions")}
-      />
-
-      <div className="flex-1" />
-
-      <RailButton
-        label="AI agent"
-        icon={SparklesIcon}
-        active={aiActive}
-        onClick={onToggleAi}
-      />
-      <RailButton label="Rewind" icon={ClockIcon} onClick={onToggleRewind} />
-      <RailButton
-        label="Settings"
-        icon={Settings01Icon}
-        onClick={onOpenSettings}
-      />
-      <RailButton
-        label={
-          sidebarPosition === "left"
-            ? "Move sidebar right"
-            : "Move sidebar left"
-        }
-        icon={sidebarPosition === "left" ? SidebarRight01Icon : SidebarLeft01Icon}
-        onClick={onToggleSidebarPosition}
-      />
-    </div>
+    <ContextMenu>
+      <ContextMenuTrigger asChild>
+        <nav aria-label="Views" data-activity-rail={sidebarPosition} className="flex h-full w-11 shrink-0 flex-col items-center gap-1 py-2">
+          {view("explorer", "Files", FolderTreeIcon)}
+          {view("source-control", "Source Control", FolderGitTwoIcon, changedCount)}
+          {view("debug", "Run and Debug", Bug01Icon, debugBadge)}
+          {view("tests", "Testing", TestTube01Icon)}
+          {view("database", "Database", Database01Icon)}
+          {view("containers", "Containers", ContainerIcon)}
+          {view("remote", "Remote (SSH)", CloudServerIcon)}
+          {view("k8s", "Kubernetes", CubeIcon)}
+          {view("extensions", "Extensions", PuzzleIcon)}
+          <div className="min-h-2 flex-1" />
+          <RailButton label="AI agent" icon={SparklesIcon} edge={edge} active={aiActive} onClick={onToggleAi} />
+          <RailButton label="Rewind" icon={ClockIcon} edge={edge} onClick={onToggleRewind} />
+          <RailButton label="Settings" icon={Settings01Icon} edge={edge} onClick={onOpenSettings} />
+        </nav>
+      </ContextMenuTrigger>
+      <ContextMenuContent>
+        <ContextMenuItem onSelect={onToggleSidebarPosition}>Move sidebar to the {sidebarPosition === "left" ? "right" : "left"}</ContextMenuItem>
+        {onHideSidebar && sidebarOpen ? <ContextMenuItem onSelect={onHideSidebar}>Hide sidebar</ContextMenuItem> : null}
+      </ContextMenuContent>
+    </ContextMenu>
   );
 }

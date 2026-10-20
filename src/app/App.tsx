@@ -2380,6 +2380,24 @@ export default function App() {
 		</div>
 	);
 
+	// The activity rail sits on the window's outer edge, beside the sidebar.
+	const activityRail = (
+		<SidebarRail
+			activeView={sidebarView}
+			sidebarOpen={sidebarOpen}
+			onSelectView={cycleSidebarView}
+			changedCount={sourceControl.changedCount}
+			debugBadge={debugPaused}
+			aiActive={panelOpen}
+			onToggleAi={togglePanelAndFocus}
+			onToggleRewind={() => useRewindStore.getState().toggle()}
+			onOpenSettings={() => openSettingsTab()}
+			sidebarPosition={sidebarPosition}
+			onToggleSidebarPosition={toggleSidebarPosition}
+			onHideSidebar={toggleSidebar}
+		/>
+	);
+
 	const shell = (
 		<ThemeProvider>
 			<TooltipProvider>
@@ -2429,10 +2447,11 @@ export default function App() {
 						/>
 					)}
 
-					<main className="gear-frame-clear zoom-content flex flex-col min-h-0 flex-1 relative bg-background">
+					<main className="gear-frame-clear zoom-content flex flex-row min-h-0 flex-1 relative bg-background">
+						{!zenMode && sidebarPosition === "left" && activityRail}
 						<ResizablePanelGroup
 							orientation="horizontal"
-							className="min-h-0 flex-1"
+							className="min-h-0 min-w-0 flex-1"
 							onLayoutChanged={(_, { isUserInteraction }) => {
 								const width = sidebarRef.current?.getSize().inPixels ?? 0;
 								persistSidebarWidth(width, isUserInteraction);
@@ -2545,25 +2564,6 @@ export default function App() {
 											)}
 										</motion.div>
 									) : null}
-									{!zenMode && (
-										<div className="flex justify-center pb-1 pt-2 shrink-0">
-											<SidebarRail
-												activeView={sidebarView}
-												sidebarOpen={sidebarOpen}
-												onSelectView={cycleSidebarView}
-												changedCount={sourceControl.changedCount}
-												debugBadge={debugPaused}
-												aiActive={panelOpen}
-												onToggleAi={togglePanelAndFocus}
-												onToggleRewind={() =>
-													useRewindStore.getState().toggle()
-												}
-												onOpenSettings={() => openSettingsTab()}
-												sidebarPosition={sidebarPosition}
-												onToggleSidebarPosition={toggleSidebarPosition}
-											/>
-										</div>
-									)}
 								</div>
 							</ResizablePanel>
 							{!zenMode && sidebarPosition === "right" && (
@@ -2637,6 +2637,7 @@ export default function App() {
 								</>
 							)}
 						</ResizablePanelGroup>
+						{!zenMode && sidebarPosition === "right" && activityRail}
 					</main>
 
 					{!zenMode && (
