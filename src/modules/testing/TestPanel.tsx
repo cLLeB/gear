@@ -109,11 +109,11 @@ export function TestPanel() {
     return { passed: all.filter(([, v]) => v.status === "passed").length, failed: all.filter(([, v]) => v.status === "failed").length, tests: files.reduce((n, f) => n + f.tests.filter((t) => t.kind === "test").length, 0) };
   }, [files, results]);
   const shown = query ? files.filter((f) => f.rel.toLowerCase().includes(query.toLowerCase()) || f.tests.some((t) => t.id.toLowerCase().includes(query.toLowerCase()))) : files;
-  const btn = "rounded px-1.5 py-0.5 text-[11px] hover:bg-muted disabled:opacity-40";
+  const btn = "whitespace-nowrap rounded px-1.5 py-0.5 text-[11px] hover:bg-muted disabled:opacity-40";
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex h-10 shrink-0 items-center gap-1 border-b border-border/40 px-2">
+      <div className="flex min-h-10 shrink-0 flex-wrap items-center gap-1 border-b border-border/40 px-2 py-1" data-testing-header>
         <span className="mr-1 text-[11.5px] font-semibold">Testing</span>
         {frameworks.map((fw) => (
           <button key={fw} type="button" className={cn(btn, "text-green-600 dark:text-green-400")} disabled={!!running} onClick={() => void runTests({ framework: fw })} title={`Run all ${fw} tests`}>
@@ -123,7 +123,7 @@ export function TestPanel() {
         <button type="button" className={btn} disabled={!!running || !frameworks.length} onClick={() => frameworks.forEach((fw) => void runTests({ framework: fw, coverage: true }))} title="Run with coverage">
           ☂ Coverage
         </button>
-        <button type="button" className={btn} disabled={discovering} onClick={() => void discoverTests()} title="Rescan the workspace for tests">
+        <button type="button" className={cn(btn, "ml-auto")} disabled={discovering} onClick={() => void discoverTests()} title="Rescan the workspace for tests" aria-label="Rescan the workspace for tests">
           ⟳
         </button>
       </div>
