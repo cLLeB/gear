@@ -13,11 +13,9 @@ import {
 import {
   IncognitoIcon,
   Download01Icon,
-  ClockIcon,
   KeyboardIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { useRewindStore } from "@/modules/rewind";
 import { LspStatusPill } from "@/modules/lsp";
 import { CwdBreadcrumb } from "./CwdBreadcrumb";
 import { LanguagePicker } from "./LanguagePicker";
@@ -177,21 +175,6 @@ export function StatusBar({
             </TooltipContent>
           </Tooltip>
         )}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              type="button"
-              aria-label="Toggle session timeline"
-              onClick={() => useRewindStore.getState().toggle()}
-              className="flex shrink-0 cursor-pointer items-center rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-            >
-              <HugeiconsIcon icon={ClockIcon} size={13} strokeWidth={2} />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent side="top" className="text-[11px]">
-            Rewind — session timeline (Ctrl/Cmd+Shift+T)
-          </TooltipContent>
-        </Tooltip>
         <AgentStatusPill onClick={onOpenMini} />
         {panelOpen && hasComposer ? (
           <AiStatusBarControls />
