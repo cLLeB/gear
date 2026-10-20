@@ -3,11 +3,14 @@
 // commit-message generator builds its model, without React hooks.
 
 import { getModel, modelSupportsTemperature, providerNeedsKey } from "@/modules/ai/config";
+import { useAcpStore } from "@/modules/ai/acp/store";
 import { useChatStore } from "@/modules/ai/store/chatStore";
 import { usePreferencesStore } from "@/modules/settings/preferences";
 
 /** Why AI can't be used right now, or null when a model is configured. */
 export function oneShotUnavailableReason(): string | null {
+  // An agent on the user's subscription needs no key; it reports sign-in problems itself.
+  if (useAcpStore.getState().engine !== "gear") return null;
   const chat = useChatStore.getState();
   const prefs = usePreferencesStore.getState();
   const model = getModel(chat.selectedModelId);
@@ -27,6 +30,11 @@ export async function generateOneShot(options: {
   maxOutputTokens?: number;
   temperature?: number;
 }): Promise<string> {
+  const engine = useAcpStore.getState().engine;
+  if (engine !== "gear") {
+    const { acpOneShot } = await import("../acp/store");
+    return acpOneShot(engine, options.system, options.prompt);
+  }
   const [{ buildConfiguredLanguageModel }, { generateText }] = await Promise.all([import("./agent"), import("ai")]);
   const chat = useChatStore.getState();
   const prefs = usePreferencesStore.getState();

@@ -193,6 +193,7 @@ pub fn run() {
             Ok(())
         })
         .manage(pty::PtyState::default())
+        .manage(modules::acp::AgentProcesses::default())
         .manage(control_state)
         .manage(chronicle::ChronicleState::default())
         .manage(lsp::LspState::default())
@@ -304,6 +305,11 @@ pub fn run() {
             modules::browser::browser_set_zoom,
             modules::browser::browser_devtools,
             modules::browser::browser_close,
+            modules::acp::acp_detect,
+            modules::acp::acp_start,
+            modules::acp::acp_send,
+            modules::acp::acp_stop,
+            modules::acp::acp_reap,
             modules::mock::mock_start,
             modules::mock::mock_set_routes,
             modules::mock::mock_stop,

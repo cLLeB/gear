@@ -38,6 +38,7 @@ import {
 } from "@/modules/agents/lib/launcher";
 import { firePendingReviewForSession } from "@/modules/agents/lib/review";
 import { useManagedAgentsStore } from "@/modules/agents/store/managedAgentsStore";
+import { useAcpStore } from "@/modules/ai/acp/store";
 import {
 	AgentRunBridge,
 	AiInputBar,
@@ -798,7 +799,9 @@ export default function App() {
 		(openaiCompatibleBaseURL.trim().length > 0 &&
 			openaiCompatibleModelId.trim().length > 0) ||
 		openrouterModelId.trim().length > 0;
-	const hasComposer = hasAnyKey(apiKeys) || hasLocalModel;
+	// Claude Code, Codex or Gemini CLI on the user's subscription need no key.
+	const agentEngine = useAcpStore((s) => s.engine) !== "gear";
+	const hasComposer = hasAnyKey(apiKeys) || hasLocalModel || agentEngine;
 
 	const [keysLoaded, setKeysLoaded] = useState(false);
 	useEffect(() => {

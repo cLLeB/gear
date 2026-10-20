@@ -1,3 +1,4 @@
+pub mod acp;
 pub mod agent;
 pub mod app_menu;
 pub mod bench;

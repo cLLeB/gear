@@ -5,6 +5,7 @@ import {
   type GitRepoInfo,
   type GitStatusSnapshot,
 } from "@/modules/ai/lib/native";
+import { useAcpStore } from "@/modules/ai/acp/store";
 import { useChatStore } from "@/modules/ai/store/chatStore";
 import {
   getModel,
@@ -375,6 +376,7 @@ export function useSourceControlPanel(
 ): SourceControlPanelState {
   const selectedModelId = useChatStore((state) => state.selectedModelId);
   const agentStatus = useChatStore((state) => state.agentMeta.status);
+  const engine = useAcpStore((state) => state.engine);
   const hasApiKeyForSelected = useChatStore((state) => {
     const model = getModel(state.selectedModelId);
     return !providerNeedsKey(model.provider) || !!state.apiKeys[model.provider];
@@ -478,6 +480,8 @@ export function useSourceControlPanel(
     if (stagedEntries.length === 0) {
       return "Stage changes to generate a commit message";
     }
+    // Claude Code, Codex or Gemini CLI on the user's subscription need no key.
+    if (engine !== "gear") return null;
     if (!hasApiKeyForSelected) {
       return "Connect an AI provider to generate commit messages";
     }
@@ -501,6 +505,7 @@ export function useSourceControlPanel(
     }
     return null;
   }, [
+    engine,
     hasApiKeyForSelected,
     lmstudioModelId,
     mlxModelId,
@@ -870,6 +875,16 @@ export function useSourceControlPanel(
     setActionMessage(null);
     setActionError(null);
     try {
+      if (engine !== "gear") {
+        const [{ acpOneShot }, diff] = await Promise.all([import("@/modules/ai/acp/store"), native.gitDiff(repo.repoRoot, null, true)]);
+        const { text: diffText, truncated } = truncateDiff(diff.diffText);
+        let message = cleanCommitMessage(await acpOneShot(engine, COMMIT_MESSAGE_SYSTEM_PROMPT, buildCommitMessagePrompt(stagedEntries, diffText, truncated)));
+        if (!isValidCommitMessage(message)) message = cleanCommitMessage(await acpOneShot(engine, COMMIT_MESSAGE_SYSTEM_PROMPT, buildRepairCommitMessagePrompt(message, stagedEntries)));
+        if (!isValidCommitMessage(message)) throw new Error("The agent returned an invalid commit message. Try again.");
+        setCommitMessage(message);
+        setActionMessage(null);
+        return;
+      }
       const [{ buildConfiguredLanguageModel }, { generateText }, diff] =
         await Promise.all([
           import("@/modules/ai/lib/agent"),
@@ -931,6 +946,7 @@ export function useSourceControlPanel(
   }, [
     aiUnavailableReason,
     aiBusy,
+    engine,
     lmstudioModelId,
     mlxModelId,
     ollamaModelId,

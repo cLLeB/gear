@@ -56,6 +56,7 @@ import { useTranslation } from "react-i18next";
 import { ProviderIcon } from "../components/ProviderIcon";
 import { ProviderKeyCard } from "../components/ProviderKeyCard";
 import { SectionHeader } from "../components/SectionHeader";
+import { SubscriptionAgents } from "@/modules/ai/acp/SubscriptionAgents";
 
 type KeysMap = Record<ProviderId, string | null>;
 
@@ -248,6 +249,8 @@ export function ModelsSection() {
         title={t("settings.models.title")}
         description={t("settings.models.description")}
       />
+
+      <SubscriptionAgents />
 
       <DefaultsBlock
         defaultModel={defaultModel}

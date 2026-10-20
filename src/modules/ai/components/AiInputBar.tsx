@@ -19,6 +19,9 @@ import { SLASH_COMMANDS } from "../lib/slashCommands";
 import type { Snippet } from "../lib/snippets";
 import { useChatStore } from "../store/chatStore";
 import { useSnippetsStore } from "../store/snippetsStore";
+import { AGENTS, type AgentDef, detectAgents } from "../acp/agents";
+import { useAcpStore } from "../acp/store";
+import { EngineSwitcher, engineLabel } from "../acp/EngineSwitcher";
 import { AgentSwitcher } from "./AgentSwitcher";
 import { FilePickerContent } from "./FilePicker";
 import { SnippetPickerContent, type PickerItem } from "./SnippetPicker";
@@ -90,7 +93,8 @@ export function AiInputBar() {
     [selectedModelId],
   );
   const hasImageAttachment = c.files.some((f) => f.kind === "image");
-  const showVisionWarning = hasImageAttachment && !supportsVision;
+  const engine = useAcpStore((s) => s.engine);
+  const showVisionWarning = hasImageAttachment && !supportsVision && engine === "gear";
   const workspaceFiles = useWorkspaceFiles(workspaceRoot, fileTrigger !== null);
 
   const [fileQuery, setFileQuery] = useState("");
@@ -350,14 +354,14 @@ export function AiInputBar() {
                     c.submit();
                   }
                 }}
-                placeholder="Ask Gear anything   -   # for snippets and commands, @ for files"
+                placeholder={engine === "gear" ? "Ask Gear anything   -   # for snippets and commands, @ for files" : `Ask ${engineLabel(engine)}   -   @ for files, / for its commands`}
                 rows={1}
                 className={cn(
                   "max-h-40 flex-1 resize-none bg-transparent text-[13px] leading-relaxed outline-none",
                   "placeholder:text-muted-foreground/60",
                 )}
               />
-              <AgentSwitcher />
+              {engine === "gear" ? <AgentSwitcher /> : <EngineSwitcher />}
             </div>
           </PopoverAnchor>
           {fileTrigger ? (
@@ -548,17 +552,31 @@ function autoresize(el: HTMLTextAreaElement | null) {
 export type AiInputBarProps = { tabId: number };
 
 export function AiInputBarConnect({ onAdd }: { onAdd: () => void }) {
+  // Agents the user already has, which run on their subscription with no key.
+  const [ready, setReady] = useState<AgentDef[]>([]);
+  const setEngine = useAcpStore((s) => s.setEngine);
+  useEffect(() => {
+    void detectAgents().then((a) => setReady(AGENTS.filter((d) => a[d.id].installed && a[d.id].launcher)));
+  }, []);
   return (
-    <div className="shrink-0 border border-border/40 bg-background/60 backdrop-blur-xl px-4 py-3 mx-4 my-3 rounded-2xl shadow-2xl">
-      <div className="flex h-10 items-center justify-between gap-3 text-xs">
+    <div className="shrink-0 border border-border/40 bg-background/60 backdrop-blur-xl px-4 py-3 mx-4 my-3 rounded-2xl shadow-2xl" data-ai-connect>
+      <div className="flex min-h-10 flex-wrap items-center justify-between gap-3 text-xs">
         <span className="text-muted-foreground">
-          Connect any AI provider (or use local models) - your key stays in your
-          OS keychain.
+          {ready.length
+            ? "Use the AI you already pay for — no API key — or connect a provider."
+            : "Connect any AI provider (or use local models) - your key stays in your OS keychain. Claude Code, Codex and Gemini CLI also work, on your own subscription."}
         </span>
-        <Button size="xs" onClick={onAdd} className="rounded-full px-4">
-          <HugeiconsIcon icon={Key01Icon} />
-          Connect provider
-        </Button>
+        <span className="flex flex-wrap items-center gap-1.5">
+          {ready.map((a) => (
+            <Button key={a.id} size="xs" variant="secondary" onClick={() => setEngine(a.id)} className="rounded-full px-3" data-ai-connect-agent={a.id} title={`Runs on your ${a.plan} account`}>
+              Use {a.name}
+            </Button>
+          ))}
+          <Button size="xs" onClick={onAdd} className="rounded-full px-4" variant={ready.length ? "ghost" : "default"}>
+            <HugeiconsIcon icon={Key01Icon} />
+            {ready.length ? "API key" : "Connect provider"}
+          </Button>
+        </span>
       </div>
     </div>
   );
