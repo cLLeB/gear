@@ -27,7 +27,7 @@ export function buildQuery(o: SearchOptions): BuiltQuery | { error: string } | n
   try {
     return { pattern: body, caseInsensitive: !o.matchCase, matcher: new RegExp(body, o.matchCase ? "g" : "gi") };
   } catch (e) {
-    return { error: e instanceof Error ? e.message.replace(/^Invalid regular expression: /, "") : String(e) };
+    return { error: e instanceof Error ? e.message.replace(/^Invalid regular expression: (\/.*\/[a-z]*: )?/, "") : String(e) };
   }
 }
 

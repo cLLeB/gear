@@ -7,7 +7,7 @@ describe("find in files query", () => {
     expect(buildQuery({ text: "foo", matchCase: true, wholeWord: true, regex: false })).toMatchObject({ pattern: "\\b(?:foo)\\b", caseInsensitive: false });
     expect(buildQuery({ text: "fo+|ba[rz]", matchCase: false, wholeWord: false, regex: true })).toMatchObject({ pattern: "fo+|ba[rz]" });
     expect(buildQuery({ text: "", matchCase: false, wholeWord: false, regex: false })).toBeNull();
-    expect(buildQuery({ text: "(unclosed", matchCase: false, wholeWord: false, regex: true })).toHaveProperty("error");
+    expect(buildQuery({ text: "(unclosed", matchCase: false, wholeWord: false, regex: true })).toEqual({ error: "Unterminated group" });
   });
 
   it("groups hits by file in report order", () => {
