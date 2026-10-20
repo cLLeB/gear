@@ -196,6 +196,15 @@ export const useAcpStore = create<AcpState>((set, get) => {
   };
 });
 
+// The Settings window can change the engine too; both windows share storage.
+if (typeof window !== "undefined") {
+  window.addEventListener("storage", (e) => {
+    if (e.key !== ENGINE_KEY) return;
+    const next = savedEngine();
+    if (useAcpStore.getState().engine !== next) useAcpStore.getState().setEngine(next);
+  });
+}
+
 /**
  * One question to the selected agent, for small helpers (commit messages,
  * explanations). Runs in its own short-lived session, refuses every tool
