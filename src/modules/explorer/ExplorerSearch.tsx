@@ -1,4 +1,5 @@
 import { Input } from "@/components/ui/input";
+import { REVEAL_LABEL } from "@/lib/platform";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   ContextMenu,
@@ -318,7 +319,7 @@ export const ExplorerSearch = forwardRef<ExplorerSearchHandle, Props>(function E
                         className={COMPACT_ITEM}
                         onSelect={() => void revealInFinder(hit.path)}
                       >
-                        Reveal in Finder
+                        {REVEAL_LABEL}
                       </ContextMenuItem>
                       <ContextMenuSeparator />
                       <ContextMenuItem

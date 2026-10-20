@@ -35,7 +35,7 @@ import { pasteInto } from "./lib/pasteRunner";
 import { baseName, type MoveOps, parentDir, planDragMove, runDragMove, undoGroups } from "./lib/dragMove";
 import { dragHasFsPaths, readFsPaths } from "@/lib/pathDrag";
 import { invoke } from "@tauri-apps/api/core";
-import { IS_MAC, IS_WINDOWS } from "@/lib/platform";
+import { IS_MAC, IS_WINDOWS, REVEAL_LABEL } from "@/lib/platform";
 import { quickPick } from "@/modules/quick-pick";
 import { currentWorkspaceEnv } from "@/modules/workspace";
 import { fileIconUrl, folderIconUrl } from "./lib/iconResolver";
@@ -898,7 +898,7 @@ export const FileExplorer = forwardRef<FileExplorerHandle, Props>(
                 className={COMPACT_ITEM}
                 onSelect={() => void revealInFinder(rootPath)}
               >
-                Reveal in Finder
+                {REVEAL_LABEL}
               </ContextMenuItem>
               <ContextMenuSeparator />
               <ContextMenuItem

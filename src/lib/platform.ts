@@ -28,6 +28,13 @@ export const ENTER_KEY = IS_MAC ? "↵" : "Enter";
 
 export const KEY_SEP = IS_MAC ? "" : "+";
 
+/** What each OS calls showing a path in its file manager. */
+export const REVEAL_LABEL = IS_MAC
+  ? "Reveal in Finder"
+  : IS_WINDOWS
+    ? "Reveal in File Explorer"
+    : "Open Containing Folder";
+
 export function fmtShortcut(...parts: string[]): string {
   return parts.join(KEY_SEP);
 }

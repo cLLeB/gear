@@ -5,6 +5,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
+import { REVEAL_LABEL } from "@/lib/platform";
 import { dragHasFsPaths, readFsPaths, writeFsPaths } from "@/lib/pathDrag";
 import { dropNested, parentDir } from "./lib/dragMove";
 import { cn, isMarkdownPath } from "@/lib/utils";
@@ -254,7 +255,7 @@ function EntryRowImpl(props: EntryRowProps) {
           className={COMPACT_ITEM}
           onSelect={() => void revealInFinder(path)}
         >
-          Reveal in Finder
+          {REVEAL_LABEL}
         </ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem
