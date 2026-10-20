@@ -79,6 +79,7 @@ import {
 } from "@/modules/git-history";
 import {
 	Header,
+	SearchInline,
 	type SearchInlineHandle,
 	type SearchTarget,
 } from "@/modules/header";
@@ -2460,8 +2461,7 @@ export default function App() {
 							runLabel={activeRunLabel}
 							onActivateAgent={onActivateAgent}
 							onActivateLocalAgent={onActivateLocalAgent}
-							searchTarget={searchTarget}
-							searchRef={searchInlineRef}
+							onOpenPalette={() => setCommandPaletteOpen(true)}
 						/>
 					)}
 
@@ -2549,6 +2549,10 @@ export default function App() {
 								<div className="flex h-full min-h-0 flex-col p-2 pl-1 pr-1">
 									<div className="gear-pane-solid relative min-h-0 flex-1 rounded-xl border border-border/40 bg-background/90 backdrop-blur shadow-sm overflow-hidden">
 										{workspaceSurface}
+											{/* Find (Ctrl/Cmd+F) floats over the pane it searches, as in most editors. */}
+											<div className="absolute top-2 right-3 z-30">
+												<SearchInline ref={searchInlineRef} target={searchTarget} overlay />
+											</div>
 									</div>
 									{isBlockTab && blockLeafId != null ? (
 										<WorkspaceInputBar

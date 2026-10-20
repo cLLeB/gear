@@ -23,17 +23,14 @@ import {
   GridViewIcon,
   LayoutTwoColumnIcon,
   LayoutTwoRowIcon,
+  Search01Icon,
   SidebarLeftIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { cn } from "@/lib/utils";
 
-import { useEffect, useRef, useState, type RefObject } from "react";
-import {
-  SearchInline,
-  type SearchInlineHandle,
-  type SearchTarget,
-} from "./SearchInline";
+import { useEffect, useRef, useState } from "react";
 
 type Props = {
   tabs: Tab[];
@@ -67,8 +64,8 @@ type Props = {
   runLabel: string | null;
   onActivateAgent: (tabId: number, leafId: number) => void;
   onActivateLocalAgent: () => void;
-  searchTarget: SearchTarget;
-  searchRef: RefObject<SearchInlineHandle | null>;
+  /** Opens the command palette: commands, files, symbols. */
+  onOpenPalette: () => void;
 };
 
 
@@ -102,8 +99,7 @@ export function Header({
   runLabel,
   onActivateAgent,
   onActivateLocalAgent,
-  searchTarget,
-  searchRef,
+  onOpenPalette,
 }: Props) {
   const rootRef = useRef<HTMLDivElement>(null);
   // In a narrow window the search box folds into an icon, so there is always an
@@ -233,7 +229,25 @@ export function Header({
         />
       </div>
 
-      <SearchInline ref={searchRef} target={searchTarget} compact={compact} />
+      {/* Command centre: one entry to commands, files and symbols; find-in-pane is Ctrl/Cmd+F inside the pane. */}
+      <button
+        type="button"
+        onClick={onOpenPalette}
+        title={`Search or run a command${tokensFor("commandPalette.open") ? ` (${tokensFor("commandPalette.open")})` : ""}`}
+        data-command-center
+        className={cn(
+          "flex h-7 shrink-0 items-center gap-2 rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground",
+          compact ? "w-7 justify-center" : "w-72 border border-border/60 bg-muted/50 px-2.5 text-[12px]",
+        )}
+      >
+        <HugeiconsIcon icon={Search01Icon} size={compact ? 15 : 13} strokeWidth={1.75} className="shrink-0" />
+        {!compact && (
+          <>
+            <span className="min-w-0 flex-1 truncate text-left">Search or run a command…</span>
+            <span className="shrink-0 font-mono text-[10.5px] text-muted-foreground/80">{tokensFor("commandPalette.open")}</span>
+          </>
+        )}
+      </button>
 
       {/* Notifications on the right on every platform; Settings lives at the foot of the activity rail. */}
       <NotificationBell onActivate={onActivateAgent} onActivateLocal={onActivateLocalAgent} />
