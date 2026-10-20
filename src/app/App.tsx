@@ -1379,7 +1379,9 @@ export default function App() {
 			: null;
 
 	const activeFilePath = (() => {
-		if (activeTab?.kind === "editor") return activeTab.path;
+		// Tool panes use internal paths (gear-har://…); those are not files to show.
+		if (activeTab?.kind === "editor" || activeTab?.kind === "markdown")
+			return /^[a-z][a-z0-9+.-]*:\/\//i.test(activeTab.path) ? null : activeTab.path;
 		if (activeTab?.kind === "git-diff") {
 			if (/^([A-Za-z]:|\/|\\)/.test(activeTab.path)) return activeTab.path;
 			const root = activeTab.repoRoot.replace(/[\\/]+$/, "");
