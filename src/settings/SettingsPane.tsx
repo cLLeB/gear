@@ -72,35 +72,43 @@ export function SettingsPane({ section, onSectionChange }: SettingsPaneProps) {
   };
 
   return (
-    <div className="flex h-full overflow-hidden bg-background/50 backdrop-blur-xl text-foreground select-none rounded-xl border border-border/40 shadow-xl m-4">
-      {/* Left nav */}
-      <nav className="w-56 shrink-0 overflow-y-auto border-r border-border/40 bg-card/40 py-6 px-3 flex flex-col gap-1.5">
-        <div className="px-3 mb-2 flex items-center">
-          <h2 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Settings</h2>
-        </div>
-        {TABS.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => handleSelect(tab.id)}
-            className={cn(
-              "flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] transition-all font-medium",
-              active === tab.id
-                ? "bg-primary text-primary-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground hover:bg-accent/50",
-            )}
-          >
-            <HugeiconsIcon icon={tab.icon} size={16} strokeWidth={active === tab.id ? 2.5 : 1.75} className="shrink-0" />
-            {tab.label}
-          </button>
-        ))}
-      </nav>
+    // Sized by the pane, not the window: a split or a restored window narrows
+    // it. Below ~860px the nav folds to icons and the padding tightens, so the
+    // section keeps the room.
+    <div className="@container/settings h-full min-w-0">
+      <div className="flex h-full overflow-hidden bg-background/50 backdrop-blur-xl text-foreground select-none rounded-xl border border-border/40 shadow-xl m-2 @4xl/settings:m-4" data-settings-pane>
+        {/* Left nav */}
+        <nav className="w-14 shrink-0 overflow-y-auto border-r border-border/40 bg-card/40 py-4 px-2 flex flex-col gap-1.5 @4xl/settings:w-56 @4xl/settings:py-6 @4xl/settings:px-3" data-settings-nav>
+          <div className="px-3 mb-2 hidden items-center @4xl/settings:flex">
+            <h2 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Settings</h2>
+          </div>
+          {TABS.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => handleSelect(tab.id)}
+              title={tab.label}
+              aria-label={tab.label}
+              aria-current={active === tab.id ? "page" : undefined}
+              className={cn(
+                "flex items-center justify-center gap-3 px-2 py-2.5 rounded-lg text-[13px] transition-all font-medium @4xl/settings:justify-start @4xl/settings:px-3",
+                active === tab.id
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground hover:bg-accent/50",
+              )}
+            >
+              <HugeiconsIcon icon={tab.icon} size={16} strokeWidth={active === tab.id ? 2.5 : 1.75} className="shrink-0" />
+              <span className="hidden @4xl/settings:inline">{tab.label}</span>
+            </button>
+          ))}
+        </nav>
 
-      {/* Content */}
-      <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-10 pt-8 pb-10 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <div className="mx-auto w-full max-w-3xl bg-card rounded-2xl p-8 border border-border/30 shadow-sm">
-          {ActiveSection && <ActiveSection />}
-        </div>
-      </main>
+        {/* Content */}
+        <main className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain px-3 pt-3 pb-6 @3xl/settings:px-10 @3xl/settings:pt-8 @3xl/settings:pb-10 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="mx-auto w-full max-w-3xl bg-card rounded-2xl p-5 border border-border/30 shadow-sm @3xl/settings:p-8">
+            {ActiveSection && <ActiveSection />}
+          </div>
+        </main>
+      </div>
     </div>
   );
 }
