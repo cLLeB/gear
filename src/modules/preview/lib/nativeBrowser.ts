@@ -12,7 +12,29 @@ export type BrowserEvent =
   | { kind: "newWindow"; key: string; url: string }
   | { kind: "downloadStarted"; key: string; url: string; path: string }
   | { kind: "downloadFinished"; key: string; url: string; path: string | null; success: boolean }
-  | { kind: "blocked"; key: string; url: string };
+  | { kind: "blocked"; key: string; url: string }
+  /** A Gear shortcut pressed while the page had focus, e.g. "mod+shift+p". */
+  | { kind: "shortcut"; key: string; combo: string };
+
+const KEY_NAMES: Record<string, string> = { tab: "Tab", arrowleft: "ArrowLeft", arrowright: "ArrowRight", arrowup: "ArrowUp", arrowdown: "ArrowDown", enter: "Enter" };
+
+/** The keydown a forwarded combo stands for, to replay on Gear's own window. */
+export function keyEventInit(combo: string, isMac: boolean): KeyboardEventInit {
+  const parts = combo.split("+");
+  // "mod+," splits into ["mod", ","]; a literal "+" key never appears in the allowlist.
+  const key = parts[parts.length - 1];
+  const has = (p: string) => parts.slice(0, -1).includes(p);
+  const mod = has("mod");
+  return {
+    key: KEY_NAMES[key] ?? key,
+    ctrlKey: has("ctrl") || (mod && !isMac),
+    metaKey: mod && isMac,
+    shiftKey: has("shift"),
+    altKey: has("alt"),
+    bubbles: true,
+    cancelable: true,
+  };
+}
 
 export interface Bounds {
   x: number;

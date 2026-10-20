@@ -6,7 +6,8 @@ import { toast } from "sonner";
 import { app } from "@/app/appBridge";
 import { cn } from "@/lib/utils";
 import { PreviewAddressBar, type PreviewAddressBarHandle } from "./PreviewAddressBar";
-import { type BrowserEvent, DEVICES, type Device } from "./lib/nativeBrowser";
+import { IS_MAC } from "@/lib/platform";
+import { type BrowserEvent, DEVICES, type Device, keyEventInit } from "./lib/nativeBrowser";
 import { useNativeView } from "./lib/useNativeView";
 
 export type PreviewPaneHandle = {
@@ -59,6 +60,11 @@ export const PreviewPane = forwardRef<PreviewPaneHandle, Props>(function Preview
           const path = e.path;
           toast.success(`Downloaded ${path.split(/[\\/]/).pop()}`, { action: { label: "Show in folder", onClick: () => void revealItemInDir(path).catch(() => {}) } });
         } else toast.error(`Download failed: ${e.url}`);
+        break;
+      case "shortcut":
+        // The backend already moved focus to Gear; act as if the key had been pressed here.
+        if (e.combo === "mod+l") addressRef.current?.focus();
+        else window.dispatchEvent(new KeyboardEvent("keydown", keyEventInit(e.combo, IS_MAC)));
         break;
       case "blocked":
         toast.info(`The browser pane opens only web pages; ${e.url.split(":")[0]}: links were blocked.`, { action: { label: "Open outside Gear", onClick: () => void openUrl(e.url).catch(() => {}) } });

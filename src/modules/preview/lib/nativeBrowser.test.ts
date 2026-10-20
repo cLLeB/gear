@@ -1,5 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { browserKey, DEVICES, deviceRect, toWindowBounds, zoomFactor } from "./nativeBrowser";
+import { browserKey, DEVICES, deviceRect, keyEventInit, toWindowBounds, zoomFactor } from "./nativeBrowser";
+
+describe("forwarded shortcuts", () => {
+  it("replays combos with the platform's modifier", () => {
+    expect(keyEventInit("mod+shift+p", false)).toMatchObject({ key: "p", ctrlKey: true, metaKey: false, shiftKey: true, altKey: false });
+    expect(keyEventInit("mod+shift+p", true)).toMatchObject({ key: "p", ctrlKey: false, metaKey: true, shiftKey: true });
+    expect(keyEventInit("ctrl+shift+tab", true)).toMatchObject({ key: "Tab", ctrlKey: true, metaKey: false, shiftKey: true });
+    expect(keyEventInit("mod+,", false)).toMatchObject({ key: ",", ctrlKey: true });
+    expect(keyEventInit("mod+alt+t", false)).toMatchObject({ key: "t", ctrlKey: true, altKey: true });
+    expect(keyEventInit("mod+]", false)).toMatchObject({ key: "]", ctrlKey: true, bubbles: true, cancelable: true });
+  });
+});
 
 describe("native browser geometry", () => {
   it("derives the UI zoom from the viewport and the root width", () => {
