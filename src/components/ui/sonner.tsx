@@ -8,6 +8,8 @@ const Toaster = ({ ...props }: ToasterProps) => {
     <Sonner
       theme={resolvedMode}
       className="toaster group"
+      // Every notification can be dismissed by hand, not only by waiting.
+      closeButton
       style={
         {
           "--normal-bg": "var(--popover)",

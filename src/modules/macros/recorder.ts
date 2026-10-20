@@ -36,7 +36,7 @@ function store(list: SavedMacro[]): void {
 }
 
 function showRecording(): void {
-  toast.loading(`Recording macro — ${compact(recording ?? []).length} steps`, { id: TOAST_ID, duration: Number.POSITIVE_INFINITY, action: { label: "Stop", onClick: () => stopRecording() } });
+  toast.loading(`Recording macro — ${compact(recording ?? []).length} steps`, { id: TOAST_ID, duration: Number.POSITIVE_INFINITY, closeButton: false, action: { label: "Stop", onClick: () => stopRecording() } });
 }
 
 function note(step: Step): void {
