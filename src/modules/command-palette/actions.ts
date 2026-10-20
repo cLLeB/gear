@@ -30,6 +30,7 @@ import { DATA2_ACTIONS } from "@/modules/tools/dataToolActions";
 import { CODE_TOOL_ACTIONS, FILE_TOOL_ACTIONS } from "@/modules/editor/lib/textTools/codeCommands";
 import { TOOL_ACTIONS } from "@/modules/tools/toolActions";
 import { NET_ACTIONS } from "@/modules/tools/netActions";
+import { SIDEBAR_ACTIONS } from "@/modules/sidebar/actions";
 import { copyPermalink, copyReference, openPermalink } from "@/modules/editor/lib/textTools/permalinkAction";
 import { PANE_ACTIONS, TERMINAL_ACTIONS, toggleBroadcast } from "@/modules/terminal";
 import { TERMINAL_FEATURE_ACTIONS } from "@/modules/terminal/features";
@@ -486,7 +487,7 @@ export function createCommandPaletteActions(
       run: () => void action.run(),
       deferRun: true,
     })),
-    ...[...TOOL_ACTIONS, ...NET_ACTIONS].map((action): CommandPaletteAction => ({
+    ...[...TOOL_ACTIONS, ...NET_ACTIONS, ...SIDEBAR_ACTIONS].map((action): CommandPaletteAction => ({
       id: action.id,
       label: action.label,
       group: "Tools",
