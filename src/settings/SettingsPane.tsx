@@ -5,11 +5,11 @@ import {
   AiScanIcon,
   InformationCircleIcon,
   PaintBoardIcon,
-  Settings01Icon,
   UserMultiple02Icon,
   PlayIcon,
   KeyboardIcon,
-  Settings02Icon,
+  SlidersHorizontalIcon,
+  ToggleOnIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { type JSX, useEffect, useState } from "react";
@@ -26,13 +26,13 @@ import { ThemesSection } from "./sections/ThemesSection";
 const TAB_DEFS: {
   id: SettingsTab;
   labelKey: string;
-  icon: typeof Settings01Icon;
+  icon: typeof SlidersHorizontalIcon;
   component: () => JSX.Element;
 }[] = [
-  { id: "general",   labelKey: "settings.tabs.general",   icon: Settings01Icon,      component: GeneralSection },
+  { id: "general",   labelKey: "settings.tabs.general",   icon: SlidersHorizontalIcon, component: GeneralSection },
   { id: "themes",    labelKey: "settings.tabs.themes",    icon: PaintBoardIcon,       component: ThemesSection },
   { id: "shortcuts", labelKey: "settings.tabs.shortcuts", icon: KeyboardIcon,         component: ShortcutsSection },
-  { id: "features",  labelKey: "settings.tabs.features",  icon: Settings02Icon,      component: FeaturesSection },
+  { id: "features",  labelKey: "settings.tabs.features",  icon: ToggleOnIcon,        component: FeaturesSection },
   { id: "run",       labelKey: "settings.tabs.run",       icon: PlayIcon,             component: RunSection },
   { id: "models",    labelKey: "settings.tabs.models",    icon: AiScanIcon,           component: ModelsSection },
   { id: "agents",    labelKey: "settings.tabs.agents",    icon: UserMultiple02Icon,   component: AgentsSection },
