@@ -11,6 +11,7 @@ import { expandSnippetTokens, type Snippet } from "../lib/snippets";
 import { tryRunSlashCommand, type SlashCommandMeta } from "./slashCommands";
 import { getOrCreateChat, useChatStore } from "../store/chatStore";
 import { useSnippetsStore } from "../store/snippetsStore";
+import { useAcpStore } from "../acp/store";
 import { currentWorkspaceEnv } from "@/modules/workspace";
 
 export type FileAttachment = {
@@ -73,7 +74,10 @@ type ProviderProps = {
 export function AiComposerProvider({ children }: ProviderProps) {
   const sessionId = useChatStore((s) => s.activeSessionId);
   const status = useChatStore((s) => s.agentMeta.status);
-  const isBusy = status === "thinking" || status === "streaming";
+  // With Claude Code, Codex or Gemini CLI as the engine, the composer talks to that agent instead.
+  const engine = useAcpStore((s) => s.engine);
+  const acpStatus = useAcpStore((s) => s.status);
+  const isBusy = engine === "gear" ? status === "thinking" || status === "streaming" : acpStatus === "working" || acpStatus === "starting";
 
   const [value, setValue] = useState("");
   const [files, setFiles] = useState<FileAttachment[]>([]);
@@ -280,7 +284,8 @@ export function AiComposerProvider({ children }: ProviderProps) {
     if (pickedCommands.length > 0 && !trimmed.startsWith("/") && !trimmed.startsWith("#")) {
       commandSource = `#${pickedCommands[0].name} ${trimmed}`.trim();
     }
-    if (commandSource.startsWith("/") || commandSource.startsWith("#")) {
+    // Agents (Claude Code, Codex, Gemini) have their own slash commands; pass those through.
+    if (engine === "gear" && (commandSource.startsWith("/") || commandSource.startsWith("#"))) {
       const outcome = tryRunSlashCommand(commandSource);
       if (outcome.kind === "handled") {
         setValue("");
@@ -349,6 +354,21 @@ export function AiComposerProvider({ children }: ProviderProps) {
       }
     }
 
+    if (engine !== "gear") {
+      const images = files
+        .filter((f) => f.kind === "image" && f.url?.startsWith("data:"))
+        .map((f) => ({ mimeType: f.mediaType, data: (f.url as string).replace(/^data:[^,]*,/, "") }));
+      void useAcpStore.getState().send(composed, images);
+      const store = useChatStore.getState();
+      if (!store.mini.open) store.openMini();
+      setValue("");
+      setFiles([]);
+      setPickedSnippets([]);
+      setPickedCommands([]);
+      requestAnimationFrame(() => textareaRef.current?.focus());
+      return;
+    }
+
     if (!sessionId) return;
     const chat = getOrCreateChat(sessionId);
     void chat.sendMessage({ role: "user", parts } as Parameters<
@@ -366,6 +386,7 @@ export function AiComposerProvider({ children }: ProviderProps) {
   };
 
   const stop = () => {
+    if (engine !== "gear") return useAcpStore.getState().cancel();
     if (!sessionId) return;
     void getOrCreateChat(sessionId).stop();
   };

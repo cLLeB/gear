@@ -43,6 +43,9 @@ import { usePreferencesStore } from "@/modules/settings/preferences";
 import { usePlanStore } from "../store/planStore";
 import { AgentSwitcher } from "./AgentSwitcher";
 import { AiChatView } from "./AiChat";
+import { AcpConversation } from "../acp/AcpConversation";
+import { EngineSwitcher } from "../acp/EngineSwitcher";
+import { useAcpStore } from "../acp/store";
 import { PlanDiffReview } from "./PlanDiffReview";
 import { TodoStrip } from "./TodoStrip";
 
@@ -199,8 +202,21 @@ function Body({
 
   const chat = useMemo(() => getOrCreateChat(sessionId), [sessionId]);
   const helpers = useChat<UIMessage>({ chat });
+  const engine = useAcpStore((s) => s.engine);
+  const acpStatus = useAcpStore((s) => s.status);
   const isBusy =
-    helpers.status === "submitted" || helpers.status === "streaming";
+    engine === "gear"
+      ? helpers.status === "submitted" || helpers.status === "streaming"
+      : acpStatus === "working" || acpStatus === "starting";
+
+  if (engine !== "gear") {
+    return (
+      <>
+        <Header step={acpStatus === "starting" ? "Starting…" : null} isBusy={isBusy} onClose={onClose} onExpand={onExpand} onHeaderPointerDown={onHeaderPointerDown} />
+        <AcpConversation agent={engine} />
+      </>
+    );
+  }
 
   return (
     <>
@@ -302,6 +318,7 @@ function Header({
 }) {
   const customAgents = useAgentsStore((s) => s.customAgents);
   void customAgents;
+  const engine = useAcpStore((s) => s.engine);
 
   return (
     <div
@@ -309,7 +326,8 @@ function Header({
       className="relative flex h-11 shrink-0 cursor-grab items-center justify-between gap-2 border-b border-border/60 px-3 active:cursor-grabbing"
     >
       <div className="flex min-w-0 items-center gap-1.5">
-        <AgentSwitcher isMiniWindow />
+        <EngineSwitcher />
+        {engine === "gear" && <AgentSwitcher isMiniWindow />}
         {messages !== undefined ? (
           <ContextIndicator messages={messages} />
         ) : null}
