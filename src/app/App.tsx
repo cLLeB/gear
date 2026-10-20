@@ -2381,6 +2381,22 @@ export default function App() {
 		</div>
 	);
 
+	const spaceSwitcher = (
+		<SpaceSwitcher
+			open={switcherOpen}
+			onOpenChange={setSwitcherOpen}
+			tabs={tabs}
+			onNewSpace={handleNewSpace}
+			onDeleteSpace={handleDeleteSpace}
+			onNewTabInSpace={handleNewTabInSpace}
+			onJumpTab={handleJumpTab}
+			onCloseTab={handleClose}
+			onMoveTabToSpace={handleMoveTabToSpace}
+			onReorderTab={(tabId, targetTabId) => handleReorderTabAcrossSpaces(tabId, targetTabId)}
+			onReorderSpaces={(ids) => useSpaces.getState().reorder(ids)}
+		/>
+	);
+
 	// The activity rail sits on the window's outer edge, beside the sidebar.
 	const activityRail = (
 		<SidebarRail
@@ -2643,6 +2659,7 @@ export default function App() {
 
 					{!zenMode && (
 						<StatusBar
+							leading={spaceSwitcher}
 							cwd={activeCwd}
 							filePath={activeFilePath}
 							home={home}
@@ -2699,21 +2716,8 @@ export default function App() {
 						</AlertDialogContent>
 					</AlertDialog>
 
-					<SpaceSwitcher
-						open={switcherOpen}
-						onOpenChange={setSwitcherOpen}
-						tabs={tabs}
-						onNewSpace={handleNewSpace}
-						onDeleteSpace={handleDeleteSpace}
-						onNewTabInSpace={handleNewTabInSpace}
-						onJumpTab={handleJumpTab}
-						onCloseTab={handleClose}
-						onMoveTabToSpace={handleMoveTabToSpace}
-						onReorderTab={(tabId, targetTabId) =>
-							handleReorderTabAcrossSpaces(tabId, targetTabId)
-						}
-						onReorderSpaces={(ids) => useSpaces.getState().reorder(ids)}
-					/>
+					{/* The status bar hosts the space switcher; zen mode hides that bar, so keep the switcher (and its shortcut) here. */}
+					{zenMode && spaceSwitcher}
 
 					<CommandPalette
 						open={commandPaletteOpen}
