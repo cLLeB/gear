@@ -3,6 +3,7 @@ import {
   Bug01Icon,
   ContainerIcon,
   PuzzleIcon,
+  Search01Icon,
   CloudServerIcon,
   CubeIcon,
   Database01Icon,
@@ -111,6 +112,7 @@ export function SidebarRail({
       <ContextMenuTrigger asChild>
         <nav aria-label="Views" data-activity-rail={sidebarPosition} className="flex h-full w-11 shrink-0 flex-col items-center gap-1 py-2">
           {view("explorer", "Files", FolderTreeIcon)}
+          {view("search", "Search", Search01Icon)}
           {view("source-control", "Source Control", FolderGitTwoIcon, changedCount)}
           {view("debug", "Run and Debug", Bug01Icon, debugBadge)}
           {view("tests", "Testing", TestTube01Icon)}

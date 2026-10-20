@@ -135,6 +135,7 @@ export type CommandPaletteActionContext = {
   focusPreviousPane: () => void;
   focusSearch: () => void;
   focusExplorerSearch: () => void;
+  findInFiles: () => void;
   toggleSidebar: () => void;
   toggleAi: () => void;
   askAiSelection: () => void;
@@ -402,8 +403,19 @@ export function createCommandPaletteActions(
       run: () => void setShowHidden(!usePreferencesStore.getState().showHidden),
     },
     {
+      id: "search.inFiles",
+      label: "Find in files",
+      group: "Search",
+      keywords: ["grep", "search", "text", "workspace", "project"],
+      icon: Search01Icon,
+      shortcutId: "search.inFiles",
+      disabledReason: ctx.explorerRoot ? undefined : "No workspace root",
+      run: ctx.findInFiles,
+      deferRun: true,
+    },
+    {
       id: "explorer.search",
-      label: "Search files",
+      label: "Filter file names in the explorer",
       group: "Search",
       keywords: ["explorer", "workspace", "file search"],
       icon: Search01Icon,

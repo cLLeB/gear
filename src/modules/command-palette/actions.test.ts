@@ -58,6 +58,7 @@ function baseContext(
     focusPreviousPane: noop,
     focusSearch: noop,
     focusExplorerSearch: noop,
+    findInFiles: noop,
     toggleSidebar: noop,
     toggleAi: noop,
     askAiSelection: noop,

@@ -31,6 +31,7 @@ export type ShortcutId =
   | "pane.toggleZoom"
   | "search.focus"
   | "explorer.search"
+  | "search.inFiles"
   | "explorer.focus"
   | "explorer.toggleHidden"
   | "view.zoomIn"
@@ -241,10 +242,16 @@ export const SHORTCUTS: Shortcut[] = [
     defaultBindings: [{ [MOD_PROP]: true, key: "1" }],
   },
   {
-    id: "explorer.search",
-    label: "Search files",
+    id: "search.inFiles",
+    label: "Find in files",
     group: "Search",
     defaultBindings: [{ [MOD_PROP]: true, shift: true, key: "f" }],
+  },
+  {
+    id: "explorer.search",
+    label: "Filter file names in the explorer",
+    group: "Search",
+    defaultBindings: [],
   },
   {
     id: "search.focus",

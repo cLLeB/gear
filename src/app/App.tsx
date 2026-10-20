@@ -109,6 +109,7 @@ import {
 	useShortcutLabel,
 } from "@/modules/shortcuts";
 import { SidebarRail, type SidebarViewId } from "@/modules/sidebar";
+import { SearchPanel, type SearchPanelHandle } from "@/modules/search/SearchPanel";
 import {
 	activeRepositoryContextPath,
 	gitGraphRepositoryPath,
@@ -266,7 +267,7 @@ function readSidebarWidth(): number {
 function readSidebarView(): SidebarViewId {
 	try {
 		const stored = window.localStorage.getItem(SIDEBAR_VIEW_STORAGE_KEY);
-		if (stored === "explorer" || stored === "source-control" || stored === "debug" || stored === "tests" || stored === "database" || stored === "containers" || stored === "extensions" || stored === "remote" || stored === "k8s") return stored;
+		if (stored === "explorer" || stored === "search" || stored === "source-control" || stored === "debug" || stored === "tests" || stored === "database" || stored === "containers" || stored === "extensions" || stored === "remote" || stored === "k8s") return stored;
 	} catch {
 		// ignore
 	}
@@ -347,6 +348,7 @@ export default function App() {
 	const [activeSearchAddon, setActiveSearchAddon] =
 		useState<SearchAddon | null>(null);
 	const searchInlineRef = useRef<SearchInlineHandle | null>(null);
+	const searchPanelRef = useRef<SearchPanelHandle | null>(null);
 	const terminalRefs = useRef<Map<number, TerminalPaneHandle>>(new Map());
 	const editorRefs = useRef<Map<number, EditorPaneHandle>>(new Map());
 	const previewRefs = useRef<Map<number, PreviewPaneHandle>>(new Map());
@@ -404,6 +406,7 @@ export default function App() {
 			if (collapsed) {
 				if (panel) panel.resize(`${sidebarWidthRef.current}px`);
 				if (view !== sidebarView) persistSidebarView(view);
+				if (view === "search") requestAnimationFrame(() => searchPanelRef.current?.focus());
 				return;
 			}
 			if (view === sidebarView) {
@@ -411,6 +414,7 @@ export default function App() {
 				return;
 			}
 			persistSidebarView(view);
+			if (view === "search") requestAnimationFrame(() => searchPanelRef.current?.focus());
 		},
 		[persistSidebarView, sidebarView],
 	);
@@ -500,6 +504,14 @@ export default function App() {
 			}
 		};
 	}, []);
+
+	// Ctrl/Cmd+Shift+F: show the Search view and focus its box.
+	const findInFiles = useCallback(() => {
+		const panel = sidebarRef.current;
+		if (panel && panel.getSize().asPercentage <= 0) panel.resize(`${sidebarWidthRef.current}px`);
+		if (sidebarView !== "search") persistSidebarView("search");
+		requestAnimationFrame(() => searchPanelRef.current?.focus());
+	}, [persistSidebarView, sidebarView]);
 
 	const toggleExplorerFocus = useCallback(() => {
 		const explorer = explorerRef.current;
@@ -1677,6 +1689,7 @@ export default function App() {
 			"debug.stepOut": () => void debugCommand.stepOut(),
 			"debug.stop": () => void stopDebugging(),
 			"explorer.focus": toggleExplorerFocus,
+			"search.inFiles": findInFiles,
 			"explorer.toggleHidden": () => {
 				persistSidebarView("explorer");
 				void setShowHidden(!usePreferencesStore.getState().showHidden);
@@ -1986,6 +1999,7 @@ export default function App() {
 				focusPreviousPane: () => focusNextPaneInTab(activeId, -1),
 				focusSearch: () => searchInlineRef.current?.focus(),
 				focusExplorerSearch: () => explorerRef.current?.focusSearch(),
+				findInFiles,
 				toggleSidebar,
 				toggleAi: togglePanelAndFocus,
 				askAiSelection: askFromSelection,
@@ -2512,6 +2526,8 @@ export default function App() {
 																		onRunFile={(p) => void runFile(p)}
 																		canRunPath={canRunPath}
 														/>
+													) : sidebarView === "search" ? (
+														<SearchPanel ref={searchPanelRef} rootPath={explorerRoot} />
 													) : sidebarView === "debug" ? (
 														<DebugPanel />
 													) : sidebarView === "tests" ? (
@@ -2626,6 +2642,8 @@ export default function App() {
 																		onRunFile={(p) => void runFile(p)}
 																		canRunPath={canRunPath}
 														/>
+													) : sidebarView === "search" ? (
+														<SearchPanel ref={searchPanelRef} rootPath={explorerRoot} />
 													) : sidebarView === "debug" ? (
 														<DebugPanel />
 													) : sidebarView === "tests" ? (
