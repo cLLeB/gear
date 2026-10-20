@@ -56,6 +56,80 @@ enum BrowserEvent {
         key: String,
         url: String,
     },
+    /// A Gear shortcut pressed while the page had focus.
+    Shortcut {
+        key: String,
+        combo: String,
+    },
+}
+
+/// Gear shortcuts the page hands back to Gear (`mod` is Ctrl, or Cmd on
+/// macOS). The page's own script could fake these, so only harmless ones
+/// that move focus or open views are here — nothing that closes, saves or
+/// changes files.
+const FORWARDED_SHORTCUTS: &[&str] = &[
+    "mod+shift+p",
+    "mod+p",
+    "mod+,",
+    "mod+k",
+    "mod+t",
+    "mod+e",
+    "mod+l",
+    "mod+b",
+    "mod+i",
+    "mod+shift+i",
+    "mod+j",
+    "mod+]",
+    "mod+[",
+    "mod+shift+e",
+    "mod+shift+f",
+    "mod+shift+s",
+    "mod+alt+t",
+    "ctrl+tab",
+    "ctrl+shift+tab",
+    "mod+1",
+    "mod+2",
+    "mod+3",
+    "mod+4",
+    "mod+5",
+    "mod+6",
+    "mod+7",
+    "mod+8",
+    "mod+9",
+];
+
+/// Runs in every page: turns a forwarded shortcut into a `gear-key:`
+/// navigation, which the backend cancels and reports. No IPC is involved.
+fn shortcut_script() -> String {
+    format!(
+        r#"(() => {{
+  const allowed = new Set({allowed});
+  const mac = /Mac/.test(navigator.platform);
+  addEventListener("keydown", (e) => {{
+    if (!e.isTrusted) return;
+    const k = e.key.toLowerCase();
+    let combo = null;
+    if (k === "tab" && e.ctrlKey) combo = "ctrl+" + (e.shiftKey ? "shift+" : "") + "tab";
+    else if (mac ? e.metaKey : e.ctrlKey) combo = "mod+" + (e.altKey ? "alt+" : "") + (e.shiftKey ? "shift+" : "") + k;
+    if (!combo || !allowed.has(combo)) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    location.href = "gear-key:" + combo;
+  }}, true);
+}})();"#,
+        allowed = serde_json::to_string(FORWARDED_SHORTCUTS).unwrap_or_else(|_| "[]".into())
+    )
+}
+
+/// The shortcut a `gear-key:` URL carries, if it is one Gear accepts.
+pub(crate) fn forwarded_shortcut(url: &Url) -> Option<String> {
+    if url.scheme() != "gear-key" {
+        return None;
+    }
+    let combo = url.path().to_ascii_lowercase();
+    FORWARDED_SHORTCUTS
+        .contains(&combo.as_str())
+        .then_some(combo)
 }
 
 /// Webview labels are `browser-<key>`; keys come from the frontend, so they
@@ -211,7 +285,24 @@ pub async fn browser_open<R: Runtime>(
         key.clone(),
     );
     let builder = WebviewBuilder::new(&label, WebviewUrl::External(start))
+        .initialization_script(shortcut_script())
         .on_navigation(move |url| {
+            if url.scheme() == "gear-key" {
+                if let Some(combo) = forwarded_shortcut(url) {
+                    // Hand keyboard focus back to Gear's own UI, then let it act.
+                    if let Some(main) = a1.get_webview("main") {
+                        let _ = main.set_focus();
+                    }
+                    emit(
+                        &a1,
+                        BrowserEvent::Shortcut {
+                            key: k1.clone(),
+                            combo,
+                        },
+                    );
+                }
+                return false;
+            }
             if allowed_url(url) {
                 emit(
                     &a1,
@@ -397,6 +488,29 @@ mod tests {
         assert!(label_for("").is_err());
         assert!(label_for("../main").is_err());
         assert!(label_for(&"x".repeat(65)).is_err());
+    }
+
+    #[test]
+    fn only_harmless_shortcuts_are_forwarded() {
+        let s = |u: &str| forwarded_shortcut(&Url::parse(u).unwrap());
+        assert_eq!(s("gear-key:mod+shift+p").as_deref(), Some("mod+shift+p"));
+        assert_eq!(s("gear-key:ctrl+tab").as_deref(), Some("ctrl+tab"));
+        assert_eq!(s("gear-key:MOD+L").as_deref(), Some("mod+l"));
+        // A page could fake these: closing, quitting and saving are never accepted.
+        for bad in [
+            "gear-key:mod+w",
+            "gear-key:mod+shift+w",
+            "gear-key:mod+q",
+            "gear-key:mod+s",
+            "gear-key:mod+d",
+            "gear-key:anything",
+            "https://example.com/gear-key:mod+p",
+        ] {
+            assert_eq!(s(bad), None, "{bad}");
+        }
+        let script = shortcut_script();
+        assert!(script.contains("\"mod+shift+p\""));
+        assert!(script.contains("e.isTrusted"));
     }
 
     #[test]
