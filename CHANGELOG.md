@@ -1,5 +1,49 @@
 # Changelog
 
+## [0.1.9](https://github.com/cLLeB/gear/compare/v0.1.8...v0.1.9) (2026-10-20)
+
+
+### Features
+
+* **ai:** ACP client and the agents it can run ([de89195](https://github.com/cLLeB/gear/commit/de8919533abd05f1b61e57bb123e53f28f9925a5))
+* **ai:** Agent Client Protocol types and conversation reducer ([f72a9ec](https://github.com/cLLeB/gear/commit/f72a9ecbbe1a5ad52bed475cabfe9c1dde808ab8))
+* **ai:** agent sessions and one-shot questions on the user's subscription ([a34ae6f](https://github.com/cLLeB/gear/commit/a34ae6fa80f595cf0c9a8a13e78e52e2e5511dd6))
+* **ai:** conversation view and engine picker for Claude Code, Codex and Gemini CLI ([665cdf3](https://github.com/cLLeB/gear/commit/665cdf37027fd2bb072306989515e8adca0960eb))
+* **ai:** host coding agents that speak the Agent Client Protocol ([e89a8ec](https://github.com/cLLeB/gear/commit/e89a8ec620849bfd30cd2103e3670012065903c9))
+* **ai:** quick helpers and commit messages work without an API key ([91d9d44](https://github.com/cLLeB/gear/commit/91d9d44c02929541014957e9000a51e487fee02d))
+* **ai:** run the AI panel on Claude Code, Codex or Gemini CLI ([0716378](https://github.com/cLLeB/gear/commit/0716378d677419171e50d55fff5d027a5058e26d))
+* **ai:** run the AI panel on Claude Code, Codex or Gemini CLI — your subscription, no API key ([12c9692](https://github.com/cLLeB/gear/commit/12c9692d140c26b89c1237b15f1f169bc1031d4f))
+* **browser:** back, forward, stop, page zoom and device sizes in the address bar ([ab9ed65](https://github.com/cLLeB/gear/commit/ab9ed65cb0476d993b09bc527a9f67f047770aa8))
+* **browser:** frontend bridge and geometry for native browser views ([08b21d7](https://github.com/cLLeB/gear/commit/08b21d728d1fed384cdbc662ef53268aa10e7c1c))
+* **browser:** hand Gear's shortcuts back from pages in the browser pane ([bc10424](https://github.com/cLLeB/gear/commit/bc1042444a03d7f7e4ab9e3c1743200443c3f798))
+* **browser:** lifecycle of a tab's native view ([b3cb6ed](https://github.com/cLLeB/gear/commit/b3cb6ed939ddf98e6792702c9a4b67f4d02e7a1c))
+* **browser:** native webviews for the browser pane ([0bc11f6](https://github.com/cLLeB/gear/commit/0bc11f6afc13d53381279b1e200746ed86b980b3))
+* **browser:** real webviews in the browser pane — any site loads and stays signed in ([ea2abb9](https://github.com/cLLeB/gear/commit/ea2abb9d484953791db56167f82c21bc446b1417))
+* **browser:** replay forwarded shortcuts in Gear ([fdbab18](https://github.com/cLLeB/gear/commit/fdbab18f4245ba3ebcb20f38869b094c6e62998b))
+* **browser:** show pages in a real webview instead of an iframe ([19794d8](https://github.com/cLLeB/gear/commit/19794d83222ed0516c6ef841097ba41dcecb037e))
+* **explorer:** a Collapse folders button in the explorer header ([8345862](https://github.com/cLLeB/gear/commit/8345862aebcc4c972130471b8a971b209254dcce))
+* **explorer:** Rename in the file menu, and F2 in the tree ([d135593](https://github.com/cLLeB/gear/commit/d13559393beb5c1701460148ff0fca5c1850e812))
+* **layout:** Search sits second in the rail, on Ctrl/Cmd+Shift+F ([d9b9370](https://github.com/cLLeB/gear/commit/d9b9370b5efe2eb150e8c2a61a834a63cf144598))
+* **palette:** Go to file on Ctrl/Cmd+P ([a564a1f](https://github.com/cLLeB/gear/commit/a564a1f35f3624aa3196b0e97ea2668912888ecb))
+* **search:** a Search view for finding text across the workspace ([c5801e9](https://github.com/cLLeB/gear/commit/c5801e90b6af3b121d32de8afc40d38337d54f5e))
+* **search:** find-in-files query building, grouping and highlighting ([1e967e5](https://github.com/cLLeB/gear/commit/1e967e598ba678853842f812ca7ade4e9e94c24b))
+* **settings:** lead Settings → Models with the user's subscriptions ([fc234bc](https://github.com/cLLeB/gear/commit/fc234bccbc991f1a4ea0a9f646c29e9ad588a3d3))
+* **view:** move the sidebar to the other side from the command palette ([c9d5d35](https://github.com/cLLeB/gear/commit/c9d5d35818ea2a2c2a0cb406e46fdbd7d5ec580f))
+
+
+### Bug Fixes
+
+* **ai:** keep the AI engine choice in step between Gear's windows ([b25ecc1](https://github.com/cLLeB/gear/commit/b25ecc1ea6bc20ba6999a9a09134e59d19936dc8))
+* **ai:** reach the AI panel with no API key when an agent can answer ([3204c9c](https://github.com/cLLeB/gear/commit/3204c9c8acee55a341e9010e1ef9eb5fc02b4f0c))
+* **ai:** subscription agents wrap cleanly in a narrow Settings ([01079ac](https://github.com/cLLeB/gear/commit/01079acb165d193ce347fc634f25b0cbbe28ba74))
+* **explorer:** name the file manager after the OS ([6d637a1](https://github.com/cLLeB/gear/commit/6d637a1607692b113569f54ccaef15b65c60b1f9))
+* **layout:** the activity rail shows no active view while the sidebar is collapsed ([426b498](https://github.com/cLLeB/gear/commit/426b4985968b95b361e623aee12b75eac42c0160))
+* **search:** Ctrl/Cmd+F focuses the find box when it is already open ([c76273f](https://github.com/cLLeB/gear/commit/c76273f2c16ec2d8230ca6b869e37881c5c51461))
+* **settings:** fit a narrow pane instead of squeezing the section ([79c0ddb](https://github.com/cLLeB/gear/commit/79c0ddb0969559cbb40f351b3513f8f0c747d297))
+* **settings:** General and Features get their own icons ([f39a423](https://github.com/cLLeB/gear/commit/f39a42355399feef0e5f23a82e408096cb0a140b))
+* **statusbar:** show the file's path for Markdown tabs, and nothing instead of "no directory" ([70089ca](https://github.com/cLLeB/gear/commit/70089ca19c4ed4507066f2338481887af9c2c306))
+* **testing:** the Testing header wraps in a narrow sidebar ([88a2ef5](https://github.com/cLLeB/gear/commit/88a2ef51b31829d2e67d885f64ae4a700c82c212))
+
 ## [0.1.8](https://github.com/cLLeB/gear/compare/v0.1.7...v0.1.8) (2026-10-19)
 
 

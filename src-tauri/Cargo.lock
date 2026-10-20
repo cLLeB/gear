@@ -1762,7 +1762,7 @@ dependencies = [
 
 [[package]]
 name = "gear"
-version = "0.1.8"
+version = "0.1.9"
 dependencies = [
  "blake3",
  "bytes",
@@ -1821,7 +1821,7 @@ dependencies = [
 
 [[package]]
 name = "gear-cli"
-version = "0.1.8"
+version = "0.1.9"
 dependencies = [
  "dirs 6.0.0",
  "gear-control-protocol",
@@ -1833,7 +1833,7 @@ dependencies = [
 
 [[package]]
 name = "gear-control-protocol"
-version = "0.1.8"
+version = "0.1.9"
 dependencies = [
  "serde",
  "serde_json",
