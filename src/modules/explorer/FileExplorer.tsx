@@ -7,6 +7,7 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import {
+  CollapseIcon,
   FileAddIcon,
   Folder01Icon,
   FolderAddIcon,
@@ -746,6 +747,18 @@ export const FileExplorer = forwardRef<FileExplorerHandle, Props>(
           >
             <HugeiconsIcon icon={Refresh01Icon} size={12} strokeWidth={2} />
           </Button>
+          {tree.expanded.size > 0 && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-6 text-muted-foreground hover:text-foreground"
+              onClick={tree.collapseAll}
+              title="Collapse folders"
+              data-explorer-collapse-all
+            >
+              <HugeiconsIcon icon={CollapseIcon} size={12} strokeWidth={2} />
+            </Button>
+          )}
         </div>
 
         <ExplorerSearch
