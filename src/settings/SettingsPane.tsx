@@ -30,12 +30,12 @@ const TAB_DEFS: {
   component: () => JSX.Element;
 }[] = [
   { id: "general",   labelKey: "settings.tabs.general",   icon: Settings01Icon,      component: GeneralSection },
-  { id: "features",  labelKey: "settings.tabs.features",  icon: Settings02Icon,      component: FeaturesSection },
   { id: "themes",    labelKey: "settings.tabs.themes",    icon: PaintBoardIcon,       component: ThemesSection },
   { id: "shortcuts", labelKey: "settings.tabs.shortcuts", icon: KeyboardIcon,         component: ShortcutsSection },
+  { id: "features",  labelKey: "settings.tabs.features",  icon: Settings02Icon,      component: FeaturesSection },
+  { id: "run",       labelKey: "settings.tabs.run",       icon: PlayIcon,             component: RunSection },
   { id: "models",    labelKey: "settings.tabs.models",    icon: AiScanIcon,           component: ModelsSection },
   { id: "agents",    labelKey: "settings.tabs.agents",    icon: UserMultiple02Icon,   component: AgentsSection },
-  { id: "run",       labelKey: "settings.tabs.run",       icon: PlayIcon,             component: RunSection },
   { id: "about",     labelKey: "settings.tabs.about",     icon: InformationCircleIcon, component: AboutSection },
 ];
 
