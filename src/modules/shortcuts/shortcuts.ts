@@ -32,6 +32,7 @@ export type ShortcutId =
   | "search.focus"
   | "explorer.search"
   | "search.inFiles"
+  | "quickOpen"
   | "explorer.focus"
   | "explorer.toggleHidden"
   | "view.zoomIn"
@@ -104,6 +105,12 @@ export const SHORTCUTS: Shortcut[] = [
     defaultBindings: [{ [MOD_PROP]: true, shift: true, key: "p" }],
   },
   {
+    id: "quickOpen",
+    label: "Go to file",
+    group: "General",
+    defaultBindings: [{ [MOD_PROP]: true, key: "p" }],
+  },
+  {
     id: "settings.open",
     label: "Open settings",
     group: "General",
@@ -149,7 +156,7 @@ export const SHORTCUTS: Shortcut[] = [
     id: "tab.newPreview",
     label: "New preview tab",
     group: "Tabs",
-    defaultBindings: [{ [MOD_PROP]: true, key: "p" }],
+    defaultBindings: [{ [MOD_PROP]: true, shift: true, key: "b" }],
   },
   {
     id: "tab.newEditor",

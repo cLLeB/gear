@@ -782,6 +782,11 @@ export default function App() {
 	);
 	const [newEditorOpen, setNewEditorOpen] = useState(false);
 	const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+	// Ctrl/Cmd+P opens the palette as Go to file; every other opening shows commands.
+	const [paletteFiles, setPaletteFiles] = useState(false);
+	useEffect(() => {
+		if (!commandPaletteOpen) setPaletteFiles(false);
+	}, [commandPaletteOpen]);
 	const miniOpen = useChatStore((s) => s.mini.open);
 	const openMini = useChatStore((s) => s.openMini);
 	const toggleMini = useChatStore((s) => s.toggleMini);
@@ -1634,7 +1639,14 @@ export default function App() {
 
 	const shortcutHandlers = useMemo<ShortcutHandlers>(
 		() => ({
-			"commandPalette.open": () => setCommandPaletteOpen(true),
+			"commandPalette.open": () => {
+				setPaletteFiles(false);
+				setCommandPaletteOpen(true);
+			},
+			quickOpen: () => {
+				setPaletteFiles(true);
+				setCommandPaletteOpen(true);
+			},
 			"tab.new": () => openNewTab(),
 			"tab.newPrivate": openNewPrivateTab,
 			"tab.newBlocks": () => openBlockTab(),
@@ -2475,7 +2487,10 @@ export default function App() {
 							runLabel={activeRunLabel}
 							onActivateAgent={onActivateAgent}
 							onActivateLocalAgent={onActivateLocalAgent}
-							onOpenPalette={() => setCommandPaletteOpen(true)}
+							onOpenPalette={() => {
+								setPaletteFiles(false);
+								setCommandPaletteOpen(true);
+							}}
 						/>
 					)}
 
@@ -2748,6 +2763,7 @@ export default function App() {
 						actions={extActions.length ? [...commandPaletteActions, ...extActions] : commandPaletteActions}
 						workspaceRoot={explorerRoot}
 						onOpenFile={handleOpenFile}
+						filesMode={paletteFiles}
 						onPrefixMode={(mode) => {
 							if (mode === "line") {
 								void goToLinePrompt();
