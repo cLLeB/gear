@@ -73,7 +73,7 @@ tokio-postgres-rustls = "0.13"
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
 webpki-roots = "0.26"
 mysql = { version = "26", default-features = false, features = ["minimal-rust", "rustls-tls-ring"] }
-zstd = "0.13"
+zstd = "0.14"
 blake3 = "1"
 which = "8"
 nucleo-matcher = "0.3"
