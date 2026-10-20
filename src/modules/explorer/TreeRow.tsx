@@ -3,6 +3,7 @@ import {
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuSeparator,
+  ContextMenuShortcut,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import { REVEAL_LABEL } from "@/lib/platform";
@@ -322,6 +323,12 @@ function EntryRowImpl(props: EntryRowProps) {
           {bulkActive ? `Attach ${selectedCount} files to Agent` : "Attach to Agent"}
         </ContextMenuItem>
         <ContextMenuSeparator />
+        {!bulkActive && (
+          <ContextMenuItem className={COMPACT_ITEM} onSelect={() => tree.beginRename(path)}>
+            Rename
+            <ContextMenuShortcut>F2</ContextMenuShortcut>
+          </ContextMenuItem>
+        )}
         <ContextMenuItem
           className={COMPACT_ITEM}
           variant="destructive"
