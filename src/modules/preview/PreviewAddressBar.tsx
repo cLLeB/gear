@@ -3,18 +3,23 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import {
+  ArrowLeft01Icon,
   ArrowReloadHorizontalIcon,
+  ArrowRight01Icon,
+  Cancel01Icon,
   Globe02Icon,
   LinkSquare02Icon,
   Settings02Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { invoke } from "@tauri-apps/api/core";
+import { DEVICES, type Device, ZOOM_STEPS } from "./lib/nativeBrowser";
 import {
   forwardRef,
   useEffect,
@@ -57,10 +62,22 @@ type Props = {
   url: string;
   onSubmit: (url: string) => void;
   onReload: () => void;
+  /** Native view controls; absent until a page is open. */
+  nav?: {
+    loading: boolean;
+    onBack: () => void;
+    onForward: () => void;
+    onStop: () => void;
+    onDevtools: () => void;
+    zoom: number;
+    onZoom: (z: number) => void;
+    device: Device;
+    onDevice: (d: Device) => void;
+  };
 };
 
 export const PreviewAddressBar = forwardRef<PreviewAddressBarHandle, Props>(
-  function PreviewAddressBar({ url, onSubmit, onReload }, ref) {
+  function PreviewAddressBar({ url, onSubmit, onReload, nav }, ref) {
     const [draft, setDraft] = useState(url);
     const inputRef = useRef<HTMLInputElement>(null);
 
@@ -85,17 +102,6 @@ export const PreviewAddressBar = forwardRef<PreviewAddressBarHandle, Props>(
 
     const [notice, setNotice] = useState<string | null>(null);
     const [checkingPort, setCheckingPort] = useState<number | null>(null);
-    const [devToolsOpen, setDevToolsOpen] = useState(false);
-
-    const toggleDevTools = async () => {
-      try {
-        const next = !devToolsOpen;
-        await invoke("toggle_devtools", { open: next });
-        setDevToolsOpen(next);
-      } catch {
-        // devtools not available in production builds
-      }
-    };
 
     const submit = () => {
       const next = normalizeUrl(draft);
@@ -125,16 +131,27 @@ export const PreviewAddressBar = forwardRef<PreviewAddressBarHandle, Props>(
     return (
       <div className="shrink-0 border-b border-border/60">
       <div className="flex h-9 items-center gap-1 bg-card/40 px-1.5">
+        {nav && (
+          <>
+            <Button type="button" variant="ghost" size="icon" onClick={nav.onBack} title="Back" data-browser-back className="size-7 shrink-0 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground">
+              <HugeiconsIcon icon={ArrowLeft01Icon} size={14} strokeWidth={1.75} />
+            </Button>
+            <Button type="button" variant="ghost" size="icon" onClick={nav.onForward} title="Forward" data-browser-forward className="size-7 shrink-0 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground">
+              <HugeiconsIcon icon={ArrowRight01Icon} size={14} strokeWidth={1.75} />
+            </Button>
+          </>
+        )}
         <Button
           type="button"
           variant="ghost"
           size="icon"
-          onClick={onReload}
-          title="Reload"
+          onClick={nav?.loading ? nav.onStop : onReload}
+          title={nav?.loading ? "Stop loading" : "Reload"}
+          data-browser-reload={nav?.loading ? "stop" : "reload"}
           className="size-7 shrink-0 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
         >
           <HugeiconsIcon
-            icon={ArrowReloadHorizontalIcon}
+            icon={nav?.loading ? Cancel01Icon : ArrowReloadHorizontalIcon}
             size={14}
             strokeWidth={1.75}
           />
@@ -214,16 +231,44 @@ export const PreviewAddressBar = forwardRef<PreviewAddressBarHandle, Props>(
             strokeWidth={1.75}
           />
         </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          onClick={() => void toggleDevTools()}
-          title={devToolsOpen ? "Close DevTools" : "Open DevTools"}
-          className={`size-7 shrink-0 rounded-md hover:bg-accent ${devToolsOpen ? "text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-        >
-          <HugeiconsIcon icon={Settings02Icon} size={14} strokeWidth={1.75} />
-        </Button>
+        {nav && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button type="button" variant="ghost" size="icon" title="Page options" data-browser-menu className="size-7 shrink-0 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground">
+                <HugeiconsIcon icon={Settings02Icon} size={14} strokeWidth={1.75} />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-56">
+              <DropdownMenuLabel className="text-[11px] text-muted-foreground">Page zoom: {Math.round(nav.zoom * 100)}%</DropdownMenuLabel>
+              <div className="flex items-center gap-1 px-2 pb-1.5">
+                {[
+                  { label: "−", z: ZOOM_STEPS[Math.max(0, ZOOM_STEPS.indexOf(nav.zoom) - 1)] ?? 1 },
+                  { label: "100%", z: 1 },
+                  { label: "+", z: ZOOM_STEPS[Math.min(ZOOM_STEPS.length - 1, ZOOM_STEPS.indexOf(nav.zoom) + 1)] ?? 1 },
+                ].map((b) => (
+                  <button key={b.label} type="button" className="flex-1 rounded border border-border/60 py-0.5 text-[11px] hover:bg-accent" onClick={() => nav.onZoom(b.z)}>
+                    {b.label}
+                  </button>
+                ))}
+              </div>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel className="text-[11px] text-muted-foreground">Viewport</DropdownMenuLabel>
+              {DEVICES.map((d) => (
+                <DropdownMenuItem key={d.id} onSelect={() => nav.onDevice(d)} data-browser-device={d.id}>
+                  <span className="flex-1">{d.label}</span>
+                  {nav.device.id === d.id && <span className="text-xs text-muted-foreground">✓</span>}
+                </DropdownMenuItem>
+              ))}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onSelect={() => void navigator.clipboard.writeText(url).catch(() => {})} disabled={!url}>
+                Copy page address
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={nav.onDevtools} data-browser-devtools>
+                Inspect page (developer tools)
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
       {notice ? (
         <div className="flex items-center gap-1.5 bg-amber-500/8 px-3 py-1 text-[11px] text-amber-600 dark:text-amber-400">

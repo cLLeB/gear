@@ -1852,6 +1852,10 @@ export default function App() {
 		(id: number, url: string) => updateTab(id, { url }),
 		[updateTab],
 	);
+	const handlePreviewTitle = useCallback(
+		(id: number, title: string) => updateTab(id, { title }),
+		[updateTab],
+	);
 
 	const handleTerminalCwd = useCallback(
 		(leafId: number, cwd: string) => {
@@ -2303,6 +2307,7 @@ export default function App() {
 					activeId={activeId}
 					registerHandle={registerPreviewHandle}
 					onUrlChange={handlePreviewUrl}
+					onTitleChange={handlePreviewTitle}
 				/>
 			</div>
 			<div
