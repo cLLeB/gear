@@ -92,9 +92,9 @@ function offerReruns(): void {
   const list = pendingReruns.splice(0);
   if (!list.length) return;
   const names = list.map((r) => r.command).slice(0, 3).join(" · ");
-  toast(`${list.length} command(s) were running when Gear closed`, {
+  toast(list.length === 1 ? "1 command was running when Gear closed" : `${list.length} commands were running when Gear closed`, {
     description: names.length > 140 ? `${names.slice(0, 137)}…` : names,
-    duration: 30_000,
+    duration: 15_000,
     action: {
       label: "Run again",
       onClick: () => {
