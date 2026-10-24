@@ -139,6 +139,8 @@ export type FinishedCommand = {
   output: string | null;
   cwd: string | null;
   finishedAt: number;
+  /** Ran in a private terminal: listeners that keep anything must skip it. */
+  isPrivate: boolean;
 };
 
 const MAX_CAPTURED_OUTPUT = 64 * 1024;
@@ -181,6 +183,7 @@ function attachCommandMarks(
       output,
       cwd: s.lastCwd,
       finishedAt: mark.finishedAt ?? Date.now(),
+      isPrivate: s.isPrivate,
     };
     s.lastCommand = finished;
     // Deferred: this fires inside xterm's parse loop.
