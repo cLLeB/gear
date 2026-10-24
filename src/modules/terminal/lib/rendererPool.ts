@@ -38,6 +38,7 @@ import { app } from "@/app/appBridge";
 import { invoke } from "@tauri-apps/api/core";
 import { homeDir } from "@tauri-apps/api/path";
 import { currentWorkspaceEnv } from "@/modules/workspace";
+import { isMinimizedViewport } from "@/lib/minimizedViewport";
 
 let cachedHome: string | null = null;
 void homeDir()
@@ -50,6 +51,23 @@ export const POOL_MAX_SIZE = 5;
 const FIT_DEBOUNCE_MS = 8;
 const PTY_RESIZE_DEBOUNCE_MS = 256;
 const SNAPSHOT_SCROLLBACK_CAP = 5_000;
+
+// A minimized window (or a collapsed ancestor) lays the container out at 0
+// height. FitAddon clamps that to a 1-row grid: reflowing the buffer pushes
+// everything past the scrollback cap, and the PTY repaints into a single row,
+// so the content is gone when the window comes back. Skip the fit instead;
+// callers leave lastW/lastH unset so the next real size triggers a refit.
+function fitToContainer(slot: Slot, container: HTMLElement | null): boolean {
+  if (
+    !container ||
+    container.clientWidth <= 0 ||
+    container.clientHeight <= 0 ||
+    isMinimizedViewport()
+  )
+    return false;
+  slot.fitAddon.fit();
+  return true;
+}
 
 export type SlotAdapter = {
   resolveLeaf(leafId: number): LeafBridge | null;
@@ -694,7 +712,7 @@ function bindSlot(slot: Slot, p: AcquireParams): void {
   }
 
   setupResizeObserver(slot, p);
-  slot.fitAddon.fit();
+  fitToContainer(slot, p.container);
   slot.lastCols = slot.term.cols;
   slot.lastRows = slot.term.rows;
   slot.lastW = p.container.clientWidth;
@@ -764,7 +782,7 @@ function rewireSlot(slot: Slot, p: AcquireParams): void {
     p.container.appendChild(slot.host);
   }
   setupResizeObserver(slot, p);
-  slot.fitAddon.fit();
+  fitToContainer(slot, p.container);
   slot.lastW = p.container.clientWidth;
   slot.lastH = p.container.clientHeight;
   if (slot.term.cols !== p.cols || slot.term.rows !== p.rows) {
@@ -802,9 +820,9 @@ function setupResizeObserver(slot: Slot, p: AcquireParams): void {
       const w = container.clientWidth;
       const h = container.clientHeight;
       if (w === slot.lastW && h === slot.lastH) return;
+      if (!fitToContainer(slot, container)) return;
       slot.lastW = w;
       slot.lastH = h;
-      slot.fitAddon.fit();
       if (slot.ptyTimer) clearTimeout(slot.ptyTimer);
       slot.ptyTimer = setTimeout(flushPty, PTY_RESIZE_DEBOUNCE_MS);
     }, FIT_DEBOUNCE_MS);
@@ -1090,7 +1108,10 @@ function refitSlot(slot: Slot): void {
     slot.lastW = -1;
     return;
   }
-  slot.fitAddon.fit();
+  if (!fitToContainer(slot, slot.host.parentElement)) {
+    slot.lastW = -1;
+    return;
+  }
   slot.lastCols = slot.term.cols;
   slot.lastRows = slot.term.rows;
   adapter
@@ -1209,11 +1230,11 @@ export function refreshLeafSlot(leafId: number): void {
   if (
     container &&
     (container.clientWidth !== slot.lastW ||
-      container.clientHeight !== slot.lastH)
+      container.clientHeight !== slot.lastH) &&
+    fitToContainer(slot, container)
   ) {
     slot.lastW = container.clientWidth;
     slot.lastH = container.clientHeight;
-    slot.fitAddon.fit();
     if (slot.term.cols !== slot.lastCols || slot.term.rows !== slot.lastRows) {
       slot.lastCols = slot.term.cols;
       slot.lastRows = slot.term.rows;

@@ -1,4 +1,5 @@
 import { useCallback, useLayoutEffect, useRef } from "react";
+import { isMinimizedViewport } from "@/lib/minimizedViewport";
 import {
   applyDrag,
   applyResize,
@@ -81,7 +82,12 @@ export function useMiniWindowGeometry() {
       el.style.width = `${g.w}px`;
       el.style.height = `${g.h}px`;
     }
-    const onResize = () => write(clampGeom(geom.current, viewport()));
+    const onResize = () => {
+      // Clamping into a minimized window's viewport would shrink the window
+      // for good; the restore brings a resize with the real size.
+      if (isMinimizedViewport()) return;
+      write(clampGeom(geom.current, viewport()));
+    };
     window.addEventListener("resize", onResize);
     return () => {
       window.removeEventListener("resize", onResize);

@@ -28,6 +28,7 @@ import { useControlBridge } from "@/modules/control";
 import { shouldPersistSidebarWidth } from "@/modules/sidebar";
 import { quoteShellArg } from "@/lib/shellQuote";
 import { fmtShortcut } from "@/lib/platform";
+import { isMinimizedViewport } from "@/lib/minimizedViewport";
 import { useZoom } from "@/lib/useZoom";
 import { cn } from "@/lib/utils";
 import { AgentNotificationsBridge } from "@/modules/agents";
@@ -394,6 +395,38 @@ export default function App() {
 			// storage may fail in private mode
 		}
 	}, []);
+	// Minimizing squeezes the panel group below the sidebar's min size, so the
+	// panel collapses on its own. Don't record that as the user's choice:
+	// remember the sidebar was open and re-expand it once the window is back.
+	const sidebarSqueezedRef = useRef(false);
+	const onSidebarResize = useCallback(
+		(size: { inPixels: number }) => {
+			const collapsed = size.inPixels <= 0;
+			if (isMinimizedViewport()) {
+				if (collapsed && !collapsedRef.current) sidebarSqueezedRef.current = true;
+				return;
+			}
+			if (sidebarSqueezedRef.current) {
+				if (!collapsed) {
+					sidebarSqueezedRef.current = false;
+				} else {
+					// The group has measured the restored window by now; expand
+					// outside the library's callback, and give up if it won't fit.
+					requestAnimationFrame(() => {
+						const panel = sidebarRef.current;
+						panel?.resize(`${sidebarWidthRef.current}px`);
+						if (!panel || panel.getSize().inPixels <= 0) {
+							sidebarSqueezedRef.current = false;
+							persistSidebarCollapsed(true);
+						}
+					});
+					return;
+				}
+			}
+			persistSidebarCollapsed(collapsed);
+		},
+		[persistSidebarCollapsed],
+	);
 	const toggleSidebar = useCallback(() => {
 		const p = sidebarRef.current;
 		if (!p) return;
@@ -2520,9 +2553,7 @@ export default function App() {
 										maxSize={`${SIDEBAR_MAX_WIDTH}px`}
 										collapsible
 										collapsedSize={0}
-										onResize={(size) => {
-											persistSidebarCollapsed(size.inPixels <= 0);
-										}}
+										onResize={onSidebarResize}
 									>
 										<div className="flex h-full min-h-0 flex-col p-2 pr-1">
 											<div className="min-h-0 flex-1 rounded-xl border border-border/40 bg-card/60 backdrop-blur-md shadow-sm overflow-hidden flex flex-col">
@@ -2636,9 +2667,7 @@ export default function App() {
 										maxSize={`${SIDEBAR_MAX_WIDTH}px`}
 										collapsible
 										collapsedSize={0}
-										onResize={(size) => {
-											persistSidebarCollapsed(size.inPixels <= 0);
-										}}
+										onResize={onSidebarResize}
 									>
 										<div className="flex h-full min-h-0 flex-col p-2 pl-1">
 											<div className="min-h-0 flex-1 rounded-xl border border-border/40 bg-card/60 backdrop-blur-md shadow-sm overflow-hidden flex flex-col">
