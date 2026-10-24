@@ -59,6 +59,7 @@ pub async fn pty_open(
     cwd: Option<String>,
     workspace: Option<WorkspaceEnv>,
     blocks: Option<bool>,
+    private: Option<bool>,
     shell: Option<String>,
     pane_id: Option<u32>,
     on_data: Channel<Response>,
@@ -70,6 +71,7 @@ pub async fn pty_open(
         e
     })?;
     let blocks = blocks.unwrap_or(false);
+    let private = private.unwrap_or(false);
     // A Windows helper cannot execute inside WSL without explicit path and
     // network translation. Do not inject credentials for a broken command.
     let control_env = if workspace.is_wsl() {
@@ -87,6 +89,7 @@ pub async fn pty_open(
             cwd,
             workspace,
             blocks,
+            private,
             shell,
             control_env,
             on_data,

@@ -126,7 +126,8 @@ export function installTerminalFeatures(): () => void {
       });
       if (!notify || cmd.durationMs === null) return;
       const { title, body } = formatCommandNotification(cmd.command, cmd.exitCode, cmd.durationMs);
-      void osNotify(title, body);
+      // The OS keeps notification history; a private tab's command stays out of it.
+      void osNotify(title, cmd.isPrivate ? "Private terminal" : body);
     }),
   );
 

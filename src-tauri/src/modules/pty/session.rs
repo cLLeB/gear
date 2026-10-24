@@ -122,6 +122,7 @@ pub fn spawn(
     cwd: Option<String>,
     workspace: WorkspaceEnv,
     blocks: bool,
+    private: bool,
     shell: Option<String>,
     control: Option<crate::modules::control::ShellControlEnv>,
     on_data: Channel<Response>,
@@ -145,6 +146,15 @@ pub fn spawn(
     // than in apply_common because only the caller knows the session id.
     #[cfg(windows)]
     cmd.env(super::notify_pipe::PTY_ID_ENV, id.to_string());
+    if private {
+        // The integration scripts read GEAR_PRIVATE to stop the shell saving
+        // history; fish has a native switch it honours from startup.
+        cmd.env("GEAR_PRIVATE", "1");
+        cmd.env("fish_private_mode", "1");
+    } else {
+        cmd.env_remove("GEAR_PRIVATE");
+        cmd.env_remove("fish_private_mode");
+    }
     let mut child = pair.slave.spawn_command(cmd).map_err(|e| e.to_string())?;
     drop(pair.slave);
 

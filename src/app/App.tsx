@@ -2222,7 +2222,8 @@ export default function App() {
 			}
 			for (let i = tabs.length - 1; i >= 0; i--) {
 				const t = tabs[i];
-				if (t.kind !== "terminal") continue;
+				// A background private tab's location stays out of AI context.
+				if (t.kind !== "terminal" || t.private) continue;
 				const cwd = findLeafCwd(t.paneTree, t.activeLeafId) ?? t.cwd;
 				if (cwd) return cwd;
 			}

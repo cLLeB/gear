@@ -47,6 +47,11 @@ function global:__gear_install_readline {
     if ($global:__gear_readline_done) { return }
     if (-not (Test-Path Function:PSConsoleHostReadLine)) { return }
     $global:__gear_readline_done = $true
+    # Private tab: keep this session's commands out of ConsoleHost_history.txt.
+    # Runs at the first prompt, after the user's profile, so it wins over theirs.
+    if ($env:GEAR_PRIVATE) {
+        try { Set-PSReadLineOption -HistorySaveStyle SaveNothing } catch {}
+    }
     # global: is required -- a plain Function: copy made inside a function
     # lands in its local scope and vanishes when it returns, leaving the
     # wrapper calling a missing command on every read (empty-input loop).

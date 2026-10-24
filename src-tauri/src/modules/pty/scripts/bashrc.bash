@@ -24,6 +24,11 @@ if [ -z "$__GEAR_HOOKS_LOADED" ]; then
   # on reload, guard with a flag.
   [ -f "$HOME/.bashrc" ] && source "$HOME/.bashrc"
 
+  # Private tab: after the user's rc so a HISTFILE set there can't win.
+  if [ -n "$GEAR_PRIVATE" ]; then
+    HISTFILE=/dev/null
+  fi
+
   if [ -n "$GEAR_CLI" ] && [ -x "$GEAR_CLI" ]; then
     gear() {
       command "$GEAR_CLI" "$@"

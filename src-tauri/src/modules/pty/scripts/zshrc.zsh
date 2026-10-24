@@ -11,6 +11,12 @@
   unset _gear_user_zdotdir
 }
 
+# Private tab: after the user's .zshrc so a HISTFILE set there can't win.
+if [[ -n "$GEAR_PRIVATE" ]]; then
+  unset HISTFILE
+  SAVEHIST=0
+fi
+
 if [[ -n "$GEAR_CLI" && -x "$GEAR_CLI" ]]; then
   gear() {
     command "$GEAR_CLI" "$@"
