@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.1.10](https://github.com/cLLeB/gear/compare/v0.1.9...v0.1.10) (2026-10-24)
+
+
+### Bug Fixes
+
+* notifications can be closed ([7af102e](https://github.com/cLLeB/gear/commit/7af102ec28e826a448c05aec19b2a6615f66ff84))
+* **notifications:** every notification has a close button ([b77174a](https://github.com/cLLeB/gear/commit/b77174a2bd8d2f5c2b5e3271dc833db2b8cd9cbb))
+* **terminal:** a shorter, plainer "commands were running" notice ([10e86b9](https://github.com/cLLeB/gear/commit/10e86b92ad7cc92e013c4e28d0ef0b193cee5541))
+
 ## [0.1.9](https://github.com/cLLeB/gear/compare/v0.1.8...v0.1.9) (2026-10-20)
 
 
