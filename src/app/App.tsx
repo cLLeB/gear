@@ -110,6 +110,7 @@ import {
 } from "@/modules/shortcuts";
 import { SidebarRail, type SidebarViewId } from "@/modules/sidebar";
 import { SearchPanel, type SearchPanelHandle } from "@/modules/search/SearchPanel";
+import { initWrapped, WrappedHost } from "@/modules/wrapped";
 import {
 	activeRepositoryContextPath,
 	gitGraphRepositoryPath,
@@ -422,6 +423,7 @@ export default function App() {
 	// and open (creating if needed) .vscode/launch.json on request.
 	const debugPaused = useDebugStore((st) => st.sessions.filter((e) => e.state.status === "stopped").length);
 	useEffect(() => initTimeTracking(), []);
+	useEffect(() => initWrapped(), []);
 
 	useEffect(() => {
 		const show = () => {
@@ -2778,6 +2780,7 @@ export default function App() {
 						}}
 					/>
 					<QuickPickHost />
+					<WrappedHost />
 					<CompareDialog />
 					<MergeEditorDialog />
 					<RebaseEditorDialog />
