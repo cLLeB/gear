@@ -116,10 +116,4 @@ export function drawCard(canvas: HTMLCanvasElement, s: Summary, scale = 2): void
     ctx.font = `500 18px ${FONT}`;
     ctx.fillText(label, x + 24, 508);
   });
-
-  ctx.fillStyle = t.mutedForeground;
-  ctx.font = `500 18px ${FONT}`;
-  ctx.textAlign = "right";
-  ctx.fillText("made with Gear · gear.kyere.me", CARD_WIDTH - 64, 580);
-  ctx.textAlign = "left";
 }
