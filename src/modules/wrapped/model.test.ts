@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { commandLabel, formatHour, formatWait, parseHistory, parseLog, personaFor, prune, rangeFor, recordCommand, summarize, type Log } from "./model";
+import { commandLabel, favorites, formatHour, formatWait, parseHistory, parseLog, personaFor, prune, rangeFor, recordCommand, summarize, type Log } from "./model";
 
 describe("Gear Wrapped", () => {
   it("labels commands without keeping their arguments", () => {
@@ -79,6 +79,19 @@ describe("Gear Wrapped", () => {
     expect(s.time?.languages[0]).toEqual(["rust", 3000]);
     expect(s.history).toEqual({ total: 552, top: [["git push", 40], ["cargo build", 12]] });
     expect(s.persona.title).toBe("The Night Owl Rustacean");
+  });
+
+  it("celebrates shell-history favourites until the log has enough", () => {
+    let log: Log = {};
+    log = recordCommand(log, "2026-10-24", 10, "echo hi", 0, 5);
+    const range = rangeFor("month", new Date(2026, 9, 24));
+    const thin = summarize(log, range, "2026-10-24", null, { "git push": 40 });
+    expect(favorites(thin)).toEqual({ rows: [["git push", 40]], fromHistory: true });
+    for (let i = 0; i < 60; i++) log = recordCommand(log, "2026-10-24", 10, "cargo test", 0, 5);
+    expect(favorites(summarize(log, range, "2026-10-24", null, { "git push": 40 })).fromHistory).toBe(false);
+    expect(favorites(summarize(log, range, "2026-10-24", null, null)).rows[0]).toEqual(["cargo test", 60]);
+    // Sub-second waits are not trophies.
+    expect(thin.longest).toBeNull();
   });
 
   it("finds a persona even with little to go on", () => {

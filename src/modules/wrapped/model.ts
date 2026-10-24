@@ -157,6 +157,8 @@ export interface Persona {
 export interface Summary {
   title: string;
   label: string;
+  /** First day of the range, "2026-10-01". */
+  from: string;
   commands: number;
   failed: number;
   activeDays: number;
@@ -207,7 +209,8 @@ export function summarize(
     failed += d.fail;
     d.hours.forEach((c, h) => (hours[h] += c));
     for (const [l, c] of Object.entries(d.labels)) labels[l] = (labels[l] ?? 0) + c;
-    if (d.longest && d.longest.ms > (longest?.ms ?? 0)) longest = { ...d.longest, day };
+    // A wait under a second is not a wait worth a trophy.
+    if (d.longest && d.longest.ms >= 1000 && d.longest.ms > (longest?.ms ?? 0)) longest = { ...d.longest, day };
     if (d.n > (busiest?.count ?? 0)) busiest = { day, count: d.n };
   }
   const peak = hours.reduce((best, c, h) => (c > hours[best] ? h : best), 0);
@@ -244,6 +247,7 @@ export function summarize(
   return {
     title: range.title,
     label: range.label,
+    from: range.from,
     commands,
     failed,
     activeDays,
@@ -259,6 +263,18 @@ export function summarize(
     history: historySummary,
     persona: personaFor(hours, timeSummary?.languages[0]?.[0] ?? null, programs),
   };
+}
+
+/** Commands logged before the recap trusts its own top list over the shell history. */
+export const ENOUGH_COMMANDS = 50;
+
+/**
+ * The commands to celebrate: this period's top list once there is enough of
+ * it, otherwise the all-time favourites from the shell history.
+ */
+export function favorites(s: Summary): { rows: [string, number][]; fromHistory: boolean } {
+  if (s.history && (s.commands < ENOUGH_COMMANDS || !s.top.length)) return { rows: s.history.top, fromHistory: true };
+  return { rows: s.top, fromHistory: false };
 }
 
 // ---- who you are ---------------------------------------------------------
