@@ -1541,13 +1541,15 @@ export default function App() {
 			sidebarView,
 			target: repositoryTarget,
 		});
-		if (!path) return;
+		// Without feedback the menu item looks broken outside a repository.
+		const noRepo = () => toast.info("Git Graph needs a Git repository: cd into one first");
+		if (!path) return noRepo();
 		try {
 			const repo = await native.gitResolveRepo(path);
-			if (!repo) return;
+			if (!repo) return noRepo();
 			openCommitHistoryTab({ repoRoot: repo.repoRoot, branch: repo.branch });
 		} catch {
-			/* noop */
+			noRepo();
 		}
 	}, [
 		openCommitHistoryTab,
@@ -2629,6 +2631,11 @@ export default function App() {
 											}
 											hasComposer={hasComposer}
 											onConnect={() => openSettingsTab("models")}
+											shellPath={
+												activeTab?.kind === "terminal"
+													? (activeTab.shellPath ?? null)
+													: null
+											}
 										/>
 									) : keysLoaded ? (
 										<motion.div

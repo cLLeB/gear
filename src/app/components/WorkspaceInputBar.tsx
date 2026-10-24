@@ -41,6 +41,8 @@ type Props = {
 	hasComposer: boolean;
 	/** Open the model settings so the user can connect a provider. */
 	onConnect: () => void;
+	/** The tab's own shell when it was opened for a specific one. */
+	shellPath?: string | null;
 };
 
 // Unified Shell / AI command bar for block terminals. The shell half is the
@@ -52,11 +54,16 @@ export function WorkspaceInputBar({
 	cwd,
 	hasComposer,
 	onConnect,
+	shellPath,
 }: Props) {
 	const c = useComposer();
 	const { resolvedMode, themeId, customThemes } = useTheme();
 	const themeKey = `${resolvedMode}:${themeId}:${customThemes.length}`;
-	const { os, shell } = useSystemInfo();
+	const { os, shell: defaultShell } = useSystemInfo();
+	// A tab opened from the shell submenu runs that shell, not the default.
+	const shell = shellPath
+		? (shellPath.split(/[\\/]/).pop() ?? shellPath).replace(/\.exe$/i, "").toLowerCase()
+		: defaultShell;
 
 	const controller = useBlockController(leafId);
 	const blockMode = controller?.blockMode ?? "prompt";

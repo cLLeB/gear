@@ -132,7 +132,9 @@ export const SHORTCUTS: Shortcut[] = [
     id: "tab.newPrivate",
     label: "New private terminal",
     group: "Tabs",
-    defaultBindings: [{ [MOD_PROP]: true, key: "r" }],
+    // Plain Ctrl+R is reverse history search in bash, zsh and PowerShell;
+    // add Shift so the shell keeps it. Cmd+R doesn't collide on macOS.
+    defaultBindings: IS_MAC ? [{ meta: true, key: "r" }] : [{ ctrl: true, shift: true, key: "r" }],
   },
   {
     id: "tab.reopenClosed",

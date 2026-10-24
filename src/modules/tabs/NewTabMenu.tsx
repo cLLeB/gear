@@ -14,7 +14,8 @@ import {
   PopoverAnchor,
   PopoverContent,
 } from "@/components/ui/popover";
-import { fmtShortcut, MOD_KEY } from "@/lib/platform";
+import { fmtShortcut } from "@/lib/platform";
+import { useShortcutLabel } from "@/modules/shortcuts";
 import { AgentLauncherPanel } from "@/modules/agents/components/AgentLauncherPanel";
 import type { AgentLaunchRequest } from "@/modules/agents/lib/launcher";
 import {
@@ -65,6 +66,13 @@ export function NewTabMenu({
   onLaunchAgents,
 }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
+  // Live bindings, so the hints follow user overrides instead of drifting.
+  const keys = (label: string) => fmtShortcut(...label.split(" ").filter(Boolean));
+  const newKey = keys(useShortcutLabel("tab.new"));
+  const privateKey = keys(useShortcutLabel("tab.newPrivate"));
+  const blocksKey = keys(useShortcutLabel("tab.newBlocks"));
+  const editorKey = keys(useShortcutLabel("tab.newEditor"));
+  const previewKey = keys(useShortcutLabel("tab.newPreview"));
   const [launcherOpen, setLauncherOpen] = useState(false);
   const openLauncherAfterMenuClose = useRef(false);
   const openMenuAfterLauncherClose = useRef(false);
@@ -103,7 +111,7 @@ export function NewTabMenu({
             </DropdownMenuTrigger>
             <DropdownMenuContent
               align="start"
-              className="min-w-44"
+              className="w-72"
               onCloseAutoFocus={(event) => {
                 event.preventDefault();
                 if (!openLauncherAfterMenuClose.current) return;
@@ -119,8 +127,8 @@ export function NewTabMenu({
                   strokeWidth={1.75}
                 />
                 <span className="flex-1">Terminal</span>
-                <span className="text-xs text-muted-foreground">
-                  {fmtShortcut(MOD_KEY, "T")}
+                <span className="whitespace-nowrap text-xs text-muted-foreground">
+                  {newKey}
                 </span>
               </DropdownMenuItem>
               {shells.length > 0 && (
@@ -150,9 +158,14 @@ export function NewTabMenu({
                   size={14}
                   strokeWidth={1.75}
                 />
-                <span className="flex-1">Privacy</span>
-                <span className="text-xs text-muted-foreground">
-                  {fmtShortcut(MOD_KEY, "R")}
+                <span className="flex flex-1 flex-col">
+                  <span>Private terminal</span>
+                  <span className="text-[11px] text-muted-foreground">
+                    No history saved, hidden from AI
+                  </span>
+                </span>
+                <span className="whitespace-nowrap text-xs text-muted-foreground">
+                  {privateKey}
                 </span>
               </DropdownMenuItem>
               {shells.length > 0 ? (
@@ -163,13 +176,18 @@ export function NewTabMenu({
                       size={14}
                       strokeWidth={1.75}
                     />
-                    <span className="flex-1">Block terminal</span>
+                    <span className="flex flex-1 flex-col">
+                      <span>Block terminal</span>
+                      <span className="text-[11px] text-muted-foreground">
+                        Each command and its output as a block
+                      </span>
+                    </span>
                   </DropdownMenuSubTrigger>
                   <DropdownMenuSubContent className="min-w-40">
                     <DropdownMenuItem onSelect={() => onNewBlocks()}>
                       <span className="flex-1">Default shell</span>
-                      <span className="text-xs text-muted-foreground">
-                        {fmtShortcut(MOD_KEY, "⇧", "T")}
+                      <span className="whitespace-nowrap text-xs text-muted-foreground">
+                        {blocksKey}
                       </span>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
@@ -198,9 +216,14 @@ export function NewTabMenu({
                     size={14}
                     strokeWidth={1.75}
                   />
-                  <span className="flex-1">Block terminal</span>
-                  <span className="text-xs text-muted-foreground">
-                    {fmtShortcut(MOD_KEY, "⇧", "T")}
+                  <span className="flex flex-1 flex-col">
+                    <span>Block terminal</span>
+                    <span className="text-[11px] text-muted-foreground">
+                      Each command and its output as a block
+                    </span>
+                  </span>
+                  <span className="whitespace-nowrap text-xs text-muted-foreground">
+                    {blocksKey}
                   </span>
                 </DropdownMenuItem>
               )}
@@ -227,8 +250,8 @@ export function NewTabMenu({
                   strokeWidth={1.75}
                 />
                 <span className="flex-1">Editor</span>
-                <span className="text-xs text-muted-foreground">
-                  {fmtShortcut(MOD_KEY, "E")}
+                <span className="whitespace-nowrap text-xs text-muted-foreground">
+                  {editorKey}
                 </span>
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={() => onNewPreview()}>
@@ -238,8 +261,8 @@ export function NewTabMenu({
                   strokeWidth={1.75}
                 />
                 <span className="flex-1">Preview</span>
-                <span className="text-xs text-muted-foreground">
-                  {fmtShortcut(MOD_KEY, "P")}
+                <span className="whitespace-nowrap text-xs text-muted-foreground">
+                  {previewKey}
                 </span>
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={() => onNewGitGraph()}>
