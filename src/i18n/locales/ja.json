@@ -80,6 +80,7 @@
       "license": "ライセンス",
       "sourceCode": "ソースコード",
       "website": "ウェブサイト",
+      "openWebsite": "ウェブサイトを開く",
       "checkForUpdates": "アップデートを確認",
       "viewOnGithub": "GitHubで見る",
       "reportIssue": "問題を報告",

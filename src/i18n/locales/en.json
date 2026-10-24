@@ -82,6 +82,7 @@
       "license": "License",
       "sourceCode": "Source code",
       "website": "Website",
+      "openWebsite": "Open website",
       "checkForUpdates": "Check for updates",
       "viewOnGithub": "View on GitHub",
       "reportIssue": "Report an issue",

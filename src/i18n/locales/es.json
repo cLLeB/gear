@@ -80,6 +80,7 @@
       "license": "Licencia",
       "sourceCode": "Código fuente",
       "website": "Sitio web",
+      "openWebsite": "Abrir sitio web",
       "checkForUpdates": "Buscar actualizaciones",
       "viewOnGithub": "Ver en GitHub",
       "reportIssue": "Reportar un problema",

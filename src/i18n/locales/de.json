@@ -80,6 +80,7 @@
       "license": "Lizenz",
       "sourceCode": "Quellcode",
       "website": "Website",
+      "openWebsite": "Website öffnen",
       "checkForUpdates": "Nach Updates suchen",
       "viewOnGithub": "Auf GitHub ansehen",
       "reportIssue": "Problem melden",

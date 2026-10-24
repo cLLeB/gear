@@ -84,7 +84,7 @@ export function AboutSection() {
             onClick={() => void openUrl(WEBSITE_URL)}
             className="inline-flex items-center gap-1.5 rounded-md text-[12px] underline-offset-2 hover:text-foreground hover:underline"
           >
-            gear.kyere.me
+            {t("settings.about.openWebsite")}
           </button>
         </dd>
       </dl>
