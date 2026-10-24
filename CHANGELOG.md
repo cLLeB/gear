@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.1.11](https://github.com/cLLeB/gear/compare/v0.1.10...v0.1.11) (2026-10-24)
+
+
+### Bug Fixes
+
+* minimize wipes terminals; private tabs leak history; new-tab menu fixes ([b5a17cf](https://github.com/cLLeB/gear/commit/b5a17cf4b075b71dbe058f917ab42cdd5fe693ae))
+* **privacy:** keep private terminals out of shell history ([a6274ba](https://github.com/cLLeB/gear/commit/a6274bae173c495ea02a5cff4e60ddc923644ace))
+* **tabs:** new-tab menu tells the truth about shortcuts and modes ([44d88ba](https://github.com/cLLeB/gear/commit/44d88babf12378ee06bbaf1c77d7973f905d7329))
+* **terminal:** keep scrollback and layout when the window is minimized ([25b85f4](https://github.com/cLLeB/gear/commit/25b85f466148a0560e57aecf0b5f67a6f5346194))
+
 ## [0.1.10](https://github.com/cLLeB/gear/compare/v0.1.9...v0.1.10) (2026-10-24)
 
 
