@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.1.10](https://github.com/cLLeB/gear/compare/v0.1.9...v0.1.10) (2026-10-24)
+
+
+### Features
+
+* Gear Wrapped — the story of how you use Gear ([526e934](https://github.com/cLLeB/gear/commit/526e9347dc82b46223dd3ee832b734b21adda91e))
+* **terminal:** finished commands say whether they ran in a private pane ([9221a35](https://github.com/cLLeB/gear/commit/9221a35f04daa1ad3035bdfd7f65c5977a3d716f))
+* **wrapped:** a share card and confetti in the theme's own colours ([9ed86b4](https://github.com/cLLeB/gear/commit/9ed86b481c6b1a8084ad2b154972487678c4e2b8))
+* **wrapped:** count commands into a private, local recap ([584a8b2](https://github.com/cLLeB/gear/commit/584a8b27bb759046242acabebd00b019d6323907))
+* **wrapped:** Gear Wrapped, the story of how you use Gear ([c37048a](https://github.com/cLLeB/gear/commit/c37048af3315a353e16757c25138b348803f6bb7))
+* **wrapped:** log commands locally and offer a monthly recap ([cf7bdb2](https://github.com/cLLeB/gear/commit/cf7bdb25da2ff7caf7091e1fa7a844ff6834a790))
+* **wrapped:** shell-history favourites until the log has enough ([1cdafb8](https://github.com/cLLeB/gear/commit/1cdafb805d65096205b2fd5f15bc4694a482db1f))
+
+
+### Bug Fixes
+
+* notifications can be closed ([7af102e](https://github.com/cLLeB/gear/commit/7af102ec28e826a448c05aec19b2a6615f66ff84))
+* **notifications:** every notification has a close button ([b77174a](https://github.com/cLLeB/gear/commit/b77174a2bd8d2f5c2b5e3271dc833db2b8cd9cbb))
+* **settings:** About links to the website without showing its address ([49f7d07](https://github.com/cLLeB/gear/commit/49f7d078b865ee2718963bfd49f6f0e5c196495d))
+* **terminal:** a shorter, plainer "commands were running" notice ([10e86b9](https://github.com/cLLeB/gear/commit/10e86b92ad7cc92e013c4e28d0ef0b193cee5541))
+* **wrapped:** no footer on the share card ([1bbea61](https://github.com/cLLeB/gear/commit/1bbea61765a5c9600e449e5e2804dfa3b74f261f))
+
 ## [0.1.9](https://github.com/cLLeB/gear/compare/v0.1.8...v0.1.9) (2026-10-20)
 
 
