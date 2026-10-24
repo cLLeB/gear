@@ -360,7 +360,7 @@ jobs:
           pkgrel=1
           pkgdesc="AI-native developer terminal built on Tauri and Rust"
           arch=('x86_64')
-          url="https://gear.kyere.me"
+          url="https://github.com/cLLeB/gear"
           license=('Apache-2.0')
           depends=('webkit2gtk-4.1' 'gtk3')
           provides=('gear-terminal')
@@ -379,7 +379,7 @@ jobs:
           	pkgdesc = AI-native developer terminal built on Tauri and Rust
           	pkgver = ${VERSION}
           	pkgrel = 1
-          	url = https://gear.kyere.me
+          	url = https://github.com/cLLeB/gear
           	arch = x86_64
           	license = Apache-2.0
           	depends = webkit2gtk-4.1
