@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.12](https://github.com/cLLeB/gear/compare/v0.1.11...v0.1.12) (2026-10-26)
+
+
+### Bug Fixes
+
+* **shortcuts:** stop taking the shell's readline keys ([d6f781d](https://github.com/cLLeB/gear/commit/d6f781d285f5b6a3ee925760cc8702f7224b5fde))
+
 ## [0.1.11](https://github.com/cLLeB/gear/compare/v0.1.10...v0.1.11) (2026-10-24)
 
 
