@@ -1,8 +1,8 @@
 {
-  "version": "0.1.11",
-  "darwinAsset": "Gear_0.1.11_universal.app.tar.gz",
+  "version": "0.1.12",
+  "darwinAsset": "Gear_0.1.12_universal.app.tar.gz",
   "hashes": {
-    "x86_64-linux": "sha256-yvC8pj69xVOyxXxz9F9lU8bcGBBDMIjPgvPJTKR6uE8=",
-    "darwin": "sha256-r42Z1+ZLDrTuc6of2fLdIRK4PQXFetGxojLQlxpvBfY="
+    "x86_64-linux": "sha256-320IX+JVxecOV7JAonIuOnenkhT16GyUSZR5AThkVbA=",
+    "darwin": "sha256-Z3kNozD743jEcQgG+hLVMTjONB/2z0iNQ+BDiRlumsE="
   }
 }
