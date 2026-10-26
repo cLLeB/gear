@@ -40,7 +40,7 @@ type Props = {
   onOpenFile: (path: string) => void;
   /** Typing "@" or ":" as the first character hands off to these modes. */
   onPrefixMode?: (mode: "symbol" | "line") => void;
-  /** Open as Go to file (Ctrl/Cmd+P): files only; ">" switches to commands. */
+  /** Open as Go to file (Cmd+P, Ctrl+Shift+O): files only; ">" switches to commands. */
   filesMode?: boolean;
 };
 

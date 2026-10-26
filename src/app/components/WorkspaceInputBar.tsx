@@ -21,8 +21,8 @@ import { OsIcon } from "./OsIcon";
 import { useGitBranch } from "./useGitBranch";
 import { useSystemInfo } from "./useSystemInfo";
 
-// Ctrl+U (⌘U) dispatches this so the terminal.toggleInput shortcut can flip the
-// bar between Shell and AI from anywhere.
+// The terminal.toggleInput shortcut dispatches this so it can flip the bar
+// between Shell and AI from anywhere.
 export const WORKSPACE_INPUT_TOGGLE_EVENT = "gear:toggle-block-input";
 
 let cachedHome: string | null = null;
@@ -48,7 +48,7 @@ type Props = {
 // Unified Shell / AI command bar for block terminals. The shell half is the
 // block ShellInput; the AI half is our full-featured AiInputBar (slash
 // commands, snippets, agent switcher, file picker) — nothing is given up. A
-// Ctrl+U toggle and a row of environment chips sit around them.
+// Shell / AI toggle and a row of environment chips sit around them.
 export function WorkspaceInputBar({
 	leafId,
 	cwd,

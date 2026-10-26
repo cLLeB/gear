@@ -132,3 +132,26 @@ describe("SHORTCUTS registry", () => {
     ]);
   });
 });
+
+describe("default bindings off macOS", () => {
+  // Readline keys every shell relies on: end of input, end of line, previous
+  // command, reverse search, kill line, delete word. A global shortcut on any
+  // of them would swallow it before the terminal sees it.
+  const READLINE = ["d", "e", "p", "r", "u", "w"];
+
+  it("leave the shell's readline keys alone", () => {
+    const taken = SHORTCUTS.filter((s) => s.group !== "Editor").flatMap((s) =>
+      s.defaultBindings
+        .filter(
+          (b) =>
+            b.ctrl &&
+            !b.shift &&
+            !b.alt &&
+            !b.meta &&
+            READLINE.includes(b.key.toLowerCase()),
+        )
+        .map((b) => `${s.id}: Ctrl+${b.key}`),
+    );
+    expect(taken).toEqual([]);
+  });
+});

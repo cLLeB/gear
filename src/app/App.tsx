@@ -817,7 +817,7 @@ export default function App() {
 	);
 	const [newEditorOpen, setNewEditorOpen] = useState(false);
 	const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
-	// Ctrl/Cmd+P opens the palette as Go to file; every other opening shows commands.
+	// "Go to file" (Cmd+P, Ctrl+Shift+O) opens the palette; every other opening shows commands.
 	const [paletteFiles, setPaletteFiles] = useState(false);
 	useEffect(() => {
 		if (!commandPaletteOpen) setPaletteFiles(false);

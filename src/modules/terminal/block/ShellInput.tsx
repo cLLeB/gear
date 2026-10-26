@@ -1,6 +1,7 @@
 import { resolveFontFamily } from "@/lib/fonts";
-import { fmtShortcut, MOD_KEY } from "@/lib/platform";
+import { fmtShortcut } from "@/lib/platform";
 import { cn } from "@/lib/utils";
+import { useShortcutLabel } from "@/modules/shortcuts";
 import { useEffect, useRef } from "react";
 import {
   clearLeafBlockSelection,
@@ -51,6 +52,11 @@ export default function ShellInput({
   const atPrompt = mode === "prompt";
   const focusableRef = useRef(false);
   focusableRef.current = focused && atPrompt;
+  const toggleKey = fmtShortcut(
+    ...useShortcutLabel("terminal.toggleInput").split(" ").filter(Boolean),
+  );
+  const toggleKeyRef = useRef(toggleKey);
+  toggleKeyRef.current = toggleKey;
 
   useEffect(() => {
     let alive = true;
@@ -76,7 +82,7 @@ export default function ShellInput({
       parent: host,
       fontFamily: fontRef.current.fontFamily,
       fontSize: fontRef.current.fontSize,
-      placeholderText: `Run a command  -  ↑ history  ${fmtShortcut(MOD_KEY, "U")} switch to AI`,
+      placeholderText: `Run a command  -  ↑ history  ${toggleKeyRef.current} switch to AI`,
       commandNames: () => commandsRef.current,
       getCwd: () => cbRef.current.getCwd(),
       onChange: (text) =>

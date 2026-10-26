@@ -97,6 +97,15 @@ export type Shortcut = {
   allowRepeat?: boolean;
 };
 
+// Global shortcuts are matched before the terminal sees the key, and off
+// macOS a plain Ctrl+letter is a readline key in every shell (Ctrl+E end of
+// line, Ctrl+P previous command, Ctrl+W delete word, Ctrl+U kill line, Ctrl+D
+// end of input). Those commands take Ctrl+Shift there, as Windows Terminal
+// does; Cmd never reaches the shell, so macOS keeps the single-modifier keys.
+const shellSafe = (mac: KeyBinding, other: KeyBinding): KeyBinding[] => [
+  IS_MAC ? mac : other,
+];
+
 export const SHORTCUTS: Shortcut[] = [
   {
     id: "commandPalette.open",
@@ -108,7 +117,7 @@ export const SHORTCUTS: Shortcut[] = [
     id: "quickOpen",
     label: "Go to file",
     group: "General",
-    defaultBindings: [{ [MOD_PROP]: true, key: "p" }],
+    defaultBindings: shellSafe({ meta: true, key: "p" }, { ctrl: true, shift: true, key: "o" }),
   },
   {
     id: "settings.open",
@@ -164,25 +173,28 @@ export const SHORTCUTS: Shortcut[] = [
     id: "tab.newEditor",
     label: "New editor tab",
     group: "Tabs",
-    defaultBindings: [{ [MOD_PROP]: true, key: "e" }],
+    defaultBindings: shellSafe({ meta: true, key: "e" }, { ctrl: true, shift: true, key: "n" }),
   },
   {
     id: "tab.close",
     label: "Close tab or pane",
     group: "Tabs",
-    defaultBindings: [{ [MOD_PROP]: true, key: "w" }],
+    defaultBindings: shellSafe({ meta: true, key: "w" }, { ctrl: true, shift: true, key: "w" }),
   },
   {
     id: "pane.splitRight",
     label: "Split pane right",
     group: "Panes",
-    defaultBindings: [{ [MOD_PROP]: true, key: "d" }],
+    defaultBindings: shellSafe({ meta: true, key: "d" }, { ctrl: true, shift: true, key: "d" }),
   },
   {
     id: "pane.splitDown",
     label: "Split pane down",
     group: "Panes",
-    defaultBindings: [{ [MOD_PROP]: true, shift: true, key: "d" }],
+    defaultBindings: shellSafe(
+      { meta: true, shift: true, key: "d" },
+      { ctrl: true, alt: true, shift: true, key: "d" },
+    ),
   },
   {
     id: "pane.focusNext",
@@ -382,7 +394,9 @@ export const SHORTCUTS: Shortcut[] = [
     id: "pane.close",
     label: "Close active pane",
     group: "Panes",
-    defaultBindings: [{ [MOD_PROP]: true, shift: true, key: "w" }],
+    // Off macOS, Ctrl+Shift+W is "Close tab or pane", which already closes the
+    // active pane of a split tab.
+    defaultBindings: IS_MAC ? [{ meta: true, shift: true, key: "w" }] : [],
   },
   // --- Tabs ---
   {
@@ -468,7 +482,8 @@ export const SHORTCUTS: Shortcut[] = [
     id: "terminal.toggleInput",
     label: "Toggle Shell / AI input",
     group: "General",
-    defaultBindings: [{ [MOD_PROP]: true, key: "u" }],
+    // Not Ctrl+Shift+U: GNOME's input method takes that for Unicode entry.
+    defaultBindings: shellSafe({ meta: true, key: "u" }, { ctrl: true, shift: true, key: "a" }),
   },
   {
     id: "blocks.prev",
