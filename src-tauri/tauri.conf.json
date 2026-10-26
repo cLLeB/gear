@@ -166,7 +166,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDI5Mzg3NUU2QzIwRjlGOTQKUldTVW53L0M1blU0S1hGT1JZdXlQTTc5Sy9nK0R2MlhPOWl5WTZSOThwbXVRTnpzemNHODh1WmUK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDRGQzhEODg2MkU3MkE2NzYKUldSMnBuSXVodGpJVDJaTkNNRTVESk9taERvdlFFZ2JuQUFaWjJIQUZpVElYV2pDcHFMcDdpeFQK",
       "endpoints": [
         "https://github.com/cLLeB/gear/releases/latest/download/latest.json"
       ]
