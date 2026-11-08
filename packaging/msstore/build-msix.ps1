@@ -1,11 +1,12 @@
-# Builds the Microsoft Store MSIX for a published Gear release.
+# Builds the Microsoft Store MSIX from the checked-out source.
 #
 #   powershell -File packaging/msstore/build-msix.ps1            # version from tauri.conf.json
 #   powershell -File packaging/msstore/build-msix.ps1 -Version 0.1.13
-#   powershell -File packaging/msstore/build-msix.ps1 -AppDir src-tauri/target/release
+#   powershell -File packaging/msstore/build-msix.ps1 -AppDir src-tauri/target/release  # skip the build
 #
-# By default the binaries come from the GitHub release's MSI. The package is
-# left unsigned: Partner Center signs Store submissions itself.
+# By default it runs a Store build (--features store-build, no self-updater);
+# -AppDir packs an existing Store build instead. The package is left unsigned:
+# Partner Center signs Store submissions itself.
 param(
     [string]$Version,
     [string]$AppDir,
@@ -32,14 +33,19 @@ New-Item -ItemType Directory -Force "$pkg\Assets", $OutDir | Out-Null
 
 # Binaries
 if (-not $AppDir) {
-    $gh = (Get-Command gh -ErrorAction SilentlyContinue).Source
-    if (-not $gh) { $gh = "$env:ProgramFiles\GitHub CLI\gh.exe" }
-    $msi = "Gear_${Version}_x64_en-US.msi"
-    & $gh release download "v$Version" -R cLLeB/gear -p $msi -D $work --clobber
-    if ($LASTEXITCODE) { throw "could not download $msi" }
-    Start-Process msiexec -Wait -ArgumentList "/a `"$work\$msi`" /qn TARGETDIR=`"$work\msi`""
-    $AppDir = "$work\msi\PFiles\Gear"
+    # The Store build leaves out the self-updater (Store policy), so the
+    # GitHub release binaries can't be reused here.
+    $storeConf = "$work\tauri.store.conf.json"
+    [IO.File]::WriteAllText($storeConf, '{"bundle":{"createUpdaterArtifacts":false}}')
+    Push-Location $repo
+    try {
+        node scripts/tauri.mjs build --no-bundle --config $storeConf -- --features store-build
+        if ($LASTEXITCODE) { throw "store build failed" }
+    } finally { Pop-Location }
+    $AppDir = "$repo\src-tauri\target\release"
 }
+$cli = "$repo\src-tauri\binaries\gear-cli-x86_64-pc-windows-msvc.exe"
+if (-not (Test-Path "$AppDir\gear-cli.exe") -and (Test-Path $cli)) { Copy-Item $cli "$AppDir\gear-cli.exe" }
 foreach ($exe in "gear.exe", "gear-cli.exe") {
     if (-not (Test-Path "$AppDir\$exe")) { throw "$exe missing from $AppDir" }
     Copy-Item "$AppDir\$exe" $pkg
