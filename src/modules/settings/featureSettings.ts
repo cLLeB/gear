@@ -56,6 +56,7 @@ export const FEATURE_DEFAULTS = {
   "terminal.rightClick": "menu",
   "editor.colorSwatches": true,
   "editor.todoHighlight": true,
+  "editor.inlayHints": true,
   "editor.suspiciousChars": true,
   "editor.rainbowBrackets": true,
   "theme.schedule": "",
@@ -230,6 +231,12 @@ export const FEATURE_META: Record<FeatureKey, Meta> = {
   "editor.todoHighlight": {
     label: "Highlight TODO comments",
     description: "Colour TODO, FIXME, BUG, HACK, XXX and NOTE tags in comments so they stand out.",
+    section: "Editor",
+  },
+  "editor.inlayHints": {
+    label: "Inlay hints",
+    description:
+      "Show parameter names and inferred types inline, as reported by the language server (TypeScript, Rust, Go, C/C++ and others).",
     section: "Editor",
   },
   "editor.colorSwatches": {
