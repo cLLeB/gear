@@ -13,7 +13,8 @@ export type FeatureSection =
   | "Editor"
   | "Git"
   | "Debug"
-  | "Workspace";
+  | "Workspace"
+  | "Effects";
 
 export const FEATURE_SECTIONS: readonly FeatureSection[] = [
   "Terminal",
@@ -23,6 +24,7 @@ export const FEATURE_SECTIONS: readonly FeatureSection[] = [
   "Git",
   "Debug",
   "Workspace",
+  "Effects",
 ];
 
 type Meta = {
@@ -56,6 +58,8 @@ export const FEATURE_DEFAULTS = {
   "terminal.rightClick": "menu",
   "editor.colorSwatches": true,
   "editor.todoHighlight": true,
+  "effects.typingSparks": "off",
+  "effects.typingCombo": false as boolean,
   "editor.suspiciousChars": true,
   "editor.rainbowBrackets": true,
   "theme.schedule": "",
@@ -226,6 +230,22 @@ export const FEATURE_META: Record<FeatureKey, Meta> = {
     label: "Flag invisible and look-alike characters",
     description: "Underline bidi control characters (\"Trojan Source\"), zero-width characters, unusual spaces and Cyrillic/Greek letters hiding inside Latin words.",
     section: "Editor",
+  },
+  "effects.typingSparks": {
+    label: "Typing sparks",
+    description: "Little bursts of particles fly from the cursor as you type, in the terminal, the editor and text fields.",
+    section: "Effects",
+    options: [
+      { value: "off", label: "Off" },
+      { value: "sparks", label: "Theme colours" },
+      { value: "rainbow", label: "Rainbow" },
+      { value: "fire", label: "Fire" },
+    ],
+  },
+  "effects.typingCombo": {
+    label: "Combo counter",
+    description: "Count your typing streak in the top-right corner; it resets after a short pause and celebrates every 50 keys.",
+    section: "Effects",
   },
   "editor.todoHighlight": {
     label: "Highlight TODO comments",
