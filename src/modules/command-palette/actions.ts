@@ -50,6 +50,7 @@ import { MERGE_ACTIONS } from "@/modules/merge/mergeActions";
 import { DEBUG_ACTIONS } from "@/modules/debug/debugActions";
 import { TESTING_ACTIONS } from "@/modules/testing/actions";
 import { WRAPPED_ACTIONS } from "@/modules/wrapped/actions";
+import { EFFECT_ACTIONS } from "@/modules/effects/actions";
 import { NOTEBOOK_ACTIONS } from "@/modules/notebook/actions";
 import { PROFILER_ACTIONS } from "@/modules/profiler/actions";
 import { DATABASE_ACTIONS } from "@/modules/database/actions";
@@ -500,7 +501,7 @@ export function createCommandPaletteActions(
       run: () => void action.run(),
       deferRun: true,
     })),
-    ...WRAPPED_ACTIONS.map((action): CommandPaletteAction => ({
+    ...[...WRAPPED_ACTIONS, ...EFFECT_ACTIONS].map((action): CommandPaletteAction => ({
       id: action.id,
       label: action.label,
       group: "View",
