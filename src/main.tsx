@@ -17,9 +17,11 @@ import { ErrorBoundary } from "./components/ErrorBoundary";
 import { initLaunchDir } from "./lib/launchDir";
 import { IS_WINDOWS, USE_CUSTOM_WINDOW_CONTROLS } from "./lib/platform";
 import { installPointerDrag } from "./lib/pointerDrag";
+import { installTypingSparks } from "./modules/effects/typingSparks";
 
 installToastHistory();
 installClipboardCapture();
+installTypingSparks();
 // WebView2 never delivers in-app drops while native file drops are handled.
 if (IS_WINDOWS) installPointerDrag();
 
