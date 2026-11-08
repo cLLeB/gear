@@ -24,3 +24,4 @@ src-tauri/binaries/
 
 # Stray editor paste artifacts
 Pasted image *.png
+dist-store/
