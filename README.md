@@ -12,7 +12,7 @@ Gear is a native desktop application built on [Tauri 2](https://tauri.app) (Rust
 - **Split panes** — split any terminal horizontally or vertically (Cmd+D / Cmd+Shift+D on macOS, Ctrl+Shift+D / Ctrl+Alt+Shift+D elsewhere, so plain Ctrl+D still ends your shell)
 - **AI integration** — chat with Claude, OpenAI, Gemini, Groq, and more; inline completions in the editor; ask AI about terminal selections
 - **File explorer** — full tree with multi-select, rename, delete, create, and drag-to-attach to AI
-- **Code editor** — CodeMirror 6, syntax highlighting for 100+ languages, Vim mode, find & replace, code folding
+- **Code editor** — CodeMirror 6, syntax highlighting for 100+ languages, Vim mode, find & replace, code folding, inline problems at the end of each line
 - **Preview panel** — embedded browser for local dev servers with port presets and DevTools toggle
 - **Git panel** — branch list/create/checkout, diff viewer, commit history, stash management
 - **Session persistence** — terminal sessions restore across relaunches
