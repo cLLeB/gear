@@ -33,6 +33,14 @@ export {
 type LspPos = { line: number; character: number };
 type LspRange = { start: LspPos };
 type LspLocation = { uri: string; range: LspRange };
+export type LspInlayHint = {
+  position: LspPos;
+  label: string | { value: string }[];
+  /** 1 = type, 2 = parameter. */
+  kind?: number;
+  paddingLeft?: boolean;
+  paddingRight?: boolean;
+};
 
 function offsetOf(doc: Text, pos: LspPos): number {
   if (pos.line >= doc.lines) return doc.length;
@@ -401,8 +409,18 @@ export class GearLspClient extends LanguageServerClient {
     params.capabilities.textDocument = {
       ...params.capabilities.textDocument,
       publishDiagnostics: { relatedInformation: true },
-    };
+      inlayHint: { dynamicRegistration: false },
+    } as typeof params.capabilities.textDocument;
     return params;
+  }
+
+  // Not in the bundled lib's typed request map; see textDocumentReferences.
+  async textDocumentInlayHint(params: {
+    textDocument: { uri: string };
+    range: { start: LspPos; end: LspPos };
+  }): Promise<LspInlayHint[] | null> {
+    const res = await this.raw.request("textDocument/inlayHint", params, 5000);
+    return (res as LspInlayHint[] | null) ?? null;
   }
 
   textDocumentDidClose(uri: string): void {
