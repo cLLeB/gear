@@ -51,6 +51,7 @@ import { MockPane } from "@/modules/mockserver/MockPane";
 import { RegexPane } from "@/modules/regexlab/RegexPane";
 import { TablePane } from "@/modules/table/TablePane";
 import { TimePane } from "@/modules/timetrack/TimePane";
+import { TimelinePane } from "@/modules/cmdtimeline/TimelinePane";
 import { WsPane } from "@/modules/wsclient/WsPane";
 import { isLogFile } from "@/modules/logview/model";
 import { EditorPane, type EditorPaneHandle } from "./EditorPane";
@@ -228,6 +229,8 @@ export function EditorStack({
                 <BoardPane ref={getRefCallback(t.id)} path={t.path} />
               ) : t.path.startsWith("gear-time://") ? (
                 <TimePane ref={getRefCallback(t.id)} path={t.path} />
+              ) : t.path.startsWith("gear-timeline://") ? (
+                <TimelinePane ref={getRefCallback(t.id)} path={t.path} />
               ) : t.path.startsWith("gear-hex://") ? (
                 <HexPane ref={getRefCallback(t.id)} path={t.path} onDirtyChange={getDirtyCallback(t.id)} />
               ) : t.path.startsWith("gear-table://") ? (
