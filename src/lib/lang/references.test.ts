@@ -55,3 +55,27 @@ describe("unusedBindings", () => {
     expect(unused).toContain("kept");
   });
 });
+
+describe("unusedBindings with string interpolation", () => {
+  const names = (src: string, lang: string) => unusedBindings(src, lang).map((u) => u.binding.name);
+
+  it("counts reads inside JS/TS template literals", () => {
+    expect(names("function f() {\n  const name = 'x';\n  return `hi ${name}`;\n}\n", "javascript")).not.toContain("name");
+    expect(names("export function f() {\n  const n = 1;\n  const obj = { a: 1 };\n  return `n=${n + 1} ${obj.a}`;\n}\n", "typescript")).toEqual([]);
+  });
+
+  it("does not count member names or plain strings in JS", () => {
+    expect(names("function f() {\n  const a = 1;\n  return `${x.a}` + '${a}';\n}\n", "javascript")).toContain("a");
+  });
+
+  it("counts reads inside Python f-strings but not plain strings", () => {
+    expect(names('def f():\n    name = "x"\n    return f"hi {name!r:>10}"\n', "python")).not.toContain("name");
+    expect(names('def f():\n    name = "x"\n    return "hi {name}"\n', "python")).toContain("name");
+    expect(names('def f():\n    name = "x"\n    return f"{{name}}"\n', "python")).toContain("name");
+  });
+
+  it("counts Rust inline format arguments", () => {
+    expect(names('fn main() {\n    let total = 1;\n    let lens = 2;\n    println!("{total} {lens:?}");\n}\n', "rust")).toEqual([]);
+    expect(names('fn main() {\n    let width = 1;\n    println!("{{width}}");\n}\n', "rust")).toContain("width");
+  });
+});
