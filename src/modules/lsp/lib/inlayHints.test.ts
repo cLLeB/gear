@@ -32,6 +32,7 @@ describe("hintsToMarks", () => {
         { position: { line: 5, character: 0 }, label: "x" },
         { position: { line: 0, character: 99 }, label: "y" },
         { position: { line: 0, character: 1 }, label: "  " },
+        { position: { line: 0, character: 2 }, label: "= {unknown}", kind: 1 },
       ]),
     ).toEqual([]);
   });

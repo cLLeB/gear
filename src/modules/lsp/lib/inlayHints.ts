@@ -35,7 +35,8 @@ export function hintsToMarks(doc: Text, hints: readonly LspInlayHint[]): InlayMa
     const l = doc.line(line + 1);
     if (character > l.length) continue;
     const text = labelText(h.label);
-    if (!text) continue;
+    // rust-analyzer labels types it could not infer {unknown}; that says nothing.
+    if (!text || text.includes("{unknown}")) continue;
     marks.push({
       pos: l.from + character,
       text: `${h.paddingLeft ? " " : ""}${text}${h.paddingRight ? " " : ""}`,
