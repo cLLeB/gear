@@ -10,9 +10,9 @@ import type { GearLspClient, LspInlayHint } from "./client";
 const DEBOUNCE_MS = 350;
 const NOT_READY_RETRY_MS = 1000;
 const MAX_LABEL = 60;
-// Servers answer with nothing while they index (rust-analyzer can take a while),
-// so an empty first answer is retried with backoff until one has hints.
-const EMPTY_RETRY_MS = [1000, 2000, 4000, 8000, 15000, 30000];
+// Servers answer with nothing, or with only some hints, while they index
+// (rust-analyzer can take a while), so ask again on a backoff after opening.
+const WARMUP_RETRY_MS = [1000, 2000, 4000, 8000, 15000, 30000];
 
 export interface InlayMark {
   pos: number;
@@ -94,8 +94,7 @@ export function lspInlayHints(opts: { client: GearLspClient; documentUri: string
         private timer: ReturnType<typeof setTimeout> | null = null;
         private enabled = getFeature("editor.inlayHints");
         private seq = 0;
-        private emptyRetries = 0;
-        private gotHints = false;
+        private warmupRetries = 0;
         private destroyed = false;
         private unsubscribe: () => void;
 
@@ -153,8 +152,7 @@ export function lspInlayHints(opts: { client: GearLspClient; documentUri: string
           // A newer request or an edit made this answer stale; the next one follows.
           if (this.destroyed || seq !== this.seq || view.state.doc !== doc || !this.enabled) return;
           const marks = hintsToMarks(doc, hints ?? []);
-          if (marks.length) this.gotHints = true;
-          else if (!this.gotHints && this.emptyRetries < EMPTY_RETRY_MS.length) this.schedule(EMPTY_RETRY_MS[this.emptyRetries++]);
+          if (this.warmupRetries < WARMUP_RETRY_MS.length) this.schedule(WARMUP_RETRY_MS[this.warmupRetries++]);
           this.decorations = toDecorations(marks);
           view.dispatch({});
         }
