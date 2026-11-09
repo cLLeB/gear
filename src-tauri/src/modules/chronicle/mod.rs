@@ -140,7 +140,7 @@ pub fn chronicle_range(
     limit: i64,
 ) -> Result<Vec<EventRow>, String> {
     state
-        .workspace(&workspace_root)
+        .workspace(&workspace_root)?
         .store
         .range(from_ts, to_ts, limit)
         .map_err(|e| e.to_string())
@@ -157,7 +157,7 @@ pub fn chronicle_search(
     limit: i64,
 ) -> Result<Vec<EventRow>, String> {
     state
-        .workspace(&workspace_root)
+        .workspace(&workspace_root)?
         .store
         .search(&query, limit)
         .map_err(|e| e.to_string())
@@ -171,7 +171,7 @@ pub fn chronicle_prune(
     workspace_root: String,
     max_age_ms: Option<i64>,
 ) -> Result<retention::RetentionReport, String> {
-    let ws = state.workspace(&workspace_root);
+    let ws = state.workspace(&workspace_root)?;
     let sandboxes = paths::sandboxes_root(std::path::Path::new(&workspace_root));
     retention::run(
         &ws,
@@ -191,7 +191,7 @@ pub fn chronicle_file_history(
     limit: i64,
 ) -> Result<Vec<EventRow>, String> {
     state
-        .workspace(&workspace_root)
+        .workspace(&workspace_root)?
         .store
         .file_history(&file_path, limit)
         .map_err(|e| e.to_string())
@@ -206,7 +206,7 @@ pub fn chronicle_checkout_sandbox(
     workspace_root: String,
     at_ts: i64,
 ) -> Result<String, String> {
-    let w = state.workspace(&workspace_root);
+    let w = state.workspace(&workspace_root)?;
     let dest = paths::sandbox_dir(std::path::Path::new(&workspace_root), &at_ts.to_string());
     std::fs::create_dir_all(&dest).map_err(|e| e.to_string())?;
     let count = snapshot::reconstruct_tree_into(&w.store, &w.blobs, at_ts, &dest)?;
@@ -223,7 +223,7 @@ pub fn chronicle_restore_file(
     file_path: String,
     at_ts: i64,
 ) -> Result<String, String> {
-    let w = state.workspace(&workspace_root);
+    let w = state.workspace(&workspace_root)?;
     let bytes = snapshot::reconstruct_file(&w.store, &w.blobs, &file_path, at_ts)?
         .ok_or_else(|| "no snapshot at or before timestamp".to_string())?;
     String::from_utf8(bytes).map_err(|_| "binary file".to_string())
