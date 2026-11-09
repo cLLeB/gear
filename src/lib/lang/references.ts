@@ -204,7 +204,8 @@ export function unusedBindings(source: string, languageId: string): UnusedBindin
         if (used) continue;
         // Skip exported/top-level type-ish and class/function declarations: they
         // are frequently part of a public surface and reported elsewhere.
-        if (scope.kind === "global" && (binding.kind === "function" || binding.kind === "class" || binding.kind === "type")) continue;
+        // Module-level Python defs and assignments are importable from other files.
+        if (scope.kind === "global" && (binding.kind === "function" || binding.kind === "class" || binding.kind === "type" || binding.kind === "def" || binding.kind === "assign")) continue;
         out.push({ binding, reason: binding.kind === "param" ? "unused-parameter" : "unused-declaration" });
       }
     }
