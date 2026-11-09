@@ -56,7 +56,6 @@ export const FEATURE_DEFAULTS = {
   "terminal.rightClick": "menu",
   "editor.colorSwatches": true,
   "editor.todoHighlight": true,
-  "editor.inlayHints": true,
   "editor.suspiciousChars": true,
   "editor.rainbowBrackets": true,
   "theme.schedule": "",
@@ -68,6 +67,7 @@ export const FEATURE_DEFAULTS = {
   "editor.renderWhitespace": false,
   "editor.highlightTrailingWhitespace": false,
   "editor.gitGutter": true,
+  "editor.inlayHints": true,
   "git.commitLint": "conventional",
   "debug.pythonPath": "",
   "debug.jsDebugPath": "",
@@ -233,15 +233,15 @@ export const FEATURE_META: Record<FeatureKey, Meta> = {
     description: "Colour TODO, FIXME, BUG, HACK, XXX and NOTE tags in comments so they stand out.",
     section: "Editor",
   },
+  "editor.colorSwatches": {
+    label: "Colour swatches",
+    description: "Show a swatch before CSS colour literals (#hex, rgb(), hsl()); click it to convert between notations.",
+    section: "Editor",
+  },
   "editor.inlayHints": {
     label: "Inlay hints",
     description:
       "Show parameter names and inferred types inline, as reported by the language server (TypeScript, Rust, Go, C/C++ and others).",
-    section: "Editor",
-  },
-  "editor.colorSwatches": {
-    label: "Colour swatches",
-    description: "Show a swatch before CSS colour literals (#hex, rgb(), hsl()); click it to convert between notations.",
     section: "Editor",
   },
   "terminal.commandGuard": {
