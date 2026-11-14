@@ -1,4 +1,5 @@
 import { getVersion } from "@tauri-apps/api/app";
+import { invoke } from "@tauri-apps/api/core";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { check, type Update } from "@tauri-apps/plugin-updater";
 import { useCallback, useEffect } from "react";
@@ -79,6 +80,12 @@ async function checkLinuxRelease(): Promise<ManualUpdateInfo | null> {
   }
 }
 
+let storeBuild: Promise<boolean> | null = null;
+function isStoreBuild(): Promise<boolean> {
+  storeBuild ??= invoke<boolean>("is_store_build").catch(() => false);
+  return storeBuild;
+}
+
 interface Options {
   /** Skip the time-based throttle on automatic startup checks. */
   manual?: boolean;
@@ -95,6 +102,9 @@ export function useUpdater({ autoCheck = true }: HookOptions = {}) {
 
   const runCheck = useCallback(
     async ({ manual }: Options = {}) => {
+      // Store installs are updated by the Microsoft Store, and the updater
+      // plugin is left out of that build.
+      if (await isStoreBuild()) return;
       if (!manual) {
         const last = Number(localStorage.getItem(LAST_CHECK_KEY) ?? 0);
         if (Date.now() - last < CHECK_INTERVAL_MS) return;
