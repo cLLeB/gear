@@ -21,17 +21,22 @@ pub struct ChronicleState {
     workspaces: WsMap,
 }
 
-fn open_ws(map: &WsMap, root: &str) -> Arc<WorkspaceChronicle> {
-    let mut m = map.lock().unwrap();
+/// Open (or reuse) a workspace's Chronicle. Fails instead of panicking when the
+/// database can't be created, e.g. a workspace at `C:\` or on a read-only share:
+/// a panic here poisoned the map and broke file saves for the whole session.
+fn open_ws(map: &WsMap, root: &str) -> Result<Arc<WorkspaceChronicle>, String> {
+    let mut m = map.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
     if let Some(w) = m.get(root) {
-        return w.clone();
+        return Ok(w.clone());
     }
     let rootp = Path::new(root);
-    let store = Store::open(&paths::db_path(rootp)).expect("open chronicle db");
+    paths::ensure_git_ignored(rootp);
+    let store = Store::open(&paths::db_path(rootp))
+        .map_err(|e| format!("chronicle unavailable for {root}: {e}"))?;
     let blobs = BlobStore::new(&paths::blobs_dir(rootp));
     let w = Arc::new(WorkspaceChronicle { store, blobs });
     m.insert(root.to_string(), w.clone());
-    w
+    Ok(w)
 }
 
 impl Default for ChronicleState {
@@ -41,7 +46,13 @@ impl Default for ChronicleState {
         let drain_ws = workspaces.clone();
         std::thread::spawn(move || {
             while let Ok(ev) = rx.recv() {
-                let w = open_ws(&drain_ws, &ev.workspace_root);
+                let w = match open_ws(&drain_ws, &ev.workspace_root) {
+                    Ok(w) => w,
+                    Err(e) => {
+                        log::debug!("{e}");
+                        continue;
+                    }
+                };
                 if let Err(e) = w.store.insert(&ev) {
                     log::warn!("chronicle insert failed: {e}");
                 }
@@ -65,13 +76,37 @@ impl ChronicleState {
         }
     }
 
-    pub fn workspace(&self, root: &str) -> Arc<WorkspaceChronicle> {
+    pub fn workspace(&self, root: &str) -> Result<Arc<WorkspaceChronicle>, String> {
         open_ws(&self.workspaces, root)
     }
 
     /// Store a blob for a workspace. Used by capture sites to persist file
     /// content / command output before emitting the referencing event.
     pub fn put_blob(&self, root: &str, content: &[u8]) -> std::io::Result<String> {
-        self.workspace(root).blobs.put(content)
+        self.workspace(root)
+            .map_err(std::io::Error::other)?
+            .blobs
+            .put(content)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn unusable_workspace_is_an_error_not_a_panic() {
+        let dir = tempfile::tempdir().unwrap();
+        // A regular file can't hold `.gear/chronicle/`, like a read-only root.
+        let root = dir.path().join("not-a-dir");
+        std::fs::write(&root, b"x").unwrap();
+        let root = root.to_string_lossy().to_string();
+
+        let state = ChronicleState::default();
+        assert!(state.workspace(&root).is_err());
+        assert!(state.put_blob(&root, b"data").is_err());
+        // The map is still usable for a good workspace afterwards.
+        let good = tempfile::tempdir().unwrap();
+        assert!(state.workspace(&good.path().to_string_lossy()).is_ok());
     }
 }
