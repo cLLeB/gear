@@ -739,6 +739,13 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
           ref={cmRef}
           value={doc.content}
           onChange={onChange}
+          // The language effect usually runs while the file is still loading,
+          // before this view exists, so attach the in-process linter here too.
+          onCreateEditor={(view) =>
+            view.dispatch({
+              effects: diagnosticsCompartment.reconfigure(gearLinter(analyzableLangRef.current)),
+            })
+          }
           theme={themeExt}
           extensions={extensions}
           height="100%"
