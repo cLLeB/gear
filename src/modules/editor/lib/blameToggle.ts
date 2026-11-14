@@ -15,6 +15,22 @@ function parentDir(path: string): string {
   return cut <= 0 ? normalized : normalized.slice(0, cut);
 }
 
+/**
+ * `path` relative to `repoRoot`, with forward slashes. git rejects pathspecs
+ * containing ':' (they could smuggle in pathspec magic), and every absolute
+ * Windows path has one, so blame must be asked with a repo-relative path.
+ * Drive letters and separators compare case-insensitively, as Windows does.
+ */
+export function repoRelativePath(repoRoot: string, path: string): string {
+  const norm = (p: string) => p.replace(/[\\/]+/g, "/").replace(/\/$/, "");
+  const root = norm(repoRoot);
+  const file = norm(path);
+  const windows = /^[a-z]:\//i.test(root);
+  const same = (a: string, b: string) => (windows ? a.toLowerCase() === b.toLowerCase() : a === b);
+  if (same(file.slice(0, root.length), root) && file[root.length] === "/") return file.slice(root.length + 1);
+  return file;
+}
+
 export async function toggleBlameOnView(
   view: EditorView,
   path: string,
@@ -33,7 +49,7 @@ export async function toggleBlameOnView(
       toast.error("Not inside a git repository");
       return;
     }
-    const blame = await native.gitBlame(repo.repoRoot, path);
+    const blame = await native.gitBlame(repo.repoRoot, repoRelativePath(repo.repoRoot, path));
     // The pane can be torn down, or switched to another file, while the blame
     // walk is in flight.
     if (!view.dom.isConnected) return;

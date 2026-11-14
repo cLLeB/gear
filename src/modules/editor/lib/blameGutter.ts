@@ -56,6 +56,8 @@ class BlameMarker extends GutterMarker {
 }
 
 const blameTheme = EditorView.theme({
+  // Blame off: no column at all, instead of an empty 8.5em strip on every file.
+  "&:not(.cm-blame-on) .cm-blameGutter": { display: "none !important" },
   ".cm-blameGutter": {
     minWidth: "8.5em",
     color: "var(--muted-foreground)",
@@ -65,6 +67,9 @@ const blameTheme = EditorView.theme({
   },
   ".cm-blameEntry": {
     display: "block",
+    // Unlabelled lines in a run are empty; keep their colour bar visible.
+    height: "100%",
+    boxSizing: "border-box",
     paddingLeft: "6px",
     paddingRight: "8px",
     borderLeft: "2px solid transparent",
@@ -78,6 +83,9 @@ export function blameGutter() {
   return [
     blameField,
     blameTheme,
+    EditorView.editorAttributes.compute([blameField], (state) =>
+      (state.field(blameField, false) ? { class: "cm-blame-on" } : {}) as Record<string, string>,
+    ),
     gutter({
       class: "cm-blameGutter",
       lineMarker(view, block) {
@@ -100,6 +108,9 @@ export function blameGutter() {
           blameHue(commit.sha),
         );
       },
+      // Markers are otherwise only recomputed on edits and scrolling, so a
+      // freshly loaded blame stayed invisible until the user scrolled.
+      lineMarkerChange: (update) => update.transactions.some((tr) => tr.effects.some((e) => e.is(setBlame))),
       // Without this the gutter collapses to zero width when no line has a
       // marker, making the toggle look broken on an unversioned file.
       initialSpacer: () => new BlameMarker("", "", 0),
