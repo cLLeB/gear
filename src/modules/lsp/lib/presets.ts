@@ -28,7 +28,15 @@ export const LSP_PRESETS: LspPreset[] = [
       jsx: "javascriptreact",
     },
     rootMarkers: ["tsconfig.json", "jsconfig.json", "package.json"],
-    initializationOptions: { maxTsServerMemory: 3072 },
+    initializationOptions: {
+      maxTsServerMemory: 3072,
+      // tsserver reports no inlay hints unless asked; keep the useful, quiet ones.
+      preferences: {
+        includeInlayParameterNameHints: "literals",
+        includeInlayFunctionLikeReturnTypeHints: true,
+        includeInlayEnumMemberValueHints: true,
+      },
+    },
     install: {
       command: "npm install -g typescript-language-server typescript",
       docsUrl:
