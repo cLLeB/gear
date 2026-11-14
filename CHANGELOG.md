@@ -1,5 +1,38 @@
 # Changelog
 
+## [0.1.13](https://github.com/cLLeB/gear/compare/v0.1.12...v0.1.13) (2026-11-14)
+
+
+### Features
+
+* **editor:** add an inline problems extension ([e626ff0](https://github.com/cLLeB/gear/commit/e626ff03509de6eba4605d4c7ceb857f5373643c))
+* **editor:** inline problems at the end of each line ([f714142](https://github.com/cLLeB/gear/commit/f7141421e08244533dc969a21cde239be287d13e))
+* **editor:** LSP inlay hints ([dd9f0b9](https://github.com/cLLeB/gear/commit/dd9f0b91060f052293aa2e6b030421bcf04d2c71))
+* **editor:** show LSP inlay hints for the visible lines ([f650354](https://github.com/cLLeB/gear/commit/f6503542bac30bcc65b355e9faaaf6bd5756dc71))
+* **editor:** turn on inlay hints with a setting to hide them ([42fed9f](https://github.com/cLLeB/gear/commit/42fed9f92323761be726c34f13177f7e56858135))
+* **editor:** turn on inline problems with a setting to hide them ([c760514](https://github.com/cLLeB/gear/commit/c760514172663c5414ca5526ee517da739fb2055))
+* **lsp:** ask the TypeScript server for parameter and return type hints ([354129c](https://github.com/cLLeB/gear/commit/354129cc94b9d52864826728c0b37fcd126e1b1c))
+* **lsp:** request inlay hints from language servers ([e5884d4](https://github.com/cLLeB/gear/commit/e5884d4d0d3fb50f473da57eb9d4a0e458eb8afa))
+
+
+### Bug Fixes
+
+* **blame:** draw blame when it loads and hide the column when it is off ([7bc070c](https://github.com/cLLeB/gear/commit/7bc070c60e64ab934d5f4091f455aadf69997bd7))
+* **blame:** load blame on Windows ([4d064ed](https://github.com/cLLeB/gear/commit/4d064ede0257ea282ca8e9b09f2d08a8cda313bb))
+* **blame:** make the blame gutter work on Windows, draw on load, hide when off ([071d6df](https://github.com/cLLeB/gear/commit/071d6dfd7c68de1885f6b390ad36b5c5782b796e))
+* **chronicle:** add a helper that hides its folder from git ([2af8145](https://github.com/cLLeB/gear/commit/2af8145a464a0278751726276e1f925a53be400e))
+* **chronicle:** keep its data out of git status and stop panicking on unusable workspaces ([fcccb2e](https://github.com/cLLeB/gear/commit/fcccb2e8e70bb5ac5a3e5908899c0f9927bb80f6))
+* **chronicle:** keep its data out of git status and stop panicking on unusable workspaces ([fc3be9e](https://github.com/cLLeB/gear/commit/fc3be9e46dad0f414c10c3a3eacc9869d1b1ac21))
+* **diagnostics:** count variables read inside string interpolation ([ce12e7e](https://github.com/cLLeB/gear/commit/ce12e7ea0ea38484f1a36c8b66c16fef3dac1eee))
+* **diagnostics:** count variables read inside string interpolation ([813660c](https://github.com/cLLeB/gear/commit/813660cc81653587f72caab3ca8fb450c8fdfaf6))
+* **editor:** hide inlay hints for types the server could not infer ([105eeb4](https://github.com/cLLeB/gear/commit/105eeb40b5b56b6768b94974d8bddf2840038472))
+* **editor:** keep asking for inlay hints while the server indexes ([75ff63f](https://github.com/cLLeB/gear/commit/75ff63fe978849953c81df10f66b2d6b94dc71f5))
+* **editor:** keep refreshing inlay hints while the server warms up ([63849a4](https://github.com/cLLeB/gear/commit/63849a466197416bfc227542d95d5ee9aa594368))
+* **editor:** show built-in diagnostics on files when they first open ([80939a1](https://github.com/cLLeB/gear/commit/80939a146165537539a8bbd32a3bf532be569356))
+* **editor:** show built-in diagnostics on files when they first open ([be0ad55](https://github.com/cLLeB/gear/commit/be0ad55e1f2c5385931123436c805ce65fdc6fd2))
+* **updater:** skip update checks in Store builds ([f2c821b](https://github.com/cLLeB/gear/commit/f2c821ba5d95941797e7acd9f14df41f82fd33e2))
+* **updater:** skip update checks in Store builds ([44daf9a](https://github.com/cLLeB/gear/commit/44daf9a7669d531e240bc04d29d4a0ddc9614d7a))
+
 ## [0.1.12](https://github.com/cLLeB/gear/compare/v0.1.11...v0.1.12) (2026-10-26)
 
 
