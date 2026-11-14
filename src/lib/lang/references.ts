@@ -44,6 +44,75 @@ function isObjectKey(tokens: Token[], index: number, enclosing: string): boolean
   return enclosing === "{" && tokens[index + 1]?.value === ":";
 }
 
+interface InterpolatedName {
+  name: string;
+  from: number;
+  to: number;
+}
+
+const IDENT_IN_EXPR = /[A-Za-z_$][A-Za-z0-9_$]*/g;
+
+/** Identifiers in `expr` (starting at `offset`) that are not `.member` accesses. */
+function identifiersIn(expr: string, offset: number, out: InterpolatedName[]): void {
+  for (const m of expr.matchAll(IDENT_IN_EXPR)) {
+    const at = m.index ?? 0;
+    if (at > 0 && /[.\w$]/.test(expr[at - 1])) continue;
+    out.push({ name: m[0], from: offset + at, to: offset + at + m[0].length });
+  }
+}
+
+/**
+ * Brace-delimited segments of `text` that start at an opener (`${` or `{`),
+ * honouring nesting. `{{` is an escaped brace in f-strings and format strings.
+ */
+function braceSegments(text: string, opener: "${" | "{"): Array<{ body: string; at: number }> {
+  const out: Array<{ body: string; at: number }> = [];
+  for (let i = 0; i < text.length; i++) {
+    if (opener === "{" && text[i] === "{" && text[i + 1] === "{") { i += 1; continue; }
+    if (!text.startsWith(opener, i)) continue;
+    const start = i + opener.length;
+    let depth = 1;
+    let j = start;
+    for (; j < text.length && depth > 0; j++) {
+      if (text[j] === "{") depth += 1;
+      else if (text[j] === "}") depth -= 1;
+    }
+    if (depth !== 0) break;
+    out.push({ body: text.slice(start, j - 1), at: start });
+    i = j - 1;
+  }
+  return out;
+}
+
+/**
+ * Names read inside a string literal through interpolation: JS/TS template
+ * literals (`${x}`), Python f-strings (f"{x}"), and Rust inline format args
+ * ("{x}" / "{x:?}"). Without these, a variable used only in a string was
+ * reported as unused.
+ */
+function interpolatedNames(tok: Token, prev: Token | undefined, specId: string): InterpolatedName[] {
+  const out: InterpolatedName[] = [];
+  const text = tok.value;
+  if (specId === "javascript" && text.startsWith("`")) {
+    for (const seg of braceSegments(text, "${")) identifiersIn(seg.body, tok.start + seg.at, out);
+  } else if (specId === "python") {
+    const prefixed = prev?.type === "identifier" && prev.end === tok.start && /^(f|rf|fr)$/i.test(prev.value);
+    if (!prefixed) return out;
+    for (const seg of braceSegments(text, "{")) {
+      // Drop the conversion and format spec: f"{x!r:>10}".
+      const expr = seg.body.replace(/(![rsa])?(:[^{}]*)?=?\s*$/, "");
+      identifiersIn(expr, tok.start + seg.at, out);
+    }
+  } else if (specId === "rust") {
+    // Only a bare identifier is allowed inline in Rust format strings.
+    for (const seg of braceSegments(text, "{")) {
+      const m = /^([A-Za-z_][A-Za-z0-9_]*)(:.*)?$/.exec(seg.body);
+      if (m) out.push({ name: m[1], from: tok.start + seg.at, to: tok.start + seg.at + m[1].length });
+    }
+  }
+  return out;
+}
+
 function indexDocument(source: string, languageId: string): Indexed | null {
   const spec = getLanguageSpec(languageId);
   if (!spec) return null;
@@ -52,29 +121,30 @@ function indexDocument(source: string, languageId: string): Indexed | null {
   const byBinding = new Map<number, SymbolReferences>();
   const bracketStack: string[] = [];
 
-  for (let i = 0; i < tokens.length; i++) {
-    const tok = tokens[i];
-    if (tok.bracket === "open") { bracketStack.push(tok.value); continue; }
-    if (tok.bracket === "close") { bracketStack.pop(); continue; }
-    if (tok.type !== "identifier") continue;
-    if (isPropertyAccess(tokens, i)) continue;
-    if (isObjectKey(tokens, i, bracketStack[bracketStack.length - 1] ?? "")) continue;
-
-    const scope = scopeAt(root, tok.start);
-    const binding = resolveBinding(scope, tok.value);
-    if (!binding) continue;
-
+  const record = (name: string, from: number, to: number) => {
+    const scope = scopeAt(root, from);
+    const binding = resolveBinding(scope, name);
+    if (!binding) return;
     let entry = byBinding.get(binding.offset);
     if (!entry) {
       entry = { binding, occurrences: [] };
       byBinding.set(binding.offset, entry);
     }
-    entry.occurrences.push({
-      name: tok.value,
-      from: tok.start,
-      to: tok.end,
-      isDeclaration: tok.start === binding.offset,
-    });
+    entry.occurrences.push({ name, from, to, isDeclaration: from === binding.offset });
+  };
+
+  for (let i = 0; i < tokens.length; i++) {
+    const tok = tokens[i];
+    if (tok.bracket === "open") { bracketStack.push(tok.value); continue; }
+    if (tok.bracket === "close") { bracketStack.pop(); continue; }
+    if (tok.type === "string") {
+      for (const n of interpolatedNames(tok, tokens[i - 1], spec.id)) record(n.name, n.from, n.to);
+      continue;
+    }
+    if (tok.type !== "identifier") continue;
+    if (isPropertyAccess(tokens, i)) continue;
+    if (isObjectKey(tokens, i, bracketStack[bracketStack.length - 1] ?? "")) continue;
+    record(tok.value, tok.start, tok.end);
   }
 
   return { root, tokens, byBinding };
