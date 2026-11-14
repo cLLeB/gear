@@ -56,6 +56,7 @@ export const FEATURE_DEFAULTS = {
   "terminal.rightClick": "menu",
   "editor.colorSwatches": true,
   "editor.todoHighlight": true,
+  "editor.errorLens": true,
   "editor.suspiciousChars": true,
   "editor.rainbowBrackets": true,
   "theme.schedule": "",
@@ -230,6 +231,12 @@ export const FEATURE_META: Record<FeatureKey, Meta> = {
   "editor.todoHighlight": {
     label: "Highlight TODO comments",
     description: "Colour TODO, FIXME, BUG, HACK, XXX and NOTE tags in comments so they stand out.",
+    section: "Editor",
+  },
+  "editor.errorLens": {
+    label: "Inline problems",
+    description:
+      "Print each line's most serious error or warning at the end of the line and tint the line, so you can read problems without hovering.",
     section: "Editor",
   },
   "editor.colorSwatches": {

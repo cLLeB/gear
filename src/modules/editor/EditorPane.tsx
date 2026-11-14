@@ -59,6 +59,7 @@ import { codeActionsKeymap } from "./lib/codeActions";
 import { renameSymbolLocal, textToolsKeymap, toggleMarkdownWrap } from "./lib/textTools/commands";
 import { colorSwatches } from "./lib/colorSwatches";
 import { todoHighlight } from "./lib/todoHighlight";
+import { errorLens } from "./lib/errorLens";
 import { suspiciousChars } from "./lib/suspiciousChars";
 import { recordClip } from "@/modules/clipboard/history";
 import { offsetInLine } from "./lib/offsetInLine";
@@ -443,6 +444,7 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
         ),
         colorSwatches(),
         todoHighlight(),
+        errorLens(),
         suspiciousChars(),
         rainbowBrackets(() => analyzableLangRef.current),
         indentRainbow(),

@@ -273,7 +273,8 @@ export function refreshAidsOnSettingChange(): Extension {
     class {
       private unsubscribe: () => void;
       constructor(view: EditorView) {
-        const read = () => `${getFeature("editor.rainbowBrackets")}|${getFeature("editor.indentRainbow")}`;
+        const read = () =>
+          `${getFeature("editor.rainbowBrackets")}|${getFeature("editor.indentRainbow")}|${getFeature("editor.errorLens")}`;
         let last = read();
         this.unsubscribe = usePreferencesStore.subscribe(() => {
           const now = read();
