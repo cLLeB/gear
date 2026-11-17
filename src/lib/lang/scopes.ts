@@ -76,6 +76,42 @@ function tokens(source: string, spec: LanguageSpec): Token[] {
 
 interface PendingParams {
   names: Array<{ name: string; offset: number }>;
+  /** Where the parameter list opens; the function scope starts here so default values resolve. */
+  from: number;
+  /** Token index of the ')' closing the parameter list; braces before it are type literals. */
+  closeIndex: number;
+}
+
+/** Index of the ')' matching the '(' at `openIndex`, or -1. */
+function matchParen(toks: Token[], openIndex: number): number {
+  let depth = 0;
+  for (let k = openIndex; k < toks.length; k++) {
+    if (toks[k].value === "(") depth++;
+    else if (toks[k].value === ")") { depth--; if (depth === 0) return k; }
+  }
+  return -1;
+}
+
+function pendingFor(toks: Token[], openIndex: number): PendingParams | null {
+  if (openIndex < 0 || toks[openIndex]?.value !== "(") return null;
+  return { names: collectParamsBetween(toks, openIndex), from: toks[openIndex].start, closeIndex: matchParen(toks, openIndex) };
+}
+
+/**
+ * Names bound by a pattern such as Rust's `let Some(v) = …` or `let (a, b) = …`:
+ * lowercase identifiers inside the parentheses that are not themselves paths or calls.
+ */
+function patternNames(toks: Token[], openIndex: number): Array<{ name: string; offset: number }> {
+  const out: Array<{ name: string; offset: number }> = [];
+  const close = matchParen(toks, openIndex);
+  for (let k = openIndex + 1; k < close; k++) {
+    const t = toks[k];
+    const next = toks[k + 1]?.value;
+    if (t.type === "identifier" && /^[a-z_]/.test(t.value) && next !== "(" && next !== "::" && next !== "{") {
+      out.push({ name: t.value, offset: t.start });
+    }
+  }
+  return out;
 }
 
 function buildBraceScopes(toks: Token[], global: Scope): void {
@@ -90,26 +126,37 @@ function buildBraceScopes(toks: Token[], global: Scope): void {
     if (tok.type === "keyword" && VAR_KINDS[tok.value]) {
       const kind = VAR_KINDS[tok.value];
       const nameTok = toks[i + 1];
-      if (nameTok?.type === "identifier") {
+      const afterName = toks[i + 2]?.value;
+      const isPattern = (kind === "let" || kind === "const" || kind === "var") &&
+        (afterName === "(" || afterName === "{" || afterName === "::" || nameTok?.value === "(");
+      if (isPattern) {
+        // `let Some(v) = …` binds v, not Some; `let (a, b) = …` binds a and b.
+        const open = nameTok?.value === "(" ? i + 1 : afterName === "(" ? i + 2 : -1;
+        if (open >= 0) for (const p of patternNames(toks, open)) addBinding(current, { name: p.name, kind, offset: p.offset, mutable: kind !== "const" });
+      } else if (nameTok?.type === "identifier") {
         addBinding(current, { name: nameTok.value, kind, offset: nameTok.start, mutable: kind !== "const" });
       }
-      if (FUNCTIONISH.has(tok.value)) pending = { names: collectParamTokens(toks, i) };
+      if (FUNCTIONISH.has(tok.value)) pending = pendingFor(toks, paramOpenAfter(toks, i));
       continue;
     }
 
     // Arrow/expression functions: `(a, b) =>` — capture params for the arrow body.
     if (tok.value === "=>" ) {
-      const open = findParamOpenBefore(toks, i);
-      if (open >= 0) pending = { names: collectParamsBetween(toks, open) };
+      // An expression body has no braces to scope; don't let the params leak onto
+      // the next unrelated block.
+      pending = toks[i + 1]?.value === "{" ? pendingFor(toks, findParamOpenBefore(toks, i)) : null;
       continue;
     }
 
     if (tok.value === "{") {
       const close = matchClose(toks, i);
-      const kind = pending ? "function" : "block";
-      const child = newScope(kind, tok.start, close, current);
+      // A brace inside the parameter list is a type literal (`o: { a: number }`),
+      // not the function body.
+      const isBody = !!pending && i > pending.closeIndex;
+      const kind = isBody ? "function" : "block";
+      const child = newScope(kind, isBody && pending ? pending.from : tok.start, close, current);
       current.children.push(child);
-      if (pending) {
+      if (isBody && pending) {
         for (const p of pending.names) addBinding(child, { name: p.name, kind: "param", offset: p.offset, mutable: true });
         pending = null;
       }
@@ -124,13 +171,12 @@ function buildBraceScopes(toks: Token[], global: Scope): void {
   }
 }
 
-/** Identifiers inside the `( … )` that follows a function keyword at `kwIndex`. */
-function collectParamTokens(toks: Token[], kwIndex: number): Array<{ name: string; offset: number }> {
-  // Find the first '(' after the keyword (skipping the function name).
+/** Index of the '(' opening the parameter list after a function keyword at `kwIndex`, or -1. */
+function paramOpenAfter(toks: Token[], kwIndex: number): number {
+  // Find the first '(' after the keyword (skipping the function name and generics).
   let k = kwIndex + 1;
   while (k < toks.length && toks[k].value !== "(" && toks[k].value !== "{" && toks[k].value !== ";") k++;
-  if (toks[k]?.value !== "(") return [];
-  return collectParamsBetween(toks, k);
+  return toks[k]?.value === "(" ? k : -1;
 }
 
 /** Parameter identifiers between the '(' at `openIndex` and its matching ')'. */

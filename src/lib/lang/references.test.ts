@@ -79,3 +79,33 @@ describe("unusedBindings with string interpolation", () => {
     expect(names('fn main() {\n    let width = 1;\n    println!("{{width}}");\n}\n', "rust")).toContain("width");
   });
 });
+
+describe("unusedBindings scope edge cases", () => {
+  const names = (src: string, lang: string) => unusedBindings(src, lang).map((u) => u.binding.name);
+
+  it("keeps the function scope across a TS object type in the parameters", () => {
+    const src = "export function f(o: { a: number }) {\n  const dead = 1;\n  return o.a;\n}\n";
+    expect(names(src, "typescript")).toEqual(["dead"]);
+  });
+
+  it("resolves parameters used in later default values", () => {
+    expect(names("export function f(a, b = a * 2) {\n  return b;\n}\n", "javascript")).toEqual([]);
+  });
+
+  it("does not leak expression-bodied arrow params onto the next block", () => {
+    const src = "export function f(xs, c) {\n  const ys = xs.map((x) => x * 2);\n  if (c) {\n    const x = 1;\n  }\n  return ys;\n}\n";
+    expect(names(src, "javascript")).toEqual(["x"]);
+  });
+
+  it("binds Rust pattern variables, not the enum variant", () => {
+    const src = "fn f(o: Option<i32>) -> i32 {\n    if let Some(v) = o { v } else { 0 }\n}\n";
+    expect(names(src, "rust")).toEqual([]);
+    expect(names("fn f(o: Option<i32>) {\n    if let Some(v) = o {}\n}\n", "rust")).toEqual(["v"]);
+    expect(names("fn f(p: (i32, i32)) -> i32 {\n    let (a, b) = p;\n    a\n}\n", "rust")).toEqual(["b"]);
+  });
+
+  it("leaves module-level Python names alone but still reports dead locals", () => {
+    const src = "LIMIT = 3\ndef helper():\n    unused_local = 1\n    return 2\n";
+    expect(names(src, "python")).toEqual(["unused_local"]);
+  });
+});
