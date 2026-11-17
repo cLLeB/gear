@@ -28,12 +28,30 @@ type Props = {
 };
 
 const INSTANCE_COUNTS: AgentInstanceCount[] = [1, 2, 3, 4];
+const ISOLATE_KEY = "gear.agents.isolate";
+
+function readIsolate(): boolean {
+  try {
+    return localStorage.getItem(ISOLATE_KEY) !== "0";
+  } catch {
+    return true;
+  }
+}
 
 export function AgentLauncherPanel({ onBack, onLaunch }: Props) {
   const storedCommands = usePreferencesStore((s) => s.agentLaunchCommands);
   const hydrated = usePreferencesStore((s) => s.hydrated);
   const [agentId, setAgentId] = useState<AgentLauncherId>("claude");
   const [instances, setInstances] = useState<AgentInstanceCount>(2);
+  const [isolate, setIsolateState] = useState(readIsolate);
+  const setIsolate = (on: boolean) => {
+    setIsolateState(on);
+    try {
+      localStorage.setItem(ISOLATE_KEY, on ? "1" : "0");
+    } catch {
+      // Remembering the choice is a convenience.
+    }
+  };
   const [drafts, setDrafts] = useState<AgentLaunchCommands>(storedCommands);
   const hydratedRef = useRef(hydrated);
   const persistedRef = useRef(storedCommands);
@@ -94,6 +112,7 @@ export function AgentLauncherPanel({ onBack, onLaunch }: Props) {
       agent: agentId,
       command: next[agentId],
       instances,
+      isolate,
     });
   };
 
@@ -185,6 +204,25 @@ export function AgentLauncherPanel({ onBack, onLaunch }: Props) {
           ))}
         </div>
       </fieldset>
+
+      <label className="mt-3 flex cursor-pointer items-start gap-2 rounded-xl border border-border/60 bg-background/30 px-2.5 py-2">
+        <input
+          type="checkbox"
+          className="mt-0.5"
+          checked={isolate}
+          disabled={!hydrated}
+          onChange={(event) => setIsolate(event.target.checked)}
+        />
+        <span className="min-w-0">
+          <span className="block text-xs font-medium text-foreground">
+            Isolate each agent in a git worktree
+          </span>
+          <span className="block text-[10px] text-muted-foreground">
+            Own branch and folder per agent, so they can't overwrite each
+            other. Review, merge or discard in “Agents: Worktrees”.
+          </span>
+        </span>
+      </label>
 
       <div className="mt-3">
         <div className="mb-1.5 flex items-center">

@@ -47,6 +47,8 @@ export type AgentLaunchRequest = {
   agent: AgentLauncherId;
   command: string;
   instances: AgentInstanceCount;
+  /** Give each instance its own git worktree and branch. */
+  isolate?: boolean;
 };
 
 export const DEFAULT_AGENT_LAUNCH_COMMANDS: AgentLaunchCommands =
@@ -112,15 +114,17 @@ export function createAgentPanePlan(
   instances: AgentInstanceCount,
   allocateId: () => number,
   cwd?: string,
+  /** Per-instance folders (agent worktrees); falls back to `cwd`. */
+  cwds?: readonly string[],
 ): AgentPanePlan {
   if (!Number.isInteger(instances) || instances < 1 || instances > 4) {
     throw new RangeError("Agent instance count must be between 1 and 4.");
   }
 
-  const leaves = Array.from({ length: instances }, () => ({
+  const leaves = Array.from({ length: instances }, (_, i) => ({
     kind: "leaf" as const,
     id: allocateId(),
-    cwd,
+    cwd: cwds?.[i] ?? cwd,
   }));
   const split = (dir: "row" | "col", children: PaneNode[]): PaneNode => ({
     kind: "split",

@@ -38,6 +38,7 @@ import {
 	validateAgentLaunchCommand,
 } from "@/modules/agents/lib/launcher";
 import { firePendingReviewForSession } from "@/modules/agents/lib/review";
+import { createAgentWorktrees, mainCheckout } from "@/modules/agents/lib/worktrees";
 import { useManagedAgentsStore } from "@/modules/agents/store/managedAgentsStore";
 import { useAcpStore } from "@/modules/ai/acp/store";
 import {
@@ -1237,7 +1238,7 @@ export default function App() {
 
 	/** Open a tab pre-split into N panes and start the agent in each one. */
 	const launchAgentGroup = useCallback(
-		(request: AgentLaunchRequest) => {
+		async (request: AgentLaunchRequest) => {
 			const command = validateAgentLaunchCommand(request.command);
 			if (!command.ok) return;
 			const launcher = findAgentLauncher(request.agent);
@@ -1245,10 +1246,32 @@ export default function App() {
 				request.instances === 1
 					? launcher.label
 					: `${launcher.label} × ${request.instances}`;
+			const cwd = inheritedCwdForNewTab();
+			// Isolated: one worktree + branch per instance so agents can't clobber each other.
+			let cwds: string[] | undefined;
+			if (request.isolate && cwd) {
+				const repoRoot = await mainCheckout(cwd).catch(() => null);
+				if (!repoRoot) {
+					toast.error("Isolation needs a git repository", {
+						description: "Open a folder inside a repository, or launch without isolation.",
+					});
+					return;
+				}
+				const created = await createAgentWorktrees(repoRoot, request.agent, request.instances);
+				if (!created.ok) {
+					toast.error("Could not create agent worktrees", { description: created.error.slice(0, 400) });
+					return;
+				}
+				cwds = created.worktrees.map((w) => w.path);
+				toast.success(`${created.worktrees.length} isolated ${created.worktrees.length === 1 ? "worktree" : "worktrees"} from ${created.base}`, {
+					description: `Uncommitted changes stay here.${created.copiedEnv.length ? ` Copied ${created.copiedEnv.join(", ")}.` : ""} Review them in “Agents: Worktrees”.`,
+				});
+			}
 			const { leafIds: agentLeafIds } = newAgentGroupTab(
-				inheritedCwdForNewTab(),
+				cwd,
 				title,
 				request.instances,
+				cwds,
 			);
 			// Installed once for the whole group, and awaited before the first
 			// command so the agent picks the hooks up on startup.

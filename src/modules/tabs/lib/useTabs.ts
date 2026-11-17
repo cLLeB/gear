@@ -364,12 +364,18 @@ export function useTabs() {
 	 * relabelled from the running process.
 	 */
 	const newAgentGroupTab = useCallback(
-		(cwd: string | undefined, title: string, instances: AgentInstanceCount) => {
+		(
+			cwd: string | undefined,
+			title: string,
+			instances: AgentInstanceCount,
+			cwds?: readonly string[],
+		) => {
 			const tabId = nextIdRef.current++;
 			const { paneTree, leafIds: agentLeafIds } = createAgentPanePlan(
 				instances,
 				() => nextIdRef.current++,
 				cwd,
+				cwds,
 			);
 			setTabs((t) => [
 				...t,

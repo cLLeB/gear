@@ -39,6 +39,7 @@ import { openMock, startMock, stopMock } from "@/modules/mockserver/MockPane";
 import { REGEX_ACTIONS } from "@/modules/regexlab/RegexPane";
 import { TABLE_ACTIONS } from "@/modules/table/TablePane";
 import { TIME_ACTIONS } from "@/modules/timetrack/TimePane";
+import { AGENT_WORKTREE_ACTIONS } from "@/modules/agents/components/AgentWorktreesPane";
 import { WS_ACTIONS } from "@/modules/wsclient/WsPane";
 
 export const TOOL_PANE_ACTIONS = [
@@ -51,6 +52,7 @@ export const TOOL_PANE_ACTIONS = [
   ...MACRO_ACTIONS,
   ...BOARD_ACTIONS,
   ...TIME_ACTIONS,
+  ...AGENT_WORKTREE_ACTIONS,
   ...HEX_ACTIONS,
   ...TABLE_ACTIONS,
   ...WS_ACTIONS,
