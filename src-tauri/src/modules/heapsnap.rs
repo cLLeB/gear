@@ -423,8 +423,7 @@ impl Heap {
         // Walk the dominator tree keeping a count of same-class ancestors.
         let n = self.node_count();
         let mut children: Vec<Vec<u32>> = vec![Vec::new(); n];
-        for v in 1..n {
-            let d = self.idom[v];
+        for (v, &d) in self.idom.iter().enumerate().take(n).skip(1) {
             if d != NO_DOM && d as usize != v {
                 children[d as usize].push(v as u32);
             }
