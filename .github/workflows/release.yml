@@ -115,8 +115,12 @@ jobs:
         if: matrix.platform == 'windows-latest'
         run: choco install wixtoolset -y
 
+      # Rust 1.100 put build-script OUT_DIRs one level deeper, so tauri-build 2.6
+      # resolves the wrong target dir and copies the gear-cli sidecar onto
+      # cargo's build/gear-cli directory (a panic on Linux and macOS). Fixed in
+      # tauri-build 2.7; pinned until the app moves to it.
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@1.99.0
 
       - name: Add macOS universal targets
         if: matrix.platform == 'macos-latest'
