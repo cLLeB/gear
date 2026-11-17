@@ -37,6 +37,7 @@ import { completionIcon } from "./completionIcons";
 import { historyOpen, historyPopover } from "./historyPopover";
 import { inlineSuggestion } from "./inlineSuggest";
 import { pathCompletions } from "./pathComplete";
+import { specCompletions } from "./specs";
 
 const shellLanguage = StreamLanguage.define(shell);
 
@@ -244,9 +245,16 @@ function makeCompletionSource(
   return async (ctx: CompletionContext): Promise<CompletionResult | null> => {
     if (historyOpen(ctx.state)) return null;
     const word = ctx.matchBefore(WORD_RE);
-    if (!word || (word.from === word.to && !ctx.explicit)) return null;
+    if (!word) return null;
     const line = ctx.state.doc.lineAt(word.from);
     const before = ctx.state.doc.sliceString(line.from, word.from);
+    if (word.from === word.to && !ctx.explicit) {
+      // Right after a space, open only for known CLIs with real choices next
+      // (`npm run ` → scripts, `git checkout ` → branches); paths still wait for a key.
+      if (SEGMENT_START.test(before)) return null;
+      const spec = await specCompletions(ctx.state.doc.sliceString(line.from, ctx.pos), getCwd());
+      return spec?.options.length ? { from: word.from, options: spec.options, validFor: VALID_FOR } : null;
+    }
     if (SEGMENT_START.test(before)) {
       return {
         from: word.from,
@@ -255,6 +263,21 @@ function makeCompletionSource(
       };
     }
     const cwd = getCwd();
+    // Known CLIs: subcommands, options and live values (branches, scripts…).
+    const lineBefore = ctx.state.doc.sliceString(line.from, ctx.pos);
+    const spec = await specCompletions(lineBefore, cwd);
+    if (spec) {
+      let options = spec.options;
+      if (spec.wantsPaths && cwd) {
+        const paths = await pathCompletions(word.text, cwd);
+        if (paths?.options.length) {
+          // A path inside a folder completes after its last '/'; spec values can't share that range.
+          if (paths.fromOffset > 0) return { from: word.from + paths.fromOffset, options: paths.options, validFor: PATH_VALID_FOR };
+          options = [...options, ...paths.options];
+        }
+      }
+      if (options.length) return { from: word.from, options, validFor: VALID_FOR };
+    }
     if (cwd) {
       const res = await pathCompletions(word.text, cwd);
       if (res?.options.length) {
