@@ -120,7 +120,7 @@ jobs:
       # cargo's build/gear-cli directory (a panic on Linux and macOS). Fixed in
       # tauri-build 2.7; pinned until the app moves to it.
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@1.99.0
+        uses: dtolnay/rust-toolchain@1.120.0
 
       - name: Add macOS universal targets
         if: matrix.platform == 'macos-latest'
